@@ -23,7 +23,11 @@ To cut a candidate, then ship the commit it was built from:
 git fetch origin
 git tag -a -m v1.1.0-rc.1 v1.1.0-rc.1 <commit on origin/main>
 git push origin v1.1.0-rc.1
+```
 
+Once the candidate's Release run has finished, and testing is done:
+
+```sh
 git tag -a -m v1.1.0 v1.1.0 <same commit>
 git push origin v1.1.0
 ```
@@ -42,7 +46,9 @@ against the repository before anything sees the signing secrets, and fails the r
 
 A release does not need a candidate before it. Tag in increasing order: Play refuses a
 version code lower than one it has already seen, so `v1.0.1-rc.1` can follow `v1.0.0`, but
-`v1.0.0-rc.4` cannot.
+`v1.0.0-rc.4` cannot. Pushing in order is not enough on its own: each tag's CI run and
+Release run are independent, so two tags pushed together can reach Play in either order.
+Push the next tag only after the previous tag's Release run has finished.
 
 ## Version code
 

@@ -13,7 +13,9 @@
 set -euo pipefail
 
 # RELEASE_GATE points the cases at another copy of the gate, to see which of them it fails.
-gate="${RELEASE_GATE:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/release-gate.sh}"
+# Made absolute here, because the cases run from inside the fixture's clone.
+gate="${RELEASE_GATE:-$(dirname "${BASH_SOURCE[0]}")/release-gate.sh}"
+gate="$(cd "$(dirname "$gate")" && pwd)/$(basename "$gate")"
 work="$(mktemp -d "${TMPDIR:-/tmp}/release-gate.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 
@@ -51,10 +53,10 @@ git clone -q --no-checkout "$upstream" "$clone"
 cd "$clone"
 
 failures=0
-# run NAME EXPECTED_EXIT EXPECTED_KIND [VAR=value ...]
+# run NAME EXPECTED_EXIT EXPECTED_KIND EXPECTED_VERSION [VAR=value ...]
 run() {
-  local name="$1" want_exit="$2" want_kind="$3"
-  shift 3
+  local name="$1" want_exit="$2" want_kind="$3" want_version="$4"
+  shift 4
   local out="$work/output" log="$work/log" got_exit=0
   : >"$out"
   env -i PATH="$PATH" HOME="$work" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 \
@@ -62,52 +64,66 @@ run() {
     HEAD_REPOSITORY=open-gym-app/titan WORKFLOW_PATH=.github/workflows/ci.yml \
     "$@" bash "$gate" >"$log" 2>&1 || got_exit=$?
 
-  local kinds got_kind
+  # The gate writes at most one workflow command; a second means a value it quoted from the
+  # run broke out of the first.
+  local kinds versions commands got_kind got_version
+  commands=$(grep -c '^::' "$log" || true)
   kinds=$(grep -c '^kind=' "$out" || true)
+  versions=$(grep -c '^version=' "$out" || true)
   got_kind=$(sed -n 's/^kind=//p' "$out")
-  if [[ "$got_exit" == "$want_exit" && "$got_kind" == "$want_kind" && "$kinds" -le 1 ]]; then
+  got_version=$(sed -n 's/^version=//p' "$out")
+  if [[ "$got_exit" == "$want_exit" && "$got_kind" == "$want_kind" && "$kinds" -le 1 &&
+    "$got_version" == "$want_version" && "$versions" -le 1 && "$commands" -le 1 ]]; then
     printf 'PASS  %s\n' "$name"
   else
-    printf 'FAIL  %s: exit %s (want %s), kind "%s" (want "%s"), %s kind lines\n' \
-      "$name" "$got_exit" "$want_exit" "$got_kind" "$want_kind" "$kinds"
+    printf 'FAIL  %s: exit %s (want %s), kind "%s" (want "%s"), version "%s" (want "%s"), %s kind lines, %s workflow commands\n' \
+      "$name" "$got_exit" "$want_exit" "$got_kind" "$want_kind" "$got_version" "$want_version" \
+      "$kinds" "$commands"
     sed 's/^/      /' "$log"
     failures=$((failures + 1))
   fi
 }
 
-run "accepts an annotated tag on main" 0 release \
+run "accepts an annotated tag on main" 0 release 1.0.0 \
   EVENT=workflow_run HEAD_BRANCH=v1.0.0 HEAD_SHA="$c2"
-run "accepts a candidate tag on main" 0 candidate \
+run "accepts a candidate tag on main" 0 candidate 1.0.1-rc.1 \
   EVENT=workflow_run HEAD_BRANCH=v1.0.1-rc.1 HEAD_SHA="$c1"
-run "rejects a tag on an unmerged commit" 1 "" \
+run "rejects a tag on an unmerged commit" 1 "" "" \
   EVENT=workflow_run HEAD_BRANCH=v2.0.0 HEAD_SHA="$f1"
-run "rejects a v* branch carrying a workflow named CI" 1 "" \
+run "rejects a v* branch carrying a workflow named CI" 1 "" "" \
   EVENT=workflow_run HEAD_BRANCH=v9.9.9 HEAD_SHA="$b1"
-run "rejects a v* branch's CI run from another file" 1 "" \
+run "rejects a v* branch's CI run from another file" 1 "" "" \
   EVENT=workflow_run HEAD_BRANCH=v9.9.9 HEAD_SHA="$b1" WORKFLOW_PATH=.github/workflows/evil.yml
-run "rejects a workflow named CI in another file, even on a good tag" 1 "" \
+run "rejects a workflow named CI in another file, even on a good tag" 1 "" "" \
   EVENT=workflow_run HEAD_BRANCH=v1.0.0 HEAD_SHA="$c2" WORKFLOW_PATH=.github/workflows/evil.yml
-run "rejects a tag moved after CI ran" 1 "" \
+run "rejects a tag moved after CI ran" 1 "" "" \
   EVENT=workflow_run HEAD_BRANCH=v3.0.0 HEAD_SHA="$c1"
-run "rejects a name that is both a branch and a tag" 1 "" \
+run "rejects a name that is both a branch and a tag" 1 "" "" \
   EVENT=workflow_run HEAD_BRANCH=v4.0.0 HEAD_SHA="$c3"
-run "rejects a run from another repository" 1 "" \
+run "rejects a workflow path with a newline, in a single annotation" 1 "" "" \
+  EVENT=workflow_run HEAD_BRANCH=v1.0.0 HEAD_SHA="$c2" \
+  WORKFLOW_PATH=$'.github/workflows/evil.yml\n::warning::forged'
+run "rejects a run from another repository" 1 "" "" \
   EVENT=workflow_run HEAD_BRANCH=v1.0.0 HEAD_SHA="$c2" HEAD_REPOSITORY=someone/titan
-run "rejects a tag that does not exist" 1 "" \
+run "rejects a head_sha that is not a full commit id" 1 "" "" \
+  EVENT=workflow_run HEAD_BRANCH=v1.0.0 HEAD_SHA="${c2:0:12}"
+run "rejects a run when the repository is unknown" 1 "" "" \
+  EVENT=workflow_run HEAD_BRANCH=v1.0.0 HEAD_SHA="$c2" REPOSITORY= HEAD_REPOSITORY=
+run "rejects a tag that does not exist" 1 "" "" \
   EVENT=workflow_run HEAD_BRANCH=v7.0.0 HEAD_SHA="$c2"
-run "does nothing for a ref that is not a version" 0 none \
+run "does nothing for a ref that is not a version" 0 none "" \
   EVENT=workflow_run HEAD_BRANCH=vendor-bump HEAD_SHA="$c2"
-run "accepts a dispatched version as a dry run" 0 dry-run \
+run "accepts a dispatched version as a dry run" 0 dry-run 1.2.3 \
   EVENT=workflow_dispatch INPUT_VERSION=1.2.3
-run "accepts a dispatched candidate version as a dry run" 0 dry-run \
+run "accepts a dispatched candidate version as a dry run" 0 dry-run 1.2.3-rc.4 \
   EVENT=workflow_dispatch INPUT_VERSION=1.2.3-rc.4
-run "fails a dispatched version containing a newline" 1 "" \
+run "fails a dispatched version containing a newline" 1 "" "" \
   EVENT=workflow_dispatch INPUT_VERSION=$'1.2.3\nkind=release'
-run "fails a dispatched version with a trailing space" 1 "" \
+run "fails a dispatched version with a trailing space" 1 "" "" \
   EVENT=workflow_dispatch "INPUT_VERSION=1.2.3 "
-run "fails an empty dispatched version" 1 "" \
+run "fails an empty dispatched version" 1 "" "" \
   EVENT=workflow_dispatch INPUT_VERSION=
-run "fails any other event" 1 "" \
+run "fails any other event" 1 "" "" \
   EVENT=push HEAD_BRANCH=v1.0.0 HEAD_SHA="$c2"
 
 if ((failures > 0)); then

@@ -30,8 +30,19 @@ readonly VERSION_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$'
 readonly CI_WORKFLOW_PATH='.github/workflows/ci.yml'
 MAIN_REF="${MAIN_REF:-refs/remotes/origin/main}"
 
+# Writes a workflow command. Its message names refs and paths from the triggering run, so it
+# is escaped the way GitHub decodes command data: a newline in one could otherwise end the
+# command and start another.
+annotate() {
+  local level="$1" message="$2"
+  message="${message//%/%25}"
+  message="${message//$'\r'/%0D}"
+  message="${message//$'\n'/%0A}"
+  printf '::%s::%s\n' "$level" "$message"
+}
+
 fail() {
-  echo "::error::$1"
+  annotate error "$1"
   exit 1
 }
 
@@ -56,13 +67,13 @@ case "${EVENT:-}" in
 
   workflow_run)
     ref="${HEAD_BRANCH:-}"
-    if [[ ! "$ref" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)(-rc\.[0-9]+)?$ ]]; then
-      echo "::notice::$ref is not a release tag, nothing to do"
+    version="${ref#v}"
+    if [[ "$ref" != v* || ! "$version" =~ $VERSION_PATTERN ]]; then
+      annotate notice "$ref is not a release tag, nothing to do"
       emit none ""
       exit 0
     fi
-    version="${ref#v}"
-    if [[ -n "${BASH_REMATCH[2]}" ]]; then kind=candidate; else kind=release; fi
+    if [[ "$version" == *-rc.* ]]; then kind=candidate; else kind=release; fi
 
     # From here on the run names a version, so every check that fails fails the gate rather
     # than skipping: a red Release run is the signal that someone tried.

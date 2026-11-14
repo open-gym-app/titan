@@ -54,13 +54,13 @@ jobs:
       version: ${{ steps.kind.outputs.version }}
     steps:
       # The gate script from `main` (or from the dispatched ref, for a rehearsal), with every
-      # tag and every branch's history to check the run against. No file contents beyond the
-      # script are needed, so none are downloaded.
+      # tag and every branch's history to check the run against. A sparse checkout is also a
+      # blobless clone, so only the files the checkout writes (the scripts and the root's own
+      # files) are downloaded, not every revision of the tree.
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          filter: blob:none
           sparse-checkout: .github/scripts
           persist-credentials: false
 
@@ -180,6 +180,9 @@ jobs:
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: v${{ env.VERSION }}
+          # Only used if the tag was deleted after the gate checked it: the release then names
+          # the commit that was built, not `main`'s tip.
+          target_commitish: ${{ github.event.workflow_run.head_sha }}
           name: v${{ env.VERSION }}
           prerelease: ${{ env.KIND == 'candidate' }}
           generate_release_notes: true

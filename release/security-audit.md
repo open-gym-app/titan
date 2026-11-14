@@ -72,7 +72,7 @@ than `none`.
 
 `make release-gate-check` (`.github/scripts/release-gate-test.sh`) builds a throwaway
 repository under `$TMPDIR`, clones it the way the gate job's checkout does, and runs the gate
-on each case. CI runs it in the *Seed, translations and release gate* job. On 2026-11-12:
+on each case. CI runs it in the *Seed, translations and release gate* job. On 2026-11-14:
 
 ```text
 PASS  accepts an annotated tag on main
@@ -83,7 +83,10 @@ PASS  rejects a v* branch's CI run from another file
 PASS  rejects a workflow named CI in another file, even on a good tag
 PASS  rejects a tag moved after CI ran
 PASS  rejects a name that is both a branch and a tag
+PASS  rejects a workflow path with a newline, in a single annotation
 PASS  rejects a run from another repository
+PASS  rejects a head_sha that is not a full commit id
+PASS  rejects a run when the repository is unknown
 PASS  rejects a tag that does not exist
 PASS  does nothing for a ref that is not a version
 PASS  accepts a dispatched version as a dry run
@@ -96,7 +99,7 @@ All cases passed
 ```
 
 The same cases against the gate as it was before this change (the inline step extracted from
-`release.yml`, run with `RELEASE_GATE=<file> make release-gate-check`) fail 12 of 17: every
+`release.yml`, run with `RELEASE_GATE=<file> make release-gate-check`) fail 15 of 20: every
 rejection case reached `kind=release`, and the newline case wrote two `kind` lines,
 `dry-run` then `release`.
 
