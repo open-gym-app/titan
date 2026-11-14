@@ -61,7 +61,9 @@ internal fun ImportError.message(): String =
             if (liveStateCleared) R.string.backup_error_constraint_live_state else R.string.backup_error_constraint,
         )
 
-        is ImportError.IoFailure -> stringResource(R.string.backup_error_io)
+        is ImportError.IoFailure -> stringResource(
+            if (liveStateCleared) R.string.backup_error_io_live_state else R.string.backup_error_io,
+        )
 
         is ImportError.LiveStateNotCleared -> stringResource(R.string.backup_error_live_state)
 

@@ -20,8 +20,10 @@ package com.titan.core.domain.backup.model
  * database at all; [ConstraintViolation] is decided by validating the document against itself
  * *before* the wipe, and is caught a second time inside the transaction as a backstop, where
  * the rollback is SQLite's. [IoFailure] is raised by reading the file, which happens before all
- * of those. Every one of them leaves the database untouched — and the rest of the device too,
- * except for a [ConstraintViolation] SQLite decides, which says so.
+ * of those, or by a device that cannot take the transaction's writes, where the rollback is
+ * again SQLite's. Every one of them leaves the database untouched — and the rest of the device
+ * too, except for a [ConstraintViolation] or an [IoFailure] the transaction raises, which says
+ * so.
  *
  * The other three are the outcomes that leave *something* changed, and each is its own variant
  * so a screen cannot fold it into a clean refusal. [LiveStateNotCleared] stopped before the
@@ -101,15 +103,25 @@ sealed interface ImportError {
     data class DocumentTooLarge(val limitBytes: Long) : ImportError
 
     /**
-     * The document could not be read.
+     * The document could not be read, or the device could not take the rows it holds.
      *
-     * Leaves the device exactly as it was. The document is read first of all, through an
-     * `ImportSource` the use case opens itself, so a revoked content URI or a removed SD card
-     * fails before anything is touched.
+     * The document is read first of all, through an `ImportSource` the use case opens itself,
+     * so a revoked content URI or a removed SD card fails before anything is touched. A device
+     * that runs out of space or hits a disk error mid-transaction fails later: SQLite rolls
+     * the rows back, but the live session and the two drafts were cleared before the
+     * transaction opened, as for a [ConstraintViolation] SQLite decides. [liveStateCleared]
+     * says which happened, so a screen does not promise "nothing was changed" over a workout
+     * it closed.
      *
      * @property reason the underlying message, for a log.
+     * @property liveStateCleared true when the transaction failed, after the live session and
+     *   the drafts were cleared; false when the file could not be read, before anything was
+     *   touched.
      */
-    data class IoFailure(val reason: String) : ImportError
+    data class IoFailure(
+        val reason: String,
+        val liveStateCleared: Boolean = false,
+    ) : ImportError
 
     /**
      * The live session or one of the two drafts could not be cleared, so the restore stopped

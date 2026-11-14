@@ -356,6 +356,21 @@ class BackupScreenTest {
         assertSaysNothingChanged()
     }
 
+    /**
+     * The device could not take the rows, after the open workout was closed: the rows are
+     * untouched, the workout may not be, so this does not promise that nothing changed either.
+     */
+    @Test
+    fun `an IO failure inside the transaction says the open workout may have closed`() {
+        setContent(
+            lastRestore = RestoreOutcome.Failed(ImportError.IoFailure("disk full", liveStateCleared = true)),
+        )
+
+        composeTestRule.onNodeWithText("could not be written", substring = true).performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("may have been closed", substring = true).assertIsDisplayed()
+        assertPromisesNothing()
+    }
+
     @Test
     fun `a file too large to be a backup names the limit`() {
         setContent(lastRestore = RestoreOutcome.Failed(ImportError.DocumentTooLarge(limitBytes = 64L * 1024 * 1024)))

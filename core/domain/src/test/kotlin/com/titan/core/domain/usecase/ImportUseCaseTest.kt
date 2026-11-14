@@ -311,6 +311,24 @@ class ImportUseCaseTest {
         }
 
     /**
+     * A device that cannot take the writes fails inside the transaction, after the live state
+     * was cleared, so it says so — rather than reaching the screen as a file that could not be
+     * read, whose sentence promises nothing changed.
+     */
+    @Test
+    fun `a device that cannot take the rows is an IO failure that cleared the live state`() =
+        runTest {
+            backup.replaceFailure = IOException("database or disk is full")
+
+            val emissions = importer().invoke(encode(sampleDocument())).toList()
+
+            assertEquals(
+                ImportProgress.Failed(ImportError.IoFailure("database or disk is full", liveStateCleared = true)),
+                emissions.last(),
+            )
+        }
+
+    /**
      * The one failure that leaves work done — the rows are committed and the settings are not —
      * which is why it is its own error rather than the "could not be read" a refused file gets
      * (#257). A screen told `IoFailure` here would say nothing was restored, over a database

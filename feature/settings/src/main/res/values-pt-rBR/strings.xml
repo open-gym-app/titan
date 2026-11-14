@@ -204,6 +204,7 @@
     <string name="backup_error_constraint">Esse backup é incoerente: ele se refere a treinos que não contém ou tem valores que nenhuma versão do Titan grava. Nada neste aparelho foi alterado.</string>
     <string name="backup_error_constraint_live_state">Esse backup é incoerente: ele se refere a treinos que não contém ou tem valores que nenhuma versão do Titan grava. Seu histórico e suas configurações não foram alterados, mas o treino ou modelo que você tinha aberto pode ter sido fechado.</string>
     <string name="backup_error_io">Não foi possível ler o backup. Nada neste aparelho foi alterado.</string>
+    <string name="backup_error_io_live_state">Não foi possível gravar o backup neste aparelho. Seu histórico e suas configurações não foram alterados, mas o treino ou modelo que você tinha aberto pode ter sido fechado.</string>
     <string name="backup_error_live_state">Esse backup não foi restaurado: não foi possível fechar antes o treino ou o modelo que você tinha aberto. Seu histórico e suas configurações não foram alterados, mas esse treino ou modelo pode ter sido fechado.</string>
     <string name="backup_error_too_large">Esse arquivo é maior do que qualquer backup do Titan (mais de %1$s), então não foi lido. Nada neste aparelho foi alterado.</string>
     <string name="backup_error_settings">%1$d linhas restauradas, mas não foi possível salvar suas configurações, e elas podem ter voltado ao padrão. Confira em Configurações.</string>

@@ -191,10 +191,14 @@ class ImportUseCase(
      * Wipes and refills every table in one transaction, answering with the failure that rolled
      * it back or **null** once it has committed.
      *
-     * The one `catch` is the whole of what [BackupRepository.replaceAll] is allowed to throw: a
-     * [BackupConstraintException] for a constraint [BackupValidator] did not model. Anything
-     * else is a programming error and is deliberately left to propagate — a `catch (Throwable)`
-     * here would report a null-pointer bug to the user as a corrupt backup file.
+     * The two `catch`es are the whole of what [BackupRepository.replaceAll] is allowed to
+     * throw: a [BackupConstraintException] for a constraint [BackupValidator] did not model, and
+     * an [IOException] for a device that could not take the writes. Both are only reachable
+     * after [forgetLiveState] has run, so both say the live state is gone; an [IOException]
+     * left to reach the backup screen would be shown as a file that could not be read, whose
+     * sentence promises nothing was changed. Anything else is a programming error and is
+     * deliberately left to propagate — a `catch (Throwable)` here would report a null-pointer
+     * bug to the user as a corrupt backup file.
      */
     private suspend fun ProducerScope<ImportProgress>.replaceRows(document: ExportDocument): ImportProgress? {
         val rowsTotal = document.rowCount
@@ -206,10 +210,11 @@ class ImportUseCase(
             }
             null
         } catch (failure: BackupConstraintException) {
-            // Only reachable after [forgetLiveState] has run, so the live state is gone.
             ImportProgress.Failed(
                 ImportError.ConstraintViolation(failure.message.orEmpty(), liveStateCleared = true),
             )
+        } catch (failure: IOException) {
+            ImportProgress.Failed(ImportError.IoFailure(failure.message.orEmpty(), liveStateCleared = true))
         }
     }
 

@@ -97,6 +97,10 @@ interface BackupRepository {
      *   a row. `BackupValidator` has already checked everything the schema can express, so this
      *   is the backstop for a constraint it does not model; the transaction is rolled back
      *   before it is thrown, leaving the database exactly as it was.
+     * @throws java.io.IOException if the device cannot take the writes — out of space, a disk
+     *   error, a database it can no longer write. Rolled back the same way; kept apart from a
+     *   refused row because the file is not at fault, and telling the user it was would send
+     *   them looking for a better backup instead of for free space.
      */
     suspend fun replaceAll(
         document: ExportDocument,

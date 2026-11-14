@@ -1,6 +1,9 @@
 package com.titan.core.data.repository
 
+import android.database.sqlite.SQLiteDiskIOException
 import android.database.sqlite.SQLiteException
+import android.database.sqlite.SQLiteFullException
+import android.database.sqlite.SQLiteReadOnlyDatabaseException
 import androidx.room.withTransaction
 import androidx.sqlite.db.SimpleSQLiteQuery
 import com.titan.core.data.db.TitanDatabase
@@ -14,6 +17,7 @@ import com.titan.core.domain.backup.model.ExportDocument
 import com.titan.core.domain.repository.BackupRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -155,23 +159,50 @@ class BackupRepositoryImpl @Inject constructor(
         onTableWritten: suspend (BackupTable, Long) -> Unit,
     ) {
         withContext(ioDispatcher) {
+            // The device's own failures, kept as they are thrown: SQLite answers a full disk by
+            // rolling the whole transaction back itself, so Room's `ROLLBACK` then fails with
+            // "no transaction is active" and that failure, not this one, is what leaves
+            // `withTransaction`.
+            var deviceFailure: SQLiteException? = null
             try {
                 database.withTransaction {
-                    deleteEverything()
-                    insertEverything(document, Insertion(onTableWritten))
+                    try {
+                        deleteEverything()
+                        insertEverything(document, Insertion(onTableWritten))
+                    } catch (failure: SQLiteException) {
+                        if (failure.isDeviceFailure()) deviceFailure = failure
+                        throw failure
+                    }
                 }
             } catch (failure: SQLiteException) {
                 // The transaction has already rolled back by the time this is reached, so the
                 // database is exactly as it was. Wrapped rather than propagated because
                 // `:core:domain` has no SQLite on its classpath and could otherwise only catch
                 // this as `Exception` — which would report a programming error to the user as a
-                // corrupt backup file. `BackupValidator` refuses everything the schema can
-                // express before the wipe, so this is the backstop for a constraint it does not
-                // model, not the mechanism.
-                throw BackupConstraintException(failure.message.orEmpty(), failure)
+                // corrupt backup file.
+                val cause = deviceFailure ?: failure.takeIf { it.isDeviceFailure() }
+                // `BackupValidator` refuses everything the schema can express before the wipe,
+                // so a constraint failure is the backstop for one it does not model, not the
+                // mechanism.
+                throw if (cause != null) {
+                    IOException(
+                        cause.message,
+                        cause,
+                    )
+                } else {
+                    BackupConstraintException(failure.message.orEmpty(), failure)
+                }
             }
         }
     }
+
+    /**
+     * Whether this is the device rather than the document: a full disk, a failing one, a
+     * database it can no longer write. Reported as what it is rather than as a row the file got
+     * wrong, which would send the user looking for a better backup instead of for free space.
+     */
+    private fun SQLiteException.isDeviceFailure(): Boolean =
+        this is SQLiteFullException || this is SQLiteDiskIOException || this is SQLiteReadOnlyDatabaseException
 
     /** Empties every table, children before parents, so no delete trips a `RESTRICT`. */
     private suspend fun deleteEverything() {

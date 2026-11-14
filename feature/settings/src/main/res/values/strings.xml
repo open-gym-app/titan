@@ -219,6 +219,7 @@
     <string name="backup_error_constraint">That backup contradicts itself — it refers to workouts it does not contain, or holds values no version of Titan writes. Nothing on this device was changed.</string>
     <string name="backup_error_constraint_live_state">That backup contradicts itself — it refers to workouts it does not contain, or holds values no version of Titan writes. Your history and settings were not changed, but the workout or template you had open may have been closed.</string>
     <string name="backup_error_io">The backup could not be read. Nothing on this device was changed.</string>
+    <string name="backup_error_io_live_state">The backup could not be written to this device. Your history and settings were not changed, but the workout or template you had open may have been closed.</string>
     <string name="backup_error_live_state">That backup was not restored: the workout or template you had open could not be closed first. Your history and settings were not changed, but that workout or template may have been closed.</string>
     <string name="backup_error_too_large">That file is larger than any Titan backup (over %1$s), so it was not read. Nothing on this device was changed.</string>
     <string name="backup_error_settings">Restored %1$d rows, but your settings could not be saved and may be back at their defaults. Check them in Settings.</string>
