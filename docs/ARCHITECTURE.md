@@ -354,7 +354,7 @@ gesture is handled *inside* the screen, walking back one question at a time and 
 to the platform on the first step — where leaving costs nothing, because the completion flag is
 written last and the next launch opens the flow again.
 
-Four tabs, not the wireframes' five: Map has no content until M8, and Settings is a gear in
+Four tabs, not the wireframes' five: Map has no content until the Gym Map milestone, and Settings is a gear in
 the top app bar rather than a fifth of the bar given to a destination visited twice.
 
 **The exercise catalogue is a tab and a modal, and one screen.** `ExerciseLibraryDestination`
