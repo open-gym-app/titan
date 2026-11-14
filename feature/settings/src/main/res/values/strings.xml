@@ -119,7 +119,7 @@
     <string name="settings_dialog_cancel">Cancel</string>
     <string name="settings_dialog_save">Save</string>
     <string name="settings_bar_weight_field_label">Bar weight (%1$s)</string>
-    <string name="settings_bar_weight_invalid">Enter a weight above zero</string>
+    <string name="settings_bar_weight_invalid">Enter a weight above zero, up to %1$s</string>
     <!-- The CUSTOM goal's own range and step, asked in the training goal dialog (#M7-15).
          The reps are whole numbers; the step is typed in the current unit system. -->
     <string name="settings_custom_reps_from">Reps from</string>
@@ -127,7 +127,7 @@
     <string name="settings_custom_reps_invalid">Enter a range from %1$d to %2$d reps, lowest first</string>
     <string name="settings_custom_increment_field_label">Weight step (%1$s)</string>
     <string name="settings_custom_increment_detail">Added when every set reaches the top of the range</string>
-    <string name="settings_custom_increment_invalid">Enter a step above zero</string>
+    <string name="settings_custom_increment_invalid">Enter a step above zero, up to %1$s</string>
 
     <!-- Delete all data -->
     <string name="settings_delete_dialog_title">Delete all data</string>

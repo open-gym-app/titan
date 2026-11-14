@@ -222,15 +222,16 @@ interface WorkoutSessionDao {
      * life of the install and quietly widens every aggregate's scan, and "the last ten years"
      * is a number somebody picked. `MIN` over an indexed column is a single seek.
      *
-     * The same filter as [hasFinishedSession] and [getTrainingByWeek], so `ALL` covers exactly
-     * the sessions the series can return — never a leading run of empty weeks before the user
-     * had started.
+     * The same filter as [getTrainingByWeek], so `ALL` covers exactly the sessions the series
+     * can return — never a leading run of empty weeks before the user had started. That
+     * includes its `completed_at >= 0`: a session finished before 1970 falls in no bucket, so
+     * opening the period on its day would only add empty weeks in front of the real ones.
      */
     @Query(
         """
         SELECT MIN(completed_at / 86400000)
         FROM workout_session
-        WHERE is_in_progress = 0 AND completed_at IS NOT NULL
+        WHERE is_in_progress = 0 AND completed_at IS NOT NULL AND completed_at >= 0
         """,
     )
     fun getFirstTrainingDay(): Flow<Long?>

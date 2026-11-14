@@ -28,6 +28,7 @@ import com.titan.core.domain.model.UnitSystem
 import com.titan.core.domain.model.UserPreferences
 import com.titan.core.ui.component.detail
 import com.titan.core.ui.component.label
+import com.titan.core.ui.format.formatWeight
 import com.titan.core.ui.format.formatWeightValue
 import com.titan.core.ui.format.parseWeightMilligrams
 import com.titan.core.ui.format.weightSuffix
@@ -201,7 +202,14 @@ private fun CustomFields(
                 )
             },
             supportingText = if (showStepError) {
-                { Text(text = stringResource(R.string.settings_custom_increment_invalid)) }
+                {
+                    Text(
+                        text = stringResource(
+                            R.string.settings_custom_increment_invalid,
+                            formatWeight(UserPreferences.MAX_CUSTOM_INCREMENT, unitSystem),
+                        ),
+                    )
+                }
             } else {
                 { Text(text = stringResource(R.string.settings_custom_increment_detail)) }
             },

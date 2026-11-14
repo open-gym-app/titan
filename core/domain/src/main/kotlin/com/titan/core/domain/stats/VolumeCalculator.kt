@@ -33,7 +33,7 @@ object VolumeCalculator {
      * set `SetValidator` admits is exact many times over; only a weight from a hand-edited
      * backup reaches the bound, and a wrapped product would read as negative work.
      */
-    fun setVolume(set: WorkoutSet): Long = saturatingProduct(set.weight ?: 0L, (set.reps ?: 0).toLong())
+    fun setVolume(set: WorkoutSet): Long = (set.weight ?: 0L).saturatingTimes((set.reps ?: 0).toLong())
 
     /**
      * Total volume of the completed sets in [sets]; an empty input is 0.
@@ -43,29 +43,5 @@ object VolumeCalculator {
      * as [setVolume] does.
      */
     fun totalVolume(sets: Iterable<WorkoutSet>): Long =
-        sets.fold(0L) { total, set -> if (set.isCompleted) saturatingSum(total, setVolume(set)) else total }
-
-    /**
-     * [a] + [b], held at `Long.MAX_VALUE` or `Long.MIN_VALUE` where the sum would leave a `Long`.
-     * Shared with `MuscleVolumeCalculator`, whose per-group totals are the same kind of sum.
-     */
-    internal fun saturatingSum(
-        a: Long,
-        b: Long,
-    ): Long =
-        try {
-            Math.addExact(a, b)
-        } catch (_: ArithmeticException) {
-            if (a < 0) Long.MIN_VALUE else Long.MAX_VALUE
-        }
-
-    private fun saturatingProduct(
-        a: Long,
-        b: Long,
-    ): Long =
-        try {
-            Math.multiplyExact(a, b)
-        } catch (_: ArithmeticException) {
-            if ((a < 0) == (b < 0)) Long.MAX_VALUE else Long.MIN_VALUE
-        }
+        sets.sumOfSaturating { if (it.isCompleted) setVolume(it) else 0L }
 }

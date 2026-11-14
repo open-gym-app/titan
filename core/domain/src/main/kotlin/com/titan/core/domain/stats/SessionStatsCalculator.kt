@@ -47,11 +47,11 @@ object SessionStatsCalculator {
 
         return SessionStats(
             totalSets = performed.size,
-            totalVolume = breakdown.sumOf(ExerciseStats::totalVolume),
+            totalVolume = breakdown.sumOfSaturating(ExerciseStats::totalVolume),
             durationSeconds = durationSeconds(startedAt, endedAt),
             exerciseBreakdown = breakdown,
-            timedSeconds = breakdown.sumOf(ExerciseStats::timedSeconds),
-            totalDistance = breakdown.sumOf(ExerciseStats::totalDistance),
+            timedSeconds = breakdown.sumOfSaturating(ExerciseStats::timedSeconds),
+            totalDistance = breakdown.sumOfSaturating(ExerciseStats::totalDistance),
         )
     }
 

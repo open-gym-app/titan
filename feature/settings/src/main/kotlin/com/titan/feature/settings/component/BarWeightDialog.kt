@@ -126,7 +126,14 @@ fun BarWeightDialog(
                         )
                     },
                     supportingText = if (text.isNotBlank() && !isValid) {
-                        { Text(text = stringResource(R.string.settings_bar_weight_invalid)) }
+                        {
+                            Text(
+                                text = stringResource(
+                                    R.string.settings_bar_weight_invalid,
+                                    formatWeight(UserPreferences.MAX_BAR_WEIGHT, unitSystem),
+                                ),
+                            )
+                        }
                     } else {
                         null
                     },

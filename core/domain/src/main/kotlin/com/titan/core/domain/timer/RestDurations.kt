@@ -1,6 +1,7 @@
 package com.titan.core.domain.timer
 
 import com.titan.core.domain.model.Exercise
+import com.titan.core.domain.model.UserPreferences
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -16,15 +17,10 @@ import kotlin.time.Duration.Companion.seconds
 object RestDurations {
 
     /**
-     * The longest rest an exercise's own `defaultRest` may ask for, in seconds: one day, the
-     * same ceiling `UserPreferences.MAX_REST_DURATION` puts on the user's setting.
-     */
-    const val MAX_EXERCISE_REST_SECONDS: Long = 86_400L
-
-    /**
-     * The exercise's own `defaultRest` where it has one in `1..MAX_EXERCISE_REST_SECONDS`, and
-     * [defaultRest] — the user's setting — otherwise, including for an exercise the catalogue
-     * no longer has.
+     * The exercise's own `defaultRest` where it is positive and at most
+     * [UserPreferences.MAX_REST_DURATION] — the ceiling the user's own setting has — and
+     * [defaultRest], the user's setting, otherwise, including for an exercise the catalogue no
+     * longer has.
      *
      * A stored rest of zero or less is treated as no opinion rather than as an instant rest: the
      * column is the user's to fill in, and a zero in it is far likelier to be an empty answer
@@ -38,7 +34,8 @@ object RestDurations {
         defaultRest: Duration,
     ): Duration =
         exercise?.defaultRest
-            ?.takeIf { it in 1..MAX_EXERCISE_REST_SECONDS }
+            ?.takeIf { it > 0 }
             ?.seconds
+            ?.takeIf { it <= UserPreferences.MAX_REST_DURATION }
             ?: defaultRest
 }

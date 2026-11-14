@@ -10,6 +10,7 @@ import com.titan.core.domain.model.WorkoutSession
 import com.titan.core.domain.repository.PersonalRecordRepository
 import com.titan.core.domain.repository.SessionRepository
 import com.titan.core.domain.repository.TemplateRepository
+import com.titan.core.domain.stats.sumOfSaturating
 import com.titan.core.domain.time.Clock
 import com.titan.core.domain.usecase.CreateTemplateUseCase
 import com.titan.core.domain.usecase.DeleteTemplateUseCase
@@ -661,7 +662,7 @@ private fun List<HistoryRow>.calendarPage(
 ): CalendarPage {
     val inMonth = filter { YearMonth.from(it.startedOn) == month }
     val byDay = inMonth.groupBy { it.startedOn.dayOfMonth }
-    val volumeByDay = byDay.mapValues { (_, rows) -> rows.sumOf { it.session.totalVolume } }
+    val volumeByDay = byDay.mapValues { (_, rows) -> rows.sumOfSaturating { it.session.totalVolume } }
     val heaviest = volumeByDay.values.maxOrNull() ?: 0
 
     return CalendarPage(
@@ -673,7 +674,7 @@ private fun List<HistoryRow>.calendarPage(
             )
         },
         sessionCount = inMonth.size,
-        totalVolume = volumeByDay.values.sum(),
+        totalVolume = volumeByDay.values.sumOfSaturating { it },
         totalDuration = inMonth.fold(Duration.ZERO) { total, row -> total + row.session.duration },
         today = today.takeIf { YearMonth.from(it) == month },
     )

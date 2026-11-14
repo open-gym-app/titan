@@ -82,10 +82,7 @@ object MuscleVolumeCalculator {
             for (link in exerciseLinks) {
                 val group = link.muscleGroup
                 groupsById.putIfAbsent(group.id, group)
-                totals[group.id] = VolumeCalculator.saturatingSum(
-                    totals[group.id] ?: 0L,
-                    attribute(volume, link.isPrimary),
-                )
+                totals[group.id] = (totals[group.id] ?: 0L).saturatingPlus(attribute(volume, link.isPrimary))
             }
         }
 

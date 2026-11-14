@@ -258,7 +258,7 @@ object BackupValidator {
         )
     }
 
-    /** A set's `set_number` from 1, on both set tables, and a performed set's RPE on the format's scale. */
+    /** `set_number` from 1 on both set tables, and every present `workout_set.rpe` on the format's scale. */
     private fun setRanges(document: ExportDocument): ImportError.ConstraintViolation? =
         firstOutside(
             1L..Int.MAX_VALUE,
