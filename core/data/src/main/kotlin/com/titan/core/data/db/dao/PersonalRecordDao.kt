@@ -27,6 +27,28 @@ interface PersonalRecordDao {
     suspend fun delete(id: Long)
 
     /**
+     * Deletes every record anchored to a set of a session finished at or after [finishedAt], and
+     * returns how many went — see `HistoryImportRepository.forgetRecordsOfSessionsFinishedFrom`
+     * for the one caller and why it needs this.
+     *
+     * Bounded by the session's finish rather than the record's own `achieved_at`, because
+     * detection runs per session: a session that started before the cut-off and finished after it
+     * is replayed whole, so every record it set has to go, including one from a set ticked off
+     * before the cut-off.
+     */
+    @Query(
+        """
+        DELETE FROM personal_record WHERE workout_set_id IN (
+            SELECT ws.id FROM workout_set ws
+            JOIN session_exercise se ON se.id = ws.session_exercise_id
+            JOIN workout_session s ON s.id = se.session_id
+            WHERE s.is_in_progress = 0 AND s.completed_at >= :finishedAt
+        )
+        """,
+    )
+    suspend fun deleteForSessionsFinishedFrom(finishedAt: Long): Int
+
+    /**
      * Writes [record] under [exerciseId]/[prType], but only if [isBetter] accepts the row
      * [getLatestByTypeOnce] currently returns for that exercise and type — evaluated and
      * acted on inside one transaction, so a second call for the same exercise and type
