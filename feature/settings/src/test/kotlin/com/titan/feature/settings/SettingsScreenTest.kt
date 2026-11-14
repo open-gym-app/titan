@@ -292,7 +292,7 @@ class SettingsScreenTest {
                 dialog = SettingsDialog.BAR_WEIGHT,
             )
 
-            composeTestRule.onNodeWithText("Enter a weight above zero").assertDoesNotExist()
+            composeTestRule.onNodeWithText("Enter a weight above zero", substring = true).assertDoesNotExist()
             composeTestRule.onNodeWithText("Save").assertIsEnabled().performClick()
 
             // Saving without touching anything stores the weight it opened with.

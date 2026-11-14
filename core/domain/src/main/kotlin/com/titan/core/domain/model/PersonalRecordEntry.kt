@@ -62,7 +62,10 @@ data class PersonalRecordEntry(
         get() {
             val previous = previousValue ?: return null
             val current = record.rankedFigure ?: return null
-            return abs(current - previous).takeIf { record.withValue(it) != null }
+            // Exact, or no figure: two restored rows far enough apart would otherwise wrap into
+            // a difference of the wrong sign, which `abs` cannot put right.
+            val difference = runCatching { Math.subtractExact(current, previous) }.getOrNull() ?: return null
+            return abs(difference).takeIf { it >= 0 && record.withValue(it) != null }
         }
 
     /**

@@ -4,6 +4,7 @@ import com.titan.core.domain.model.VolumeTrend
 import com.titan.core.domain.model.WeeklyVolume
 import com.titan.core.domain.repository.ProgressionRepository
 import com.titan.core.domain.stats.TrainingWeek
+import com.titan.core.domain.stats.sumOfSaturating
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import java.time.LocalDate
@@ -89,7 +90,7 @@ class VolumeTrendUseCase(private val progressionRepository: ProgressionRepositor
         val (current, earlier) = rows.partition { it.weekStart >= weeks.start }
         // Null, not 0: see `VolumeTrend.previousTotalVolume` for why an absent period and a
         // period that lifted nothing are different answers.
-        val previousTotal = if (earlier.isEmpty()) null else earlier.sumOf(WeeklyVolume::totalVolume)
+        val previousTotal = if (earlier.isEmpty()) null else earlier.sumOfSaturating(WeeklyVolume::totalVolume)
         if (current.isEmpty()) {
             return VolumeTrend(
                 weeks = emptyList(),

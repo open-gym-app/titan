@@ -28,14 +28,20 @@ object VolumeCalculator {
      * A missing weight or missing reps counts as zero rather than being dropped —
      * cardio and timed holds are real sets with no volume — mirroring the
      * `COALESCE(...)` in the DAO aggregate.
+     *
+     * Held at the `Long` bounds rather than wrapping, like the DAO aggregate's `TOTAL`. Every
+     * set `SetValidator` admits is exact many times over; only a weight from a hand-edited
+     * backup reaches the bound, and a wrapped product would read as negative work.
      */
-    fun setVolume(set: WorkoutSet): Long = (set.weight ?: 0L) * (set.reps ?: 0).toLong()
+    fun setVolume(set: WorkoutSet): Long = (set.weight ?: 0L).saturatingTimes((set.reps ?: 0).toLong())
 
     /**
      * Total volume of the completed sets in [sets]; an empty input is 0.
      *
      * Placeholder sets (`isCompleted = false`) are skipped here rather than by the
-     * caller, so no call site can inflate a total by forgetting to filter.
+     * caller, so no call site can inflate a total by forgetting to filter. The sum saturates
+     * as [setVolume] does.
      */
-    fun totalVolume(sets: Iterable<WorkoutSet>): Long = sets.sumOf { if (it.isCompleted) setVolume(it) else 0L }
+    fun totalVolume(sets: Iterable<WorkoutSet>): Long =
+        sets.sumOfSaturating { if (it.isCompleted) setVolume(it) else 0L }
 }

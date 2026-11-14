@@ -155,7 +155,7 @@ private suspend fun TitanDatabase.seedProgressAndSpoils() {
                 currentStreak = 3,
                 longestStreak = 11,
                 lastCountedAt = FINISHED_AT,
-                protectionRemaining = 2,
+                protectionRemaining = 0,
                 protectionPeriod = "2026-09",
                 protectionConsumedAt = STARTED_AT,
             ),

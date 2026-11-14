@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.math.BigInteger
 
 /**
  * The two things [BodyMeasurement] derives rather than stores: lean mass, and whether the
@@ -88,5 +89,21 @@ class BodyMeasurementTest {
     @Test
     fun `an entry with nothing in it is empty`() {
         assertTrue(measurement().isEmpty)
+    }
+
+    /** `weight × (1000 − fat)` wrapped for a weight past `Long.MAX_VALUE / 1000`. */
+    @Test
+    fun `lean mass of a weight too heavy to multiply is still exact`() {
+        val weight = Long.MAX_VALUE - 7
+        val exact = BigInteger.valueOf(weight).multiply(BigInteger.valueOf(850)).divide(BigInteger.valueOf(1_000))
+
+        assertEquals(exact.toLong(), measurement(weight = weight, bodyFat = 150).leanMass)
+        assertEquals(weight, measurement(weight = weight, bodyFat = 0).leanMass)
+    }
+
+    @Test
+    fun `a body fat outside the whole reads as no lean mass`() {
+        assertNull(measurement(weight = 80_000_000, bodyFat = 1_001).leanMass)
+        assertNull(measurement(weight = 80_000_000, bodyFat = -1).leanMass)
     }
 }

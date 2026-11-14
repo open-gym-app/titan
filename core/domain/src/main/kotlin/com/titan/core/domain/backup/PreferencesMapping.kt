@@ -63,14 +63,14 @@ fun PreferencesPayload.toPreferences(): UserPreferences =
         theme = theme.asEnumOr(ThemePreference.SYSTEM),
         defaultRestDuration = defaultRestDurationSeconds.asRestDurationOrNull()
             ?: UserPreferences.DEFAULT_REST_DURATION,
-        barWeight = barWeight.takeIf { it > 0 } ?: UserPreferences.DEFAULT_BAR_WEIGHT,
+        barWeight = barWeight.takeIf { it in 1..UserPreferences.MAX_BAR_WEIGHT } ?: UserPreferences.DEFAULT_BAR_WEIGHT,
         plateInventory = plateInventory?.toInventoryOrNull(),
         trainingGoal = trainingGoal.asEnumOr(TrainingGoal.STRENGTH),
         // Null is a file from before the question existed, and it means the same thing an
         // unrecognised name does: this user has never given an answer this build can use.
         fitnessLevel = fitnessLevel.asEnumOr(FitnessLevel.BEGINNER),
         customRepRange = repRangeOrNull(customRepRangeMin, customRepRangeMax) ?: RepRange.DEFAULT_CUSTOM,
-        customIncrement = customIncrement?.takeIf { it > 0 },
+        customIncrement = customIncrement?.takeIf { it in 1..UserPreferences.MAX_CUSTOM_INCREMENT },
         oneRepMaxFormula = oneRepMaxFormula.asEnumOr(OneRepMaxFormula.EPLEY),
         // Absent is a file from before the cards existed, and a user who has never turned
         // them off has them on — the same answer a fresh install gets.
@@ -123,16 +123,17 @@ private fun List<PlateStockPayload>.toInventoryOrNull(): PlateInventory? =
 /**
  * These many seconds as a rest [UserPreferences] would accept, or **null** if it would not.
  *
- * Both ends have to be checked, and the far one is the less obvious: [Duration] saturates
- * rather than overflowing, so a hand-edited or corrupted `default_rest_duration_seconds` past
- * what it can hold comes back as [Duration.INFINITE], which the model's `require` refuses. An
- * exception there would escape [toPreferences] — `ImportUseCase` types only
- * `BackupConstraintException` and `IOException` — and it would do so *after* the tables have
- * already been replaced, killing the restore over a rest timer. Falling back is the whole rule
- * this half of the mapping follows.
+ * Both ends have to be checked, and the far one is the less obvious. The model caps a rest at
+ * [UserPreferences.MAX_REST_DURATION], because a rest far past it — up to the
+ * [Duration.INFINITE] a corrupted `default_rest_duration_seconds` saturates to — makes the rest
+ * timer and a template's estimate do arithmetic on infinities, which throws. An exception here
+ * would escape [toPreferences] — `ImportUseCase` types only `BackupConstraintException` and
+ * `IOException` — and it would do so *after* the tables have already been replaced, killing
+ * the restore over a rest timer. Falling back is the whole rule this half of the mapping
+ * follows.
  */
 private fun Long.asRestDurationOrNull(): Duration? =
-    takeIf { it >= MIN_REST_SECONDS }?.seconds?.takeIf { it.isFinite() }
+    takeIf { it >= MIN_REST_SECONDS }?.seconds?.takeIf { it <= UserPreferences.MAX_REST_DURATION }
 
 /**
  * The constant of [T] named by this string, or [fallback] when this build has no such constant.
@@ -148,8 +149,7 @@ private inline fun <reified T : Enum<T>> String?.asEnumOr(fallback: T): T =
  * The shortest rest [UserPreferences] will accept. Spelled here because a payload holding zero
  * has to be caught *before* the constructor sees it: the model throws on it, and an import that
  * threw over a setting would be an import that lost a history over a rest timer. The longest is
- * not a constant — it is whatever [Duration] can still represent finitely, see
- * [asRestDurationOrNull].
+ * the model's own [UserPreferences.MAX_REST_DURATION], see [asRestDurationOrNull].
  */
 private const val MIN_REST_SECONDS = 1L
 

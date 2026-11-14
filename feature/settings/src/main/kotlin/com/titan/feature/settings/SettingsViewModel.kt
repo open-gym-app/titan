@@ -278,7 +278,7 @@ class SettingsViewModel @Inject constructor(
      * Runs a settings write, turning any refusal into a sentence rather than a crash.
      *
      * "Fails" includes a value the repository *rejects*, not only a store it cannot write:
-     * `setBarWeight` and `setDefaultRestDuration` both `require` a positive argument, and a
+     * `setBarWeight` and `setDefaultRestDuration` both `require` an argument in range, and a
      * setting that will not save is the same event to a user however the write refused it.
      */
     private fun write(block: suspend () -> Unit) {

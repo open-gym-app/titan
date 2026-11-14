@@ -1,5 +1,7 @@
 package com.titan.core.domain.model
 
+import com.titan.core.domain.stats.sumOfSaturating
+
 /**
  * What [com.titan.core.domain.usecase.VolumeTrendUseCase] answers with: a period's volume
  * week by week, and the same period's worth of volume immediately before it.
@@ -23,8 +25,11 @@ data class VolumeTrend(
     val hasEverTrained: Boolean,
 ) {
 
-    /** The period's volume, in milligram-reps. The sum of [weeks], since they cover it whole. */
-    val totalVolume: Long get() = weeks.sumOf(WeeklyVolume::totalVolume)
+    /**
+     * The period's volume, in milligram-reps. The sum of [weeks], since they cover it whole,
+     * saturating as each week's own total does.
+     */
+    val totalVolume: Long get() = weeks.sumOfSaturating(WeeklyVolume::totalVolume)
 
     /**
      * Nothing in the period and nothing before it either: the user has never finished a

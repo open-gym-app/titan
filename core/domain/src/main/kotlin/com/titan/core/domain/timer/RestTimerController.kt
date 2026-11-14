@@ -169,6 +169,8 @@ class RestTimerController(
      * [RestTimerState.Idle]: the user asked for the rest to be over, not to be called off, and
      * a caller that alerts on `Finished` should ring here exactly as it would have fifteen
      * seconds later.
+     *
+     * A step whose result is not finite is ignored, leaving the timer as it was.
      */
     fun adjust(delta: Duration) {
         when (val current = _state.value) {
@@ -198,6 +200,10 @@ class RestTimerController(
         total: Duration,
         running: Boolean,
     ) {
+        // A rest that adds up to infinity came from a setting or a draft nothing in the app
+        // writes. Moving it would publish a state whose remainder or total is infinite, and the
+        // first screen to subtract one from the other throws, so the step is ignored instead.
+        if (!remaining.isFinite() || !total.isFinite()) return
         if (remaining <= Duration.ZERO) {
             stopCountdown()
             _state.value = RestTimerState.Finished

@@ -106,13 +106,13 @@
     <string name="settings_dialog_cancel">Cancelar</string>
     <string name="settings_dialog_save">Guardar</string>
     <string name="settings_bar_weight_field_label">Peso de la barra (%1$s)</string>
-    <string name="settings_bar_weight_invalid">Introduce un peso mayor que cero</string>
+    <string name="settings_bar_weight_invalid">Introduce un peso mayor que cero, hasta %1$s</string>
     <string name="settings_custom_reps_from">Repeticiones desde</string>
     <string name="settings_custom_reps_to">Repeticiones hasta</string>
     <string name="settings_custom_reps_invalid">Introduce un rango de %1$d a %2$d repeticiones, el menor primero</string>
     <string name="settings_custom_increment_field_label">Incremento de peso (%1$s)</string>
     <string name="settings_custom_increment_detail">Se añade cuando cada serie alcanza el tope del rango</string>
-    <string name="settings_custom_increment_invalid">Introduce un incremento mayor que cero</string>
+    <string name="settings_custom_increment_invalid">Introduce un incremento mayor que cero, hasta %1$s</string>
 
     <!-- Delete all data -->
     <string name="settings_delete_dialog_title">Eliminar todos los datos</string>

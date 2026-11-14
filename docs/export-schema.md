@@ -70,15 +70,15 @@ timestamps, `0`/`1` booleans. See [PERSISTENCE.md](PERSISTENCE.md#storage-assump
 | --- | --- | --- |
 | `unit_system` | `UnitSystem` name | *required* |
 | `theme` | `ThemePreference` name | *required* |
-| `default_rest_duration_seconds` | int64 seconds | *required* |
-| `bar_weight_milligrams` | int64 milligrams | *required* |
+| `default_rest_duration_seconds` | int64 seconds, `1`–`86400` | *required* |
+| `bar_weight_milligrams` | int64 milligrams, `1`–`10000000000` | *required* |
 | `training_goal` | `TrainingGoal` name | *required* |
 | `one_rep_max_formula` | `OneRepMaxFormula` name | *required* |
 | `onboarding_completed` | bool | *required* |
 | `plate_inventory_milligrams` | array of `{weight_milligrams, pairs}`, or `null` | `null` — the user never chose a rack |
 | `fitness_level` | `FitnessLevel` name | `BEGINNER` — the file predates #M7-11 |
 | `custom_rep_range_min`, `custom_rep_range_max` | int32 reps | `8` and `12` — the file predates #M7-15, or holds one end without the other |
-| `custom_increment_milligrams` | int64 milligrams, or `null` | `null` — the rack's own smallest step |
+| `custom_increment_milligrams` | int64 milligrams, `1`–`10000000000`, or `null` | `null` — the rack's own smallest step |
 | `warmup_suggestions` | bool | `true` — the file predates #214 |
 | `weekly_workout_goal` | int32 sessions, `1`–`7` | `4` — the file predates the weekly streak, or holds a goal out of range |
 | `auto_open_rest_timer` | bool | `true` — the file predates the setting |
@@ -184,7 +184,7 @@ it was.
 | --- | --- | --- |
 | `MalformedJson` | Not JSON, or not shaped like a document — a missing required column, a string where a number belongs, a truncated file | Untouched |
 | `UnsupportedSchemaVersion` | `schema_version` is not this build's | Untouched |
-| `ConstraintViolation` | A foreign key naming a row the file does not contain, two rows sharing a primary key or a unique index, a `user_progress` that is not the single row the table admits | Untouched. `BackupValidator` decides it before anything is cleared; on the rarer path where SQLite decides it instead, the transaction rolls back and every table is still untouched, but the live session and its draft — cleared before the transaction opens, deliberately — stay cleared |
+| `ConstraintViolation` | A foreign key naming a row the file does not contain, two rows sharing a primary key or a unique index, a `user_progress` that is not the single row the table admits, a value outside [the ranges the format accepts](#the-ranges-a-value-must-be-in) | Untouched. `BackupValidator` decides it before anything is cleared; on the rarer path where SQLite decides it instead, the transaction rolls back and every table is still untouched, but the live session and its draft — cleared before the transaction opens, deliberately — stay cleared |
 | `IoFailure` | A store other than the database could not be read or written — the file itself, the draft on the way in, the settings on the way out | Untouched if it was the file or the draft; rows restored and settings not if it was the settings, which is the only partial outcome and the reason it is reported rather than swallowed |
 
 `ConstraintViolation` is decided by checking the document **against itself, before the wipe**,
@@ -192,23 +192,63 @@ which is possible only because import replaces: the file is the whole database a
 every reference in it must resolve inside it. The transaction is still there and still catches a
 constraint the validator does not model, but it is the backstop rather than the mechanism.
 
+### The ranges a value must be in
+
+A few columns have a range that belongs to the format rather than to a rule the domain might
+retune. No build of the app has written a value outside them, and each value outside them broke
+the app after a restore rather than reading oddly (#256). `BackupValidator` refuses a file that
+holds one, and `BackupValidatorRangeTest` pins each range at both of its edges.
+
+| Columns | Accepted | What a value outside it did |
+| --- | --- | --- |
+| `id` of every table whose id is a rowid: `muscle_group`, `tag`, `exercise`, `workout_template`, `template_exercise`, `template_set`, `workout_session`, `session_exercise`, `workout_set`, `personal_record`, `body_measurement`, `collected_item` | `1` to `9007199254740992` (2^53) | Zero is rewritten to a fresh id on insert and strands every reference to it. An in-progress session numbered below one is one the workout draft refuses to be built around. An id near `Long.MAX_VALUE` leaves `AUTOINCREMENT` nothing to assign, so every later insert fails with `SQLITE_FULL`, and the counter survives a wipe. 2^53 is also the largest integer a reader that parses JSON numbers as doubles, `jq` among them, reads exactly. Every foreign key must resolve to one of these ids, so it is in range too |
+| `workout_session.completed_at`, `.last_active_at`, `.created_at`, `.updated_at`; `session_exercise.created_at`, `.updated_at`; `workout_set.completed_at`, `.created_at`, `.updated_at`; `personal_record.achieved_at`; `body_measurement.created_at`, `.updated_at`; `user_progress.last_counted_at`, `.protection_consumed_at`; `achievement.unlocked_at`; `quest_completion.period_start`, `.completed_at`; `collected_item.acquired_at` | `0` to `253402300799999`, the epoch to the last millisecond of 9999, UTC | A session dated before 1970 opened the all-time chart on its day, and the chart allocated a bucket for every week since: at −10^17 ms that is millions of them. `0` stays accepted because it is the placeholder `completed_at` of a planned set |
+| `workout_set.set_number`, `template_set.set_number` | `1` and up | Sets are numbered from 1; a set numbered 0 is one no screen can show as "set 0 of 3" |
+| `workout_set.rpe` | `null`, or `10` to `100` | The scale is RPE 1 to 10 in tenths, and it does not move |
+
+### What is repaired rather than refused
+
+Two kinds of value are brought back into range on the way in, because refusing the whole file
+over them would trade a training history for a figure the app can recompute:
+
+- **`user_progress`**, which the XP header, the quest log, the streak step and every XP award
+  read. A `total_xp` outside `0` to `XpCalculator.MAX_TOTAL_XP` (10^15) is clamped into it,
+  since the level curve overflows an `Int` past about 5.9 × 10^15. A `current_level` outside the
+  levels that range buys is replaced by the level the clamped total buys. `current_streak`,
+  `longest_streak` and `week_sessions` are clamped to zero and up. `protection_remaining` is
+  clamped into `0` to the monthly allowance, and a `protection_period` that is not a `YYYY-MM`
+  month becomes `null`. `UserProgressMapper.repaired` does it, and every reader of the row
+  applies it again, for a row that got into the table some other way.
+- **The settings**, per the next section: a `default_rest_duration_seconds` past one day, and a
+  `bar_weight_milligrams` or `custom_increment_milligrams` past ten tonnes, read back as the
+  default.
+
 ### What is deliberately *not* refused
 
 Every invariant PERSISTENCE.md says lives in the domain rather than in the schema:
 `SetValidator`'s value bounds, dense set numbering, the superset rules,
-`BodyMeasurementValidator`'s all-null rule, and whether an enum-like column holds a name this
-build recognises.
+`BodyMeasurementValidator`'s all-null rule, an exercise's `default_rest`, and whether an
+enum-like column holds a name this build recognises.
 
 That is not laziness. A backup is *the user's own data coming back*, and PERSISTENCE.md is
 explicit that a row naming an achievement or a collectible from a newer version is a record
 rather than a corruption, which a restore must preserve. Refusing a file because a set carries
-an RPE this build would not have written would make an export unrestorable on the very build
-that wrote it, the day a bound moved.
+a weight this build's `SetValidator` would not accept would make an export unrestorable on the
+very build that wrote it, the day a bound moved.
+
+Such a value is the readers' to survive instead, and each of them does. The history and stats
+sums cannot overflow (`WorkoutSetDao` explains how). The next-load suggestion judges only sets
+inside `SetValidator`'s bounds. An exercise rest outside one second to a day falls back to the
+user's default. A pace, a lean mass and an in-memory volume past what a `Long` holds are no
+figure, or held at the bound, rather than wrapped. `HostileBackupTest` restores each of these
+values, and also writes each straight into its table, then reads it back through the screens'
+queries and carries on writing.
 
 Settings are the one place that degrades rather than refusing: an enum name this build does not
-have, a rest of zero seconds, a plate rack that breaks its own invariants all read back as the
-documented default. A row is a record of something that happened; a setting is a fact the user
-can change in two taps.
+have, a rest of zero seconds or of more than a day, a bar weight or a custom increment of
+nothing or of more than ten tonnes, a plate rack that breaks its own invariants all read back as
+the documented default. A row is a record of something that happened; a setting is a fact the
+user can change in two taps.
 
 ## Version history and the compatibility rule
 

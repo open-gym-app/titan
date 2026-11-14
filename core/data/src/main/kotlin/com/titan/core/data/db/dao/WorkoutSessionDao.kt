@@ -48,10 +48,18 @@ interface WorkoutSessionDao {
     @Query("SELECT COUNT(*) FROM workout_session WHERE is_in_progress = 0 AND completed_at IS NOT NULL")
     suspend fun countFinished(): Int
 
+    /**
+     * The session being logged — the in-progress row touched most recently — or null.
+     *
+     * Only a row with a positive id, which is every id `AUTOINCREMENT` assigns. A row numbered
+     * at or below zero can only come from a hand-edited backup, and the workout draft refuses
+     * to be built around one, so offering it for resume would throw on every launch. It is
+     * left where it is and never resumed.
+     */
     @Query(
         """
         SELECT * FROM workout_session
-        WHERE is_in_progress = 1
+        WHERE is_in_progress = 1 AND id > 0
         ORDER BY last_active_at DESC
         LIMIT 1
         """,
@@ -66,7 +74,8 @@ interface WorkoutSessionDao {
      *
      * Weeks start on Monday, UTC, cut with the same arithmetic
      * [WorkoutSetDao.getVolumeByWeek] uses so the volume and consistency series line up
-     * bucket for bucket; see that method for what the `+ 3` is doing.
+     * bucket for bucket; see that method for what the `+ 3` is doing, and for why a session
+     * finished before 1970 falls in no bucket.
      *
      * The two line up on more than the boundary: both count only finished sessions and both
      * place a session by the day it was closed out, so every week that has volume in it has
@@ -93,6 +102,7 @@ interface WorkoutSessionDao {
         FROM workout_session s
         WHERE s.is_in_progress = 0
             AND s.completed_at IS NOT NULL
+            AND s.completed_at >= 0
             AND s.completed_at >= :startEpochDay * 86400000
             AND s.completed_at < :endEpochDayExclusive * 86400000
         GROUP BY week_start
@@ -151,12 +161,14 @@ interface WorkoutSessionDao {
      * subtract real training time from the total. Clamped here rather than at insert because
      * the row is a faithful record of what the clock said.
      *
-     * `COALESCE` because `SUM` over no rows is `NULL`, and a window with no training in it is
-     * zero milliseconds rather than an absent answer.
+     * `CAST(TOTAL(…) AS INTEGER)` rather than `SUM`, for the reason `WorkoutSetDao` gives for
+     * its own sums: a restored row can hold timestamps far enough apart that an integer `SUM`
+     * raises `integer overflow`, where `TOTAL` cannot. It is also zero over no rows, and a
+     * window with no training in it is zero milliseconds rather than an absent answer.
      */
     @Query(
         """
-        SELECT COALESCE(SUM(MAX(s.completed_at - s.created_at, 0)), 0)
+        SELECT CAST(TOTAL(MAX(s.completed_at - s.created_at, 0)) AS INTEGER)
         FROM workout_session s
         WHERE s.is_in_progress = 0
             AND s.completed_at IS NOT NULL
@@ -210,15 +222,16 @@ interface WorkoutSessionDao {
      * life of the install and quietly widens every aggregate's scan, and "the last ten years"
      * is a number somebody picked. `MIN` over an indexed column is a single seek.
      *
-     * The same filter as [hasFinishedSession] and [getTrainingByWeek], so `ALL` covers exactly
-     * the sessions the series can return — never a leading run of empty weeks before the user
-     * had started.
+     * The same filter as [getTrainingByWeek], so `ALL` covers exactly the sessions the series
+     * can return — never a leading run of empty weeks before the user had started. That
+     * includes its `completed_at >= 0`: a session finished before 1970 falls in no bucket, so
+     * opening the period on its day would only add empty weeks in front of the real ones.
      */
     @Query(
         """
         SELECT MIN(completed_at / 86400000)
         FROM workout_session
-        WHERE is_in_progress = 0 AND completed_at IS NOT NULL
+        WHERE is_in_progress = 0 AND completed_at IS NOT NULL AND completed_at >= 0
         """,
     )
     fun getFirstTrainingDay(): Flow<Long?>

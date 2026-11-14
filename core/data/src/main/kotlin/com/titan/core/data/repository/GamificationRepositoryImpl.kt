@@ -6,7 +6,9 @@ import com.titan.core.data.db.dao.SessionXpClaimDao
 import com.titan.core.data.db.dao.UserProgressDao
 import com.titan.core.data.db.entity.AchievementEntity
 import com.titan.core.data.db.entity.UserProgressEntity
+import com.titan.core.data.mapper.repaired
 import com.titan.core.data.mapper.toDomain
+import com.titan.core.domain.gamification.XpCalculator
 import com.titan.core.domain.model.StreakProtection
 import com.titan.core.domain.model.StreakState
 import com.titan.core.domain.model.StreakUpdate
@@ -73,15 +75,20 @@ class GamificationRepositoryImpl @Inject constructor(
      * fact. The two would agree, since the transform is pure over the snapshot the transaction
      * read, but assigning it here keeps "the level before the award" a value produced by the
      * same pass that produced the one after it.
+     *
+     * The row is [repaired] before the curve sees it, because this reads the entity rather than
+     * the mapped [toDomain] value, and the new total is held at [XpCalculator.MAX_TOTAL_XP]. A
+     * restored total past what the curve can price would otherwise fail every award.
      */
     override suspend fun addXp(
         delta: Int,
         levelForTotalXp: (totalXp: Long) -> Int,
     ): XpAward {
         var previousLevel = 0
-        val updated = userProgressDao.mutate { current ->
+        val updated = userProgressDao.mutate { stored ->
+            val current = stored.repaired()
             previousLevel = levelForTotalXp(current.totalXp)
-            val total = current.totalXp + delta
+            val total = (current.totalXp + delta).coerceIn(0, XpCalculator.MAX_TOTAL_XP)
             current.copy(totalXp = total, currentLevel = levelForTotalXp(total))
         }
         return XpAward(
@@ -131,10 +138,14 @@ class GamificationRepositoryImpl @Inject constructor(
      * here, on the argument that only the store has seen the streaks that came before — but
      * the store hands the rule every one of those figures now, so keeping a `maxOf` on this
      * side would have been a second place the state is decided.
+     *
+     * What the rule is handed is the [repaired] row, so a restored allowance below zero or a
+     * period that is not a month cannot fail the step for every session that follows.
      */
     override suspend fun updateStreak(advance: (state: StreakState) -> StreakUpdate): StreakUpdate {
         lateinit var update: StreakUpdate
-        userProgressDao.mutate { current ->
+        userProgressDao.mutate { stored ->
+            val current = stored.repaired()
             update = advance(current.toStreakState())
             current.with(update.state)
         }
@@ -155,7 +166,7 @@ class GamificationRepositoryImpl @Inject constructor(
      * recompose a dozen times for a streak that moved once.
      */
     override fun observeStreak(): Flow<StreakState> =
-        userProgressDao.observe().map { it?.toStreakState() ?: StreakState() }.distinctUntilChanged()
+        userProgressDao.observe().map { it?.repaired()?.toStreakState() ?: StreakState() }.distinctUntilChanged()
 }
 
 /** The streak columns of the progress row, as the domain's value. */

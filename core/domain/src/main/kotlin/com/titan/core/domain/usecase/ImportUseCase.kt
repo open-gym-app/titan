@@ -39,9 +39,10 @@ import java.io.IOException
  *    before it interprets anything else, so a file from a newer build is refused for the reason
  *    it should be rather than by the decoder tripping over a table it does not know.
  * 2. **Validate the document against itself.** Every foreign key, primary key and unique index
- *    in the file, checked while the database is still untouched — possible only because import
- *    replaces, so the file is the whole database and every reference in it must resolve inside
- *    it. This is what makes [ImportError.ConstraintViolation] mean "and nothing happened".
+ *    in the file, and the ranges the format defines for ids, timestamps and set numbering,
+ *    checked while the database is still untouched — possible only because import replaces, so
+ *    the file is the whole database and every reference in it must resolve inside it. This is
+ *    what makes [ImportError.ConstraintViolation] mean "and nothing happened".
  * 3. **Forget the live session and the two drafts.** All three name row ids from before the
  *    wipe — the workout in progress, and the template somebody was halfway through writing. The
  *    session state goes first because screens are collecting it, then the draft files, exactly

@@ -734,4 +734,34 @@ class NextLoadEngineTest {
             reason = SuggestionReason.INCREASE,
         )
     }
+
+    // ─── Values only a restored backup can hold (#256) ───────────────────────────────────
+
+    /** One rep more than `Int.MAX_VALUE` wrapped negative, and the suggestion refused it. */
+    @Test
+    fun `a set of more reps than SetValidator admits is not judged`() {
+        val history = listOf(performance(kg(100.0) to Int.MAX_VALUE))
+
+        assertNull(NextLoadEngine.suggest(history, METRIC, BENCH_PRESS))
+        assertNull(NextLoadEngine.suggest(listOf(performance(null to Int.MAX_VALUE)), METRIC, PRESS_UP))
+    }
+
+    /** The step on a weight near `Long.MAX_VALUE` wrapped negative and the suggestion threw. */
+    @Test
+    fun `a set heavier than SetValidator admits is not judged`() {
+        assertNull(NextLoadEngine.suggest(listOf(performance(Long.MAX_VALUE to 6)), METRIC, BENCH_PRESS))
+        assertNull(NextLoadEngine.suggest(listOf(performance(Long.MAX_VALUE to 6)), METRIC, DUMBBELL_PRESS))
+    }
+
+    @Test
+    fun `an out-of-range set beside honest ones leaves the honest ones to be judged`() {
+        val history = listOf(performance(kg(100.0) to 5, Long.MAX_VALUE to 6, kg(100.0) to Int.MAX_VALUE))
+
+        assertSuggestion(
+            NextLoadEngine.suggest(history, METRIC, BENCH_PRESS),
+            weight = kg(100.0),
+            reps = 6,
+            reason = SuggestionReason.ADD_REP,
+        )
+    }
 }

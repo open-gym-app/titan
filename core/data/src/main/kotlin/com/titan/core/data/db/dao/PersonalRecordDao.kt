@@ -11,6 +11,7 @@ import com.titan.core.data.db.entity.PersonalRecordEntity
 import com.titan.core.data.db.projection.ExerciseTagNameRow
 import com.titan.core.data.db.projection.PersonalRecordEntryRow
 import com.titan.core.data.db.projection.RecordTallyRow
+import com.titan.core.domain.validation.SetValidator
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -167,8 +168,10 @@ interface PersonalRecordDao {
      * per centimetre — the figure the engine ranks paces on — so a 10 km run is measured against
      * the 5 km it beat by pace rather than by total time, which would read a faster but longer run
      * as a slower one. Integer arithmetic throughout, rounded half up by adding half the divisor
-     * before SQLite's integer division, exactly as `paceOf` rounds in Kotlin; `duration` is at
-     * most 864,000 s, so the product stays far inside a 64-bit integer. See
+     * before SQLite's integer division, exactly as `paceOf` rounds in Kotlin. A duration or a
+     * distance outside `SetValidator`'s bounds gives no figure, as `paceOf` gives none: inside
+     * them `duration` is at most 864,000 s, so the product stays far inside a 64-bit integer,
+     * where a restored row past them would push SQLite into floating point. See
      * `PersonalRecord.rankedFigure`, which makes the same choice for the row that is drawn. The
      * two agree by inspection rather than by construction, which is a seam worth knowing about: a
      * ninth kind has to be added in both.
@@ -215,7 +218,11 @@ interface PersonalRecordDao {
                         WHEN 'MAX_WEIGHTED_HOLD' THEN previous.weight
                         WHEN 'MAX_DISTANCE' THEN previous.distance
                         WHEN 'MAX_DURATION' THEN previous.duration
-                        WHEN 'BEST_PACE' THEN (previous.duration * 1000000000 + previous.distance / 2) / previous.distance
+                        WHEN 'BEST_PACE' THEN CASE
+                            WHEN previous.duration BETWEEN 1 AND ${SetValidator.DURATION_MAX_SECONDS}
+                                AND previous.distance BETWEEN 1 AND ${SetValidator.DISTANCE_MAX_CM}
+                            THEN (previous.duration * 1000000000 + previous.distance / 2) / previous.distance
+                        END
                     END
                 FROM personal_record AS previous
                 WHERE previous.exercise_id = record.exercise_id

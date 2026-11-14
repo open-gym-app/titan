@@ -15,6 +15,21 @@ import com.titan.core.data.db.projection.TrainedExerciseRow
 import com.titan.core.data.db.projection.WeeklyVolumeRow
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * The `workout_set` table, and the aggregates every history and stats screen reads off it.
+ *
+ * ### Every sum is `CAST(TOTAL(…) AS INTEGER)`, never `SUM`
+ *
+ * SQLite's `SUM` over integers raises `integer overflow` once the running total leaves a 64-bit
+ * integer, and that error fails the whole query. `SetValidator` keeps every set the app writes
+ * far from that, but nothing in the schema holds its bounds, so a restored backup can hold a
+ * weight or a duration that overflows the first sum it reaches. The History list, the Stats
+ * screen and the dashboard would then throw at launch. `TOTAL` sums in floating point and cannot
+ * overflow. The cast turns the result back into the integer every column is read as, and holds
+ * anything past the `Long` bounds at those bounds. Below 2^53 each partial sum is an integer a
+ * double holds exactly, so an honest history sums to exactly what `SUM` would have given: 2^53
+ * milligram-reps is nine million tonne-reps.
+ */
 @Dao
 interface WorkoutSetDao {
 
@@ -219,7 +234,7 @@ interface WorkoutSetDao {
      *
      * The history list's read, and the reason it is an aggregate rather than a
      * [getBySession] per row: a list of sessions has no upper bound, and a query per row
-     * would put an observer on the database for each of them. Here the `SUM` and `COUNT`
+     * would put an observer on the database for each of them. Here the sums and the `COUNT`
      * run in SQLite, so what crosses the boundary is two numbers per session however many
      * sets are behind them.
      *
@@ -245,9 +260,9 @@ interface WorkoutSetDao {
         SELECT
             se.session_id AS session_id,
             COUNT(*) AS total_sets,
-            SUM(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) AS total_volume,
-            SUM(COALESCE(ws.duration, 0)) AS timed_seconds,
-            SUM(COALESCE(ws.distance, 0)) AS total_distance
+            CAST(TOTAL(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) AS INTEGER) AS total_volume,
+            CAST(TOTAL(COALESCE(ws.duration, 0)) AS INTEGER) AS timed_seconds,
+            CAST(TOTAL(COALESCE(ws.distance, 0)) AS INTEGER) AS total_distance
         FROM workout_set ws
         INNER JOIN session_exercise se ON ws.session_exercise_id = se.id
         WHERE ws.is_completed = 1
@@ -285,7 +300,7 @@ interface WorkoutSetDao {
      * Weekly training volume over the half-open day range
      * `[startEpochDay, endEpochDayExclusive)`, one row per week that has at least
      * one completed set in it. The chart on the progression screen reads this
-     * instead of loading the underlying sets: the `SUM` runs in SQLite, so the
+     * instead of loading the underlying sets: the sum runs in SQLite, so the
      * result grows with the number of *weeks*, not the number of sets.
      *
      * ### A week is a set of finished sessions
@@ -320,6 +335,11 @@ interface WorkoutSetDao {
      * [WorkoutSessionDao.getTrainingByWeek] and in `:core:domain`'s `TrainingWeek`,
      * and `TrainingWeekParityTest` is what holds the three to one answer.
      *
+     * The arithmetic holds only for a `completed_at` at or after 1970: SQLite's `/` and `%`
+     * truncate towards zero, so an earlier day would land in a bucket that does not start on a
+     * Monday. Such a session is therefore left out of every bucket by `completed_at >= 0`. The
+     * import refuses a timestamp before 1970, so only a row written some other way is affected.
+     *
      * Bounded at both ends, like [getVolumeByMuscleGroup], because the progression
      * screen's "vs previous period" needs a window that stops: an open-ended query
      * would fold everything after the period into its last bucket. A caller that
@@ -335,13 +355,14 @@ interface WorkoutSetDao {
         """
         SELECT
             (s.completed_at / 86400000) - (((s.completed_at / 86400000) + 3) % 7) AS week_start,
-            SUM(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) AS total_volume
+            CAST(TOTAL(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) AS INTEGER) AS total_volume
         FROM workout_set ws
         INNER JOIN session_exercise se ON ws.session_exercise_id = se.id
         INNER JOIN workout_session s ON s.id = se.session_id
         WHERE ws.is_completed = 1
             AND s.is_in_progress = 0
             AND s.completed_at IS NOT NULL
+            AND s.completed_at >= 0
             AND s.completed_at >= :startEpochDay * 86400000
             AND s.completed_at < :endEpochDayExclusive * 86400000
         GROUP BY week_start
@@ -363,13 +384,13 @@ interface WorkoutSetDao {
      * no `GROUP BY`: one row back instead of one per week, and no summing in Kotlin of an
      * answer SQLite can state.
      *
-     * `COALESCE` around the `SUM` because summing no rows is `NULL`, and a period with no
-     * lifting in it moved zero rather than an absent amount — the call [getTrainingMillis]
-     * makes for the same reason.
+     * A period with no lifting in it moved zero rather than an absent amount, and `TOTAL` says
+     * so on its own: over no rows it is `0.0`, where `SUM` would be `NULL`. `getTrainingMillis`
+     * answers zero for an empty period for the same reason.
      */
     @Query(
         """
-        SELECT COALESCE(SUM(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)), 0)
+        SELECT CAST(TOTAL(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) AS INTEGER)
         FROM workout_set ws
         INNER JOIN session_exercise se ON ws.session_exercise_id = se.id
         INNER JOIN workout_session s ON s.id = se.session_id
@@ -412,13 +433,13 @@ interface WorkoutSetDao {
         SELECT
             mg.id AS muscle_group_id,
             mg.name AS muscle_group_name,
-            SUM(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) AS total_volume,
-            SUM(
+            CAST(TOTAL(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) AS INTEGER) AS total_volume,
+            CAST(TOTAL(
                 CASE WHEN emg.is_primary = 1
                     THEN COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)
                     ELSE (COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) / 2
                 END
-            ) AS weighted_volume,
+            ) AS INTEGER) AS weighted_volume,
             COUNT(*) AS set_count,
             MAX(emg.is_primary) AS worked_directly
         FROM workout_set ws
@@ -519,9 +540,9 @@ interface WorkoutSetDao {
                 se.session_id AS session_id,
                 s.completed_at AS finished_at,
                 COUNT(*) AS set_count,
-                SUM(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) AS total_volume,
-                SUM(COALESCE(ws.duration, 0)) AS timed_seconds,
-                SUM(COALESCE(ws.distance, 0)) AS total_distance,
+                CAST(TOTAL(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) AS INTEGER) AS total_volume,
+                CAST(TOTAL(COALESCE(ws.duration, 0)) AS INTEGER) AS timed_seconds,
+                CAST(TOTAL(COALESCE(ws.distance, 0)) AS INTEGER) AS total_distance,
                 MIN(ws.completed_at) AS first_set_at
             FROM workout_set ws
             INNER JOIN session_exercise se ON ws.session_exercise_id = se.id

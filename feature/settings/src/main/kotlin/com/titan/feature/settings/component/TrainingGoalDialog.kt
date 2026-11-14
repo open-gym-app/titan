@@ -25,8 +25,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import com.titan.core.domain.model.RepRange
 import com.titan.core.domain.model.TrainingGoal
 import com.titan.core.domain.model.UnitSystem
+import com.titan.core.domain.model.UserPreferences
 import com.titan.core.ui.component.detail
 import com.titan.core.ui.component.label
+import com.titan.core.ui.format.formatWeight
 import com.titan.core.ui.format.formatWeightValue
 import com.titan.core.ui.format.parseWeightMilligrams
 import com.titan.core.ui.format.weightSuffix
@@ -73,7 +75,8 @@ fun TrainingGoalDialog(
     }
 
     val range = repRangeOrNull(minText, maxText)
-    val step = parseWeightMilligrams(stepText, unitSystem)?.takeIf { it > 0 }
+    // Bounded by what `setCustomIncrement` accepts, for the reason `BarWeightDialog` bounds the bar.
+    val step = parseWeightMilligrams(stepText, unitSystem)?.takeIf { it in 1..UserPreferences.MAX_CUSTOM_INCREMENT }
     val isCustom = selected == TrainingGoal.CUSTOM
     val isValid = !isCustom || (range != null && step != null)
 
@@ -199,7 +202,14 @@ private fun CustomFields(
                 )
             },
             supportingText = if (showStepError) {
-                { Text(text = stringResource(R.string.settings_custom_increment_invalid)) }
+                {
+                    Text(
+                        text = stringResource(
+                            R.string.settings_custom_increment_invalid,
+                            formatWeight(UserPreferences.MAX_CUSTOM_INCREMENT, unitSystem),
+                        ),
+                    )
+                }
             } else {
                 { Text(text = stringResource(R.string.settings_custom_increment_detail)) }
             },

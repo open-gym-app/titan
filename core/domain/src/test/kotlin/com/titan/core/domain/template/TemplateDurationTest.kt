@@ -363,6 +363,34 @@ class TemplateDurationTest {
         assertEquals(work * 2 + defaultRest, estimate(listOf(orphan)))
     }
 
+    // ─── Values only a restored backup can hold (#256) ───────────────────────────────────
+
+    /**
+     * `Long.MAX_VALUE` seconds saturated to an infinite rest, and the estimate subtracted the
+     * infinite trailing rest from an infinite total, which throws: Home crashed at launch.
+     */
+    @Test
+    fun `an exercise rest longer than a day falls back to the default`() {
+        val estimate = estimate(listOf(exercise(sets = 2, rest = Long.MAX_VALUE)))
+
+        assertEquals(work * 2 + defaultRest, estimate)
+    }
+
+    @Test
+    fun `a default rest past the ceiling is priced at the ceiling`() {
+        val estimate = estimate(listOf(exercise(sets = 2, rest = null)), rest = Duration.INFINITE)
+
+        assertEquals(work * 2 + UserPreferences.MAX_REST_DURATION, estimate)
+    }
+
+    @Test
+    fun `a planned time longer than SetValidator admits is priced at the allowance`() {
+        val hold = exercise(sets = 0, rest = 60, type = ExerciseType.ISOMETRIC)
+            .copy(sets = List(2) { PlannedSet(duration = Long.MAX_VALUE) })
+
+        assertEquals(work * 2 + 60.seconds, estimate(listOf(hold)))
+    }
+
     /**
      * [TemplateDuration.estimate] with the user's configured default rest, over [catalogue] —
      * which the function requires and most cases here do not vary.

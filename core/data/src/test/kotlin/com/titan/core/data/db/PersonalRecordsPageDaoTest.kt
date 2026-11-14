@@ -184,6 +184,33 @@ class PersonalRecordsPageDaoTest : RoomTestBase() {
             assertEquals(3_268_000L, newest.previousValue)
         }
 
+    /**
+     * `duration × 10⁹` left a 64-bit integer for a restored duration, and SQLite went on in
+     * floating point to a figure `paceOf` could not agree with (#256). Past `SetValidator`'s
+     * bounds there is no pace, in either place.
+     */
+    @Test
+    fun `a previous pace whose duration or distance is past the validator's bounds is no figure`() =
+        runTest {
+            db.personalRecordDao().insert(
+                personalRecord(squatId, lastSetId, "BEST_PACE", achievedAt = 6_000)
+                    .copy(distance = 500_000, duration = Long.MAX_VALUE / 2),
+            )
+            db.personalRecordDao().insert(
+                personalRecord(
+                    squatId,
+                    lastSetId,
+                    "BEST_PACE",
+                    achievedAt = 7_000,
+                ).copy(distance = 500_000, duration = 1_600),
+            )
+
+            val newest = dao.getRecordsPage(type = "BEST_PACE", limit = 1, offset = 0).single()
+
+            assertNull(newest.previousValue)
+            assertNull(paceOf(durationSeconds = Long.MAX_VALUE / 2, distanceCentimetres = 500_000))
+        }
+
     @Test
     fun `a duration and a weighted hold improve on their own figures`() =
         runTest {

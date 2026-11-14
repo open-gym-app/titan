@@ -4,7 +4,9 @@ import com.titan.core.domain.gamification.StreakCalculator
 import com.titan.core.domain.notification.NotificationPreferences
 import com.titan.core.domain.notification.ReminderPreferences
 import com.titan.core.domain.plate.PlateInventory
+import com.titan.core.domain.validation.SetValidator
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -44,7 +46,8 @@ data class UserPreferences(
      *
      * The *default*, not the duration: an exercise carrying its own `defaultRest`
      * overrides it, and the rest timer sheet (#M4-24) may adjust a running countdown
-     * without this changing. Must be a positive, finite, whole number of seconds.
+     * without this changing. Must be a whole number of seconds, from one to
+     * [MAX_REST_DURATION].
      */
     val defaultRestDuration: Duration = DEFAULT_REST_DURATION,
 
@@ -55,7 +58,8 @@ data class UserPreferences(
      * Milligrams for a value the user will type as "20" is a poor fit on its own, and it
      * is stored this way anyway: it is added to and subtracted from set weights, and a
      * second unit for the same quantity is how a rounding discrepancy gets in. Must be
-     * positive — a bar of no weight is not a preference, it is a missing answer.
+     * positive — a bar of no weight is not a preference, it is a missing answer — and at most
+     * [MAX_BAR_WEIGHT].
      */
     val barWeight: Long = DEFAULT_BAR_WEIGHT,
 
@@ -106,7 +110,8 @@ data class UserPreferences(
      * the smallest step the user's own rack can make — twice its smallest plate — and that
      * follows the rack and the unit system until the user overrides it. The next-load engine
      * derives it on read; the settings dialog seeds its field with the same derivation. Must
-     * be positive when set — an increment of nothing is a missing answer, not a preference.
+     * be positive when set — an increment of nothing is a missing answer, not a preference —
+     * and at most [MAX_CUSTOM_INCREMENT].
      */
     val customIncrement: Long? = null,
 
@@ -190,15 +195,15 @@ data class UserPreferences(
         // has to persist it: `setDefaultRestDuration` refuses anything under a second, so
         // a value this constructor blessed would throw on its way back to the store. The
         // model is the one that gets to say what a rest is; the invariant belongs here.
-        require(defaultRestDuration.isFinite() && defaultRestDuration >= 1.seconds) {
-            "the default rest duration must be finite and at least one second, was $defaultRestDuration"
+        require(defaultRestDuration >= 1.seconds && defaultRestDuration <= MAX_REST_DURATION) {
+            "the default rest duration must be between one second and $MAX_REST_DURATION, was $defaultRestDuration"
         }
         require(defaultRestDuration.inWholeSeconds.seconds == defaultRestDuration) {
             "the default rest duration must be a whole number of seconds, was $defaultRestDuration"
         }
-        require(barWeight > 0) { "the bar weight must be positive, was $barWeight mg" }
-        require(customIncrement == null || customIncrement > 0) {
-            "the custom increment must be positive or absent, was $customIncrement mg"
+        require(barWeight in 1..MAX_BAR_WEIGHT) { "the bar weight must be in 1..$MAX_BAR_WEIGHT mg, was $barWeight" }
+        require(customIncrement == null || customIncrement in 1..MAX_CUSTOM_INCREMENT) {
+            "the custom increment must be in 1..$MAX_CUSTOM_INCREMENT mg or absent, was $customIncrement"
         }
         require(weeklyWorkoutGoal in StreakCalculator.WEEKLY_GOAL_RANGE) {
             "the weekly workout goal must be in ${StreakCalculator.WEEKLY_GOAL_RANGE}, was $weeklyWorkoutGoal"
@@ -250,5 +255,31 @@ data class UserPreferences(
 
         /** An Olympic barbell, 20 kg, in milligrams. */
         const val DEFAULT_BAR_WEIGHT: Long = 20_000_000L
+
+        /**
+         * The longest [defaultRestDuration]: one day.
+         *
+         * Far past any rest between two sets, and short enough that every sum a rest takes part
+         * in stays finite. Without it, a rest read from a hand-edited backup could be large
+         * enough to saturate to [Duration.INFINITE] once a template's estimate or the rest
+         * timer added to it, and the subtraction that follows throws.
+         */
+        val MAX_REST_DURATION: Duration = 1.days
+
+        /**
+         * The heaviest [barWeight], in milligrams: `SetValidator.WEIGHT_MAX_MG`, ten tonnes.
+         *
+         * Nothing heavier is a set the app can log, so nothing heavier is a bar anybody loads,
+         * and the bound keeps the plate calculator's arithmetic on a bar and a set weight well
+         * inside a `Long`.
+         */
+        const val MAX_BAR_WEIGHT: Long = SetValidator.WEIGHT_MAX_MG
+
+        /**
+         * The largest [customIncrement], in milligrams, on [MAX_BAR_WEIGHT]'s argument: the
+         * next-load engine adds it to a set weight, and both bounded by ten tonnes cannot
+         * overflow.
+         */
+        const val MAX_CUSTOM_INCREMENT: Long = SetValidator.WEIGHT_MAX_MG
     }
 }

@@ -105,6 +105,27 @@ class UserPreferencesTest {
     }
 
     @Test
+    fun `a rest longer than a day is refused, and a day is allowed`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            UserPreferences(defaultRestDuration = UserPreferences.MAX_REST_DURATION + 1.seconds)
+        }
+        assertEquals(
+            UserPreferences.MAX_REST_DURATION,
+            UserPreferences(defaultRestDuration = UserPreferences.MAX_REST_DURATION).defaultRestDuration,
+        )
+    }
+
+    @Test
+    fun `a bar or a step heavier than the heaviest set is refused`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            UserPreferences(barWeight = UserPreferences.MAX_BAR_WEIGHT + 1)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            UserPreferences(customIncrement = UserPreferences.MAX_CUSTOM_INCREMENT + 1)
+        }
+    }
+
+    @Test
     fun `a rest duration that is not whole seconds is refused`() {
         // The invariant that keeps this class and UserPreferencesRepository in step: the
         // store's resolution is a second, so a value with a fraction in it is one the

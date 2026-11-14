@@ -8,8 +8,9 @@ import com.titan.core.domain.model.WorkoutSet
  * What a run, a ride or a hold is quoted by in place of the volume it does not have, and the
  * timed twin of [VolumeCalculator]: one function per total, so the session's live stats, its
  * recap and anything after them answer the same rule rather than each writing out its own sum.
- * It must agree with the `SUM(COALESCE(ws.duration, 0))` and `SUM(COALESCE(ws.distance, 0))`
- * aggregates in `WorkoutSetDao` the same way [VolumeCalculator] agrees with the volume ones.
+ * It must agree with the `TOTAL(COALESCE(ws.duration, 0))` and `TOTAL(COALESCE(ws.distance, 0))`
+ * aggregates in `WorkoutSetDao` the same way [VolumeCalculator] agrees with the volume ones,
+ * which is why both totals saturate rather than wrap — see [saturatingPlus].
  */
 object TimedWorkCalculator {
 
@@ -20,8 +21,10 @@ object TimedWorkCalculator {
      * set that was not timed — and placeholder sets are skipped here rather than by the caller,
      * for [VolumeCalculator.totalVolume]'s reason.
      */
-    fun totalDuration(sets: Iterable<WorkoutSet>): Long = sets.sumOf { if (it.isCompleted) it.duration ?: 0L else 0L }
+    fun totalDuration(sets: Iterable<WorkoutSet>): Long =
+        sets.sumOfSaturating { if (it.isCompleted) it.duration ?: 0L else 0L }
 
     /** Total distance of the completed sets in [sets], in centimetres, by [totalDuration]'s rules. */
-    fun totalDistance(sets: Iterable<WorkoutSet>): Long = sets.sumOf { if (it.isCompleted) it.distance ?: 0L else 0L }
+    fun totalDistance(sets: Iterable<WorkoutSet>): Long =
+        sets.sumOfSaturating { if (it.isCompleted) it.distance ?: 0L else 0L }
 }

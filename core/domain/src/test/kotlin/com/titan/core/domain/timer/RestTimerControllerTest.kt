@@ -372,6 +372,26 @@ class RestTimerControllerTest {
             assertEquals(RestTimerState.Finished, timer.state.value)
         }
 
+    /**
+     * A rest at the edge of what a [Duration] holds, as a draft written from a restored
+     * backup's rest can carry. Fifteen seconds more saturated both figures to infinity, and
+     * the sheet's progress bar threw subtracting one from the other.
+     */
+    @Test
+    fun `a step that would make the rest infinite is ignored`() =
+        runTest {
+            val timer = restTimer()
+            // `Long.MAX_VALUE / 2` milliseconds is where `Duration` stores infinity itself.
+            val longest = (Long.MAX_VALUE / 2 - 1).milliseconds
+            assertTrue(longest.isFinite())
+            assertTrue((longest + 15.seconds).isInfinite())
+
+            timer.restore(RestTimerState.Paused(longest, longest))
+            timer.adjust(15.seconds)
+
+            assertEquals(RestTimerState.Paused(longest, longest), timer.state.value)
+        }
+
     @Test
     fun `adjust is a no-op when there is no rest to adjust`() =
         runTest {

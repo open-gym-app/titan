@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import com.titan.core.domain.model.UnitSystem
+import com.titan.core.domain.model.UserPreferences
 import com.titan.core.ui.format.formatWeight
 import com.titan.core.ui.format.formatWeightValue
 import com.titan.core.ui.format.parseWeightMilligrams
@@ -72,10 +73,11 @@ fun BarWeightDialog(
 
     // Parsed and range-checked in the unit it is *stored* in, not the one it was typed in. A
     // weight can be positive in kilograms and round to zero milligrams — and `setBarWeight`
-    // rejects zero, so a field that only checked the typed number would hand the ViewModel a
-    // value the repository throws on. `parseWeightMilligrams` answers only "is this a
-    // number"; the bound is this dialog's to apply.
-    val milligrams = parseWeightMilligrams(text, unitSystem)?.takeIf { it > 0 }
+    // rejects zero, and anything over `MAX_BAR_WEIGHT`, so a field that only checked the typed
+    // number would hand the ViewModel a value the repository throws on.
+    // `parseWeightMilligrams` answers only "is this a number"; the bound is this dialog's to
+    // apply.
+    val milligrams = parseWeightMilligrams(text, unitSystem)?.takeIf { it in 1..UserPreferences.MAX_BAR_WEIGHT }
     val isValid = milligrams != null
 
     AlertDialog(
@@ -124,7 +126,14 @@ fun BarWeightDialog(
                         )
                     },
                     supportingText = if (text.isNotBlank() && !isValid) {
-                        { Text(text = stringResource(R.string.settings_bar_weight_invalid)) }
+                        {
+                            Text(
+                                text = stringResource(
+                                    R.string.settings_bar_weight_invalid,
+                                    formatWeight(UserPreferences.MAX_BAR_WEIGHT, unitSystem),
+                                ),
+                            )
+                        }
                     } else {
                         null
                     },

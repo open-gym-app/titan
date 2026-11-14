@@ -147,16 +147,19 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         // Whole seconds, not merely positive: the store's resolution is a second, so 500ms
         // would truncate to zero — a value the reader then discards for the default, which
         // is a setting that silently does not take. This is exactly [UserPreferences]' own
-        // invariant read through the truncation, so every legal model value round-trips
-        // through here and nothing this accepts can produce one the model refuses.
-        require(duration.isFinite() && duration.inWholeSeconds > 0) {
-            "the default rest duration must be at least one whole second and finite, was $duration"
+        // invariant read through the truncation, ceiling included, so every legal model value
+        // round-trips through here and nothing this accepts can produce one the model refuses.
+        require(duration.inWholeSeconds > 0 && duration <= UserPreferences.MAX_REST_DURATION) {
+            "the default rest duration must be between one whole second and " +
+                "${UserPreferences.MAX_REST_DURATION}, was $duration"
         }
         dataStore.edit { it[UserPreferencesKeys.REST_DURATION_SECONDS] = duration.inWholeSeconds }
     }
 
     override suspend fun setBarWeight(barWeight: Long) {
-        require(barWeight > 0) { "the bar weight must be positive, was $barWeight mg" }
+        require(barWeight in 1..UserPreferences.MAX_BAR_WEIGHT) {
+            "the bar weight must be in 1..${UserPreferences.MAX_BAR_WEIGHT} mg, was $barWeight"
+        }
         dataStore.edit { it[UserPreferencesKeys.BAR_WEIGHT] = barWeight }
     }
 
@@ -232,8 +235,8 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     }
 
     override suspend fun setCustomIncrement(milligrams: Long?) {
-        require(milligrams == null || milligrams > 0) {
-            "the custom increment must be positive or absent, was $milligrams mg"
+        require(milligrams == null || milligrams in 1..UserPreferences.MAX_CUSTOM_INCREMENT) {
+            "the custom increment must be in 1..${UserPreferences.MAX_CUSTOM_INCREMENT} mg or absent, was $milligrams"
         }
         dataStore.edit {
             if (milligrams == null) {
@@ -415,11 +418,11 @@ private object UserPreferencesKeys {
  * "No usable answer" is four cases and they are handled identically: the key is absent
  * (a fresh install, or a setting never changed), the key holds an enum name this build
  * does not have (a value written by a newer build, or one since renamed), the key holds a
- * number the model refuses (a non-positive rest or bar weight, a weekly goal out of range,
- * which no setter would have written), or the key holds a value of the wrong *type*
- * altogether — a build that stored a flag as text, or a hand-edited file. The last two are the
- * ones that would otherwise throw, and they would throw from inside a `map` on a flow a screen
- * is collecting.
+ * number the model refuses (a rest, bar weight or increment outside its bounds, a weekly
+ * goal out of range, which no setter would have written), or the key holds a value of the
+ * wrong *type* altogether — a build that stored a flag as text, or a hand-edited file. The
+ * last two are the ones that would otherwise throw, and they would throw from inside a `map`
+ * on a flow a screen is collecting.
  *
  * Every read below therefore goes through [valueOrNull] rather than `Preferences.get`,
  * which casts the stored value to the key's type and throws [ClassCastException] when it
@@ -438,9 +441,11 @@ private fun toUserPreferences(stored: Preferences): UserPreferences {
         theme = values.valueOrNull(UserPreferencesKeys.THEME).toEnumOrDefault(defaults.theme),
         defaultRestDuration = values.valueOrNull(UserPreferencesKeys.REST_DURATION_SECONDS)
             ?.seconds
-            ?.takeIf { it > Duration.ZERO && it.isFinite() }
+            ?.takeIf { it > Duration.ZERO && it <= UserPreferences.MAX_REST_DURATION }
             ?: defaults.defaultRestDuration,
-        barWeight = values.valueOrNull(UserPreferencesKeys.BAR_WEIGHT)?.takeIf { it > 0 } ?: defaults.barWeight,
+        barWeight = values.valueOrNull(UserPreferencesKeys.BAR_WEIGHT)
+            ?.takeIf { it in 1..UserPreferences.MAX_BAR_WEIGHT }
+            ?: defaults.barWeight,
         plateInventory = values.valueOrNull(UserPreferencesKeys.PLATE_INVENTORY)?.toPlateInventoryOrNull(),
         trainingGoal = values.valueOrNull(UserPreferencesKeys.TRAINING_GOAL).toEnumOrDefault(defaults.trainingGoal),
         fitnessLevel = values.valueOrNull(UserPreferencesKeys.FITNESS_LEVEL).toEnumOrDefault(defaults.fitnessLevel),
@@ -448,7 +453,8 @@ private fun toUserPreferences(stored: Preferences): UserPreferences {
             min = values.valueOrNull(UserPreferencesKeys.CUSTOM_REP_RANGE_MIN),
             max = values.valueOrNull(UserPreferencesKeys.CUSTOM_REP_RANGE_MAX),
         ) ?: defaults.customRepRange,
-        customIncrement = values.valueOrNull(UserPreferencesKeys.CUSTOM_INCREMENT)?.takeIf { it > 0 },
+        customIncrement = values.valueOrNull(UserPreferencesKeys.CUSTOM_INCREMENT)
+            ?.takeIf { it in 1..UserPreferences.MAX_CUSTOM_INCREMENT },
         onboardingCompleted = values.valueOrNull(UserPreferencesKeys.ONBOARDING_COMPLETED)
             ?: defaults.onboardingCompleted,
         oneRepMaxFormula = values.valueOrNull(UserPreferencesKeys.ONE_REP_MAX_FORMULA)
