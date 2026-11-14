@@ -80,8 +80,8 @@ fun BackupRoute(
 
     // Where a copy of the finished export goes. `CreateDocument` is the *only* way an app can
     // put a file somewhere the user can find it: the export is written to internal storage below
-    // Android 10, which no file manager can browse, and to `Android/data/…` from it, which is off
-    // limits to file managers on Android 11 and up. No permission exists that would change that
+    // Android 11, which no file manager can browse, and to `Android/data/…` from it, which is off
+    // limits to file managers there. No permission exists that would change that
     // — `WRITE_EXTERNAL_STORAGE` has done nothing since Android 10. The picker seeds the name
     // field with the export's, so the file keeps its timestamp.
     val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(BACKUP_MIME_TYPE)) { uri ->

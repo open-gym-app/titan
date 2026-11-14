@@ -155,7 +155,7 @@ class BackupViewModelTest {
         }
 
     /**
-     * From Android 10 the directory follows whichever volume is mounted, so the root it names
+     * From Android 11 the directory follows whichever volume is mounted, so the root it names
      * can change between the export and the tap on Share. The file the export wrote is still
      * the one handed over, not a name under the other root with nothing behind it.
      */

@@ -32,11 +32,11 @@
   same corruption by a different file.
 
   `backups/` is listed in two domains for one directory, and both are needed: every backup is
-  written under `files/` below Android 10, where the external files directory is readable by
+  written under `files/` below Android 11, where the external files directory is readable by
   other apps (#259), and on a device with no external volume; and under the app's external
   files directory otherwise (`BackupDirectory`, implemented by `AppBackupDirectory`, and the
   two paths `file_paths.xml` declares for the same reason). Excluding only the `external` copy
-  would leave every export on an Android 8 or 9 phone travelling to Drive — the one file this
+  would leave every export on an Android 8 to 10 phone travelling to Drive — the one file this
   whole boundary exists to keep on the device.
 
   `no_backup/` is exempt from all of this by the platform and needs no entry — which is why

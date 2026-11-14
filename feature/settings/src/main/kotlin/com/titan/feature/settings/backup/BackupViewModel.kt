@@ -277,9 +277,9 @@ class BackupViewModel @Inject constructor(
      *
      * ### Why this exists at all
      *
-     * [backupDirectory] is app-specific storage: internal storage below Android 10, which no
+     * [backupDirectory] is app-specific storage: internal storage below Android 11, which no
      * file manager can browse at all, and the external files directory from it, which none
-     * may browse on Android 11 and up. The share sheet lists apps that *receive* a file rather
+     * may browse either. The share sheet lists apps that *receive* a file rather
      * than places to put one — on a stock device nothing in it offers "save to Downloads". So an
      * export the user could not reach was the whole of what the feature delivered. The system
      * document picker is the way out, and it needs no permission: `WRITE_EXTERNAL_STORAGE` has
@@ -543,13 +543,13 @@ class BackupViewModel @Inject constructor(
      * Public for the share, which the route hands straight to the platform: the screen knows
      * the file by the name on its card, and this is what turns that into the file. The
      * directory is [backupDirectory]'s, the one the weekly backup and "Delete all data" use
-     * too — app-specific storage kept out of other apps' reach (see `AppBackupDirectory` for
-     * the one open question on Android 10), and that goes away with an uninstall, which is the
+     * too — app-specific storage kept out of other apps' reach (see `AppBackupDirectory`), and
+     * that goes away with an uninstall, which is the
      * right lifetime for a file whose whole purpose is to be handed to somewhere else.
      * `file_paths.xml` declares a `FileProvider` path under both roots it can be in.
      *
      * Looked for under every root rather than only the one [BackupDirectory.resolve] names now:
-     * from Android 10 that follows whichever volume is mounted, so an export written to the
+     * from Android 11 that follows whichever volume is mounted, so an export written to the
      * internal fallback while the external volume was away would otherwise be shared, or
      * copied, as a file that is not there once the volume came back.
      *

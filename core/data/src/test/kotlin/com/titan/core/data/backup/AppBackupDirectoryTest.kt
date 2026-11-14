@@ -19,10 +19,11 @@ import java.io.RandomAccessFile
  * Which root the backups live under on which Android version, and the move that follows an
  * install from one to the other (#259).
  *
- * Robolectric at two levels, because the rule *is* the SDK level: 28 for Android 9, where the
- * external files directory is readable by any app with storage access, and the project's usual
- * 34 for a current phone. The external files directory is a real temporary directory at both,
- * separate from `filesDir`, which is what makes a move between them observable.
+ * Robolectric at three levels, because the rule *is* the SDK level: 28 for Android 9, where the
+ * external files directory is readable by any app with storage access, 29 for Android 10, where
+ * it still is to an app in legacy storage mode, and the project's usual 34 for a current phone.
+ * The external files directory is a real temporary directory at each, separate from `filesDir`,
+ * which is what makes a move between them observable.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], manifest = Config.NONE)
@@ -41,17 +42,24 @@ class AppBackupDirectoryTest {
 
     @Test
     @Config(sdk = [28])
-    fun `below Android 10 backups are in internal storage`() {
+    fun `below Android 11 backups are in internal storage`() {
+        assertEquals(internal, AppBackupDirectory(context).resolve())
+    }
+
+    /** Scoped storage arrived here, but an app in legacy storage mode still sees the directory. */
+    @Test
+    @Config(sdk = [29])
+    fun `on Android 10 backups are in internal storage too`() {
         assertEquals(internal, AppBackupDirectory(context).resolve())
     }
 
     @Test
-    fun `from Android 10 backups are in the external files directory`() {
+    fun `from Android 11 backups are in the external files directory`() {
         assertEquals(external, AppBackupDirectory(context).resolve())
     }
 
     @Test
-    fun `from Android 10 a device with no external volume keeps them in internal storage`() {
+    fun `from Android 11 a device with no external volume keeps them in internal storage`() {
         val noExternalVolume = object : ContextWrapper(context) {
             override fun getExternalFilesDir(type: String?): File? = null
         }
@@ -66,7 +74,7 @@ class AppBackupDirectoryTest {
      */
     @Test
     @Config(sdk = [28])
-    fun `below Android 10 an older install's backups are moved out of shared storage`() {
+    fun `below Android 11 an older install's backups are moved out of shared storage`() {
         write(external, "titan-auto-2026-11-01.json", "auto")
         write(external, "titan-backup-2026-11-09-1432.json", "manual")
         write(external, "titan-auto-2026-11-08.json.tmp", "partial")
@@ -128,12 +136,12 @@ class AppBackupDirectoryTest {
     }
 
     /**
-     * A phone that moves to Android 10 with its backups in internal storage: the directory the
+     * A phone that moves to Android 11 with its backups in internal storage: the directory the
      * app reads changes, so the files follow it rather than sitting where no export, share or
      * retention pass looks.
      */
     @Test
-    fun `from Android 10 backups left in internal storage follow the directory`() {
+    fun `from Android 11 backups left in internal storage follow the directory`() {
         write(internal, "titan-backup-2026-11-09-1432.json", "manual")
 
         val directory = AppBackupDirectory(context).resolve()
@@ -144,7 +152,7 @@ class AppBackupDirectoryTest {
     }
 
     /**
-     * Larger than any restore would read, and on Android 9 possibly planted by another app with
+     * Larger than any restore would read, and below Android 11 possibly planted by another app with
      * storage access: it stays out of private storage. Sparse, so the test writes no 64 MB.
      */
     @Test
@@ -165,21 +173,38 @@ class AppBackupDirectoryTest {
     /**
      * "Delete all data" before any export: it lists both roots and wipes them, so copying the old
      * backups across first would be wasted. The process counts as settled, and a later [resolve]
-     * does not move them either; they are where [AppBackupDirectory.everyDirectory] said.
+     * does not move them either; they are where [AppBackupDirectory.everyDirectoryToWipe] said.
      */
     @Test
     @Config(sdk = [28])
-    fun `asking for every directory first settles the process without moving anything`() {
+    fun `asking for every directory to wipe first settles the process without moving anything`() {
         write(external, "titan-auto-2026-11-01.json", "auto")
         val process = AppBackupDirectory(context)
 
-        val directories = process.everyDirectory()
+        val directories = process.everyDirectoryToWipe()
 
         assertEquals(listOf(internal, external), directories)
         assertEquals(listOf("titan-auto-2026-11-01.json"), names(external))
         assertEquals(internal, process.resolve())
         assertFalse(internal.exists())
         assertTrue(File(external, "titan-auto-2026-11-01.json").isFile)
+    }
+
+    /**
+     * A caller that only looks — the share, finding an export by name — lists both roots too,
+     * and must not switch the move off for the rest of the process by asking first.
+     */
+    @Test
+    @Config(sdk = [28])
+    fun `asking for every directory to look in still lets the move run`() {
+        write(external, "titan-auto-2026-11-01.json", "auto")
+        val process = AppBackupDirectory(context)
+
+        assertEquals(listOf(internal, external), process.everyDirectory())
+        assertTrue(File(external, "titan-auto-2026-11-01.json").isFile)
+
+        assertEquals(listOf("titan-auto-2026-11-01.json"), names(process.resolve()))
+        assertFalse(external.exists())
     }
 
     @Test

@@ -34,9 +34,9 @@ deixa nenhum outro app ler.
 Se você ativar o **Backup automático semanal** (Configurações › Backup e restauração), o app
 também grava, uma vez por semana, um arquivo de backup na própria pasta de backups dele, a
 mesma em que **Exportar um backup** grava. Ele mantém os três mais recentes e exclui os mais
-antigos. No Android 10 e versões posteriores, que restringem o acesso de outros apps a essa
+antigos. No Android 11 e versões posteriores, que impedem o acesso de outros apps a essa
 pasta, ela fica no armazenamento compartilhado do aparelho
-(`Android/data/app.titan.gym/files/backups`). No Android 8 e 9, onde outros apps com acesso ao
+(`Android/data/app.titan.gym/files/backups`). No Android 8 a 10, onde outros apps com acesso ao
 armazenamento poderiam ler esse local, a pasta fica no armazenamento interno privado do app, e
 um backup só sai dela quando você usa **Compartilhar** ou **Salvar uma cópia…** em
 Configurações › Backup e restauração. Esses arquivos ficam no celular, e o Android os exclui

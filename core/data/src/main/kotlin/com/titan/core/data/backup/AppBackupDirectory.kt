@@ -11,8 +11,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * `backups/` under app-private internal storage below Android 10, and under the app's external
- * files directory from Android 10 on (#259).
+ * `backups/` under app-private internal storage below Android 11, and under the app's external
+ * files directory from Android 11 on (#259).
  *
  * ### Why the Android version decides
  *
@@ -20,28 +20,29 @@ import javax.inject.Singleton
  * the app trusts. On Android 8 and 9 the app's external files directory
  * (`Android/data/<package>/files`) is readable and writable by any app holding
  * `READ_EXTERNAL_STORAGE` or `WRITE_EXTERNAL_STORAGE`, which gallery, file-manager and messaging
- * apps commonly do. From Android 10 the platform scopes that directory to its owner (see
- * [FIRST_SCOPED_SDK] for the one open question), and it has the advantages that made it the
- * choice in the first place: it is listed under the app in the system's storage screen, and a
- * computer over USB can still reach it. Below Android 10 those advantages cost the sandbox, so
- * the files stay in `filesDir`, which no other app can read on any version. They leave the
+ * apps commonly do, and on Android 10 by such an app in legacy storage mode (see
+ * [FIRST_SCOPED_SDK]). From Android 11 the platform keeps that directory from every other app,
+ * and it has the advantages that made it the choice in the first place: it is listed under the
+ * app in the system's storage screen, and a computer over USB can still reach it. Below Android
+ * 11 those advantages cost the sandbox, so the files stay in `filesDir`, which no other app can
+ * read on any version. They leave the
  * phone through the backup screen's "Save a copy…" and "Share"; `file_paths.xml` serves the
  * share from both roots.
  *
- * From Android 10, a device with no external volume mounted has a null `getExternalFilesDir`,
+ * From Android 11, a device with no external volume mounted has a null `getExternalFilesDir`,
  * and the directory falls back to `filesDir` there too.
  *
  * ### Backups written under the other root are moved here
  *
- * A build older than this rule left its backups in shared storage on Android 8 and 9, and a
- * phone upgraded to Android 10 has its backups in `filesDir`. Either way they are in a directory
+ * A build older than this rule left its backups in shared storage on Android 8 to 10, and a
+ * phone upgraded to Android 11 has its backups in `filesDir`. Either way they are in a directory
  * that no export, share or retention pass looks in any more; only "Delete all data", which
- * empties both roots through [everyDirectory], still finds them. So the first [resolve] in a
+ * empties both roots through [everyDirectoryToWipe], still finds them. So the first [resolve] in a
  * process moves every finished backup (`titan-*.json`, manual and
  * automatic alike) from the other root's `backups/` into this one, deletes the scratch files
  * (`titan-*.json.tmp`) an interrupted export left there, and removes the old directory if that
  * leaves it empty. Anything else in it is not the app's and is left alone, and so is a backup
- * larger than [ExportFormat.MAX_DOCUMENT_BYTES]: no restore would read it, and on Android 8 and 9
+ * larger than [ExportFormat.MAX_DOCUMENT_BYTES]: no restore would read it, and on Android 8 to 10
  * the old directory is one other apps can write to, so a file that size is as likely planted as
  * the app's, and copying it would hold up the first export for nothing. A forged backup under
  * the limit does come across; it is no more trusted here than it was where the older build
@@ -55,11 +56,12 @@ import javax.inject.Singleton
  * cold start's path. Every caller but the share reaches here on a background thread; the share
  * only offers a file an export wrote earlier in the same process, so by then the move is done.
  *
- * **Not when [everyDirectory] comes first.** Its callers look in both roots themselves, so a
- * move would only shuffle files they reach anyway, and for "Delete all data" — the caller that
- * can come first, on a phone upgraded and wiped before any export — it would copy tens of
- * megabytes only to delete them a moment later. So [everyDirectory] settles the process without
- * moving anything. It takes the same lock as the move: one another thread has started finishes
+ * **Not when [everyDirectoryToWipe] comes first.** "Delete all data" — the caller that can come
+ * first, on a phone upgraded and wiped before any export — empties both roots itself, so a move
+ * would copy tens of megabytes only to delete them a moment later. So [everyDirectoryToWipe]
+ * settles the process without moving anything. [everyDirectory], which only lists the roots for
+ * a caller looking for one file, does not: it would otherwise switch the move off for the rest
+ * of the process on behalf of a caller that deletes nothing. It takes the same lock as the move: one another thread has started finishes
  * before the directories are listed, and none can start after, so no copy lands behind a wipe.
  * If the wipe then fails, what it left under the old root waits for the next process.
  *
@@ -89,16 +91,20 @@ class AppBackupDirectory @Inject constructor(@param:ApplicationContext private v
         return directory
     }
 
-    /** Settles the process without moving anything; see the class doc for why. */
     override fun everyDirectory(): List<File> {
-        synchronized(lock) { settled = true }
         val current = File(root(), BackupDirectory.NAME)
         return (listOf(current) + roots().map { File(it, BackupDirectory.NAME) }).distinct()
     }
 
+    /** Settles the process without moving anything; see the class doc for why. */
+    override fun everyDirectoryToWipe(): List<File> {
+        synchronized(lock) { settled = true }
+        return everyDirectory()
+    }
+
     private fun roots(): List<File> = listOfNotNull(context.getExternalFilesDir(null), context.filesDir)
 
-    /** `filesDir` below Android 10; from it, the external files directory when there is one. */
+    /** `filesDir` below Android 11; from it, the external files directory when there is one. */
     private fun root(): File =
         if (Build.VERSION.SDK_INT >= FIRST_SCOPED_SDK) {
             context.getExternalFilesDir(null) ?: context.filesDir
@@ -160,16 +166,15 @@ class AppBackupDirectory @Inject constructor(@param:ApplicationContext private v
 
         /**
          * The first Android version whose external files directory is the app's alone: Android
-         * 10, where scoped storage arrived. Below it the backups are in `filesDir`.
+         * 11. Below it the backups are in `filesDir`.
          *
-         * The one number the rule turns on. Android 10 still let an app in legacy storage mode
-         * (targeting Android 9 or below, or opting out) see the whole of shared storage, and
-         * Android's documentation lists other apps' app-specific directories among what
-         * Android 11 closed; whether such an app can read this directory on Android 10 is an
-         * open device check, recorded in `release/security-audit.md` (#259). If it can, this
-         * becomes `Build.VERSION_CODES.R`.
+         * Not Android 10, where scoped storage arrived: Android 10 still lets an app in legacy
+         * storage mode (targeting Android 9 or below, or opting out) see the whole of shared
+         * storage, and Android's documentation lists other apps' app-specific directories among
+         * what Android 11 closed. Internal storage is safe on Android 10 whatever a device check
+         * would find there, so the rule does not wait for one (`release/security-audit.md`).
          */
-        const val FIRST_SCOPED_SDK = Build.VERSION_CODES.Q
+        const val FIRST_SCOPED_SDK = Build.VERSION_CODES.R
 
         /**
          * What every backup file the app writes starts with: `titan-auto-` for the weekly ones

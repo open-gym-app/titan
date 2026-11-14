@@ -34,9 +34,9 @@ Android no deja leer a ninguna otra app.
 Si activas la **Copia automática semanal** (Ajustes › Copia de seguridad y restauración), la
 app también escribe una vez por semana un archivo de copia en su propia carpeta de copias, la
 misma en la que escribe **Exportar una copia de seguridad**. Conserva las tres más recientes y
-borra las anteriores. En Android 10 y versiones posteriores, que restringen el acceso de otras
+borra las anteriores. En Android 11 y versiones posteriores, que impiden el acceso de otras
 apps a esa carpeta, está en el almacenamiento compartido del dispositivo
-(`Android/data/app.titan.gym/files/backups`). En Android 8 y 9, donde otras apps con acceso al
+(`Android/data/app.titan.gym/files/backups`). En Android 8 a 10, donde otras apps con acceso al
 almacenamiento podrían leer esa ubicación, la carpeta está en cambio en el almacenamiento
 interno privado de la app, y una copia solo sale de ella cuando usas **Compartir** o
 **Guardar una copia…** en Ajustes › Copia de seguridad y restauración. Esos archivos se quedan

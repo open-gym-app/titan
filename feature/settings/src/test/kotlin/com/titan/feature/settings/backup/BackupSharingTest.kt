@@ -32,9 +32,9 @@ import java.io.File
  *   This test found it.
  *
  * - A `file_paths.xml` that serves one root and not the other fails only on the Android
- *   versions that write there: internal storage on Android 8 and 9, where no file manager can
+ *   versions that write there: internal storage on Android 8 to 10, where no file manager can
  *   reach a backup and the share is one of only two ways out, and the external files directory
- *   from Android 10 (#259).
+ *   from Android 11 (#259).
  *
  * The provider is declared in this module's manifest, so the unit-test manifest carries it as
  * `com.titan.feature.settings.test.fileprovider` — exactly `"$packageName.fileprovider"`,
@@ -96,10 +96,10 @@ class BackupSharingTest {
         // cannot be opened.
         assertEquals(DOCUMENT, read(uri))
 
-        // The same for a backup in internal storage, where Android 8 and 9 keep them.
+        // The same for a backup in internal storage, where Android 8 to 10 keep them.
         val internal = writeBackup(context.filesDir, INTERNAL_DOCUMENT)
         context.shareBackup(internal)
-        val internalChooser = requireNotNull(shadowOf(context as Application).nextStartedActivity)
+        val internalChooser = requireNotNull(shadowOf(context).nextStartedActivity)
         val internalSend = requireNotNull(internalChooser.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java))
         assertEquals(
             INTERNAL_DOCUMENT,

@@ -14,11 +14,11 @@ import javax.inject.Singleton
  * ### The same directory the manual export writes to
  *
  * `backups/` in app-specific storage, resolved by the [BackupDirectory] the backup screen's
- * export also asks: internal storage below Android 10, the external files directory from it
- * (see [AppBackupDirectory] for why, and for the one open question on Android 10). Either way
+ * export also asks: internal storage below Android 11, the external files directory from it
+ * (see [AppBackupDirectory] for why). Either way
  * it needs no permission, it is kept out of other apps' reach, and it is **deleted on
  * uninstall**, and emptied by "delete all data" (`LocalDataRepositoryImpl`, through
- * [everyDirectory]). That is the fact the backup screen has to state next to the toggle: a
+ * [everyDirectoryToWipe]). That is the fact the backup screen has to state next to the toggle: a
  * user who believes a weekly automatic backup survives a reinstall and finds out otherwise has
  * been actively misled. The manual export (#38) is what exists for that, and it is why "Save a
  * copy…" is the first button on the card it produces.
@@ -53,9 +53,10 @@ class AutoBackupFiles @Inject constructor(private val backupDirectory: BackupDir
 
     /**
      * Every `backups/` a backup can have been written to, for "delete all data", which has to
-     * find every copy. See [BackupDirectory.everyDirectory] for why [directory] alone is not it.
+     * find every copy. See [BackupDirectory.everyDirectory] for why [directory] alone is not it,
+     * and [BackupDirectory.everyDirectoryToWipe] for what asking for them this way settles.
      */
-    val everyDirectory: List<File> get() = backupDirectory.everyDirectory()
+    val everyDirectoryToWipe: List<File> get() = backupDirectory.everyDirectoryToWipe()
 
     /** The file a run started at [at] writes, named for that day in the device's own zone. */
     fun fileFor(at: Long): File {

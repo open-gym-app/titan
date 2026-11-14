@@ -19,7 +19,8 @@ import java.io.File
  * - The directory is app-specific storage, chosen on each Android version to keep it out of
  *   other apps' reach, and Android deletes it on uninstall.
  * - Any backup an older build left somewhere else on this device has been moved here before
- *   [resolve] returns the first time in a process, unless [everyDirectory] was asked first. A
+ *   [resolve] returns the first time in a process, unless [everyDirectoryToWipe] was asked
+ *   first. A
  *   caller may therefore list, write or delete in it without knowing the history.
  * - The directory is not created: whoever writes into it does that, so a device that never
  *   exports grows no empty directory.
@@ -37,15 +38,23 @@ fun interface BackupDirectory {
     /**
      * Every `backups/` a backup can have been written to, [resolve]'s first.
      *
-     * For "Delete all data", which has to find every copy: [resolve] answers for the volume
+     * For a caller that has to find a file wherever it is: [resolve] answers for the volume
      * mounted *now*, so it would miss a backup written to the internal fallback while the
      * external volume was away. Defaults to [resolve] alone for an implementation with one root.
      *
-     * Because the caller looks in every root, an implementation that moves old backups need not
-     * move them for it, and may settle the process without moving instead: "Delete all data"
-     * would otherwise copy files only to delete them.
+     * Asking changes nothing: old backups are still moved by the next [resolve].
      */
     fun everyDirectory(): List<File> = listOf(resolve())
+
+    /**
+     * [everyDirectory], for "Delete all data", which is about to empty every one of them.
+     *
+     * Because the caller deletes in every root, an implementation that moves old backups need
+     * not move them for it, and may settle the process without moving instead: the wipe would
+     * otherwise copy files only to delete them. Kept apart from [everyDirectory] so that a
+     * caller that only looks cannot switch the move off by asking first.
+     */
+    fun everyDirectoryToWipe(): List<File> = everyDirectory()
 
     companion object {
 

@@ -291,7 +291,7 @@ class LocalDataRepositoryImpl @Inject constructor(
      * scratch file either may have left. Each is the whole history in plain JSON, which is
      * exactly what the user has just asked to erase.
      *
-     * The directories are [AutoBackupFiles.everyDirectory], from the one place in this module
+     * The directories are [AutoBackupFiles.everyDirectoryToWipe], from the one place in this module
      * that resolves them, so a move of the backups is followed here without a second path to
      * keep in step. Both roots rather than [AutoBackupFiles.directory] alone, because that one
      * follows whichever volume is mounted now, and a backup written while the external volume
@@ -313,7 +313,7 @@ class LocalDataRepositoryImpl @Inject constructor(
      * depend on it. One that vanished between the listing and the delete is not stuck.
      */
     private fun deleteBackups(): List<File> {
-        val directories = backupFiles.everyDirectory
+        val directories = backupFiles.everyDirectoryToWipe
         var stuck = emptyList<File>()
         repeat(BACKUP_DELETE_PASSES) {
             stuck = directories

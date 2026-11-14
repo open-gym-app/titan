@@ -33,9 +33,9 @@ app read.
 
 If you turn on **Weekly auto-backup** (Settings › Backup & restore), the app also writes a
 backup file once a week into its own backup folder, the one **Export a backup** writes to. It
-keeps the three most recent and deletes older ones. On Android 10 and later, which restricts
-other apps' access to it, that folder is on the device's shared storage
-(`Android/data/app.titan.gym/files/backups`). On Android 8 and 9, where other apps with
+keeps the three most recent and deletes older ones. On Android 11 and later, which keeps
+other apps out of it, that folder is on the device's shared storage
+(`Android/data/app.titan.gym/files/backups`). On Android 8 to 10, where other apps with
 storage access could read that location, the folder is in the app's private internal storage
 instead, and a backup leaves it only when you use **Share** or **Save a copy…** in
 Settings › Backup & restore. These files stay on the phone, and Android deletes them when you

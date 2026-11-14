@@ -68,7 +68,7 @@ class BackupRulesTest {
         "file" to TemplateDraftRepositoryImpl.DOCUMENT_NAME,
         "file" to TemplateDraftRepositoryImpl.SCRATCH_NAME,
         // Exported and automatic backups, in both domains the directory can land in: under
-        // `files/` below Android 10 (#259) and on a device with no external volume, and under
+        // `files/` below Android 11 (#259) and on a device with no external volume, and under
         // the app's external files directory otherwise. Every writer resolves it through the
         // one `BackupDirectory`, so one constant names it. "Deleted on uninstall" is only true
         // while both lines are here.

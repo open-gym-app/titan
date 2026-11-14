@@ -36,9 +36,9 @@ l’application, qu’Android ne laisse lire à aucune autre application.
 Si vous activez la **Sauvegarde auto hebdomadaire** (Paramètres › Sauvegarde & restauration),
 l’application écrit aussi, une fois par semaine, un fichier de sauvegarde dans son propre
 dossier de sauvegardes, celui où écrit **Exporter une sauvegarde**. Elle garde les trois plus
-récents et supprime les plus anciens. Sous Android 10 et versions ultérieures, qui
-restreignent l’accès des autres applications à ce dossier, il se trouve dans le stockage
-partagé de l’appareil (`Android/data/app.titan.gym/files/backups`). Sous Android 8 et 9, où
+récents et supprime les plus anciens. Sous Android 11 et versions ultérieures, qui
+interdisent l’accès des autres applications à ce dossier, il se trouve dans le stockage
+partagé de l’appareil (`Android/data/app.titan.gym/files/backups`). Sous Android 8 à 10, où
 d’autres applications ayant accès au stockage pourraient lire cet emplacement, le dossier se
 trouve plutôt dans le stockage interne privé de l’application, et une sauvegarde n’en sort
 que lorsque vous utilisez **Partager** ou **Enregistrer une copie…** dans Paramètres ›
