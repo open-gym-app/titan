@@ -175,10 +175,13 @@ jobs:
           status: completed
           mappingFile: app/build/outputs/mapping/release/mapping.txt
 
-      - name: Publish the GitHub release
+      # Releases are immutable on this repository: nothing can be attached once one is
+      # published. So the release is drafted with its files first, then published.
+      - name: Draft the GitHub release
         if: github.event_name == 'workflow_run' && env.KIND != 'dry-run'
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
+          draft: true
           tag_name: v${{ env.VERSION }}
           # Only used if the tag was deleted after the gate checked it: the release then names
           # the commit that was built, not `main`'s tip.
@@ -190,6 +193,12 @@ jobs:
           files: |
             dist/titan-${{ env.VERSION }}.apk
             dist/titan-${{ env.VERSION }}.apk.sha256
+
+      - name: Publish the GitHub release
+        if: github.event_name == 'workflow_run' && env.KIND != 'dry-run'
+        run: gh release edit "v$VERSION" --draft=false --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Remove the upload keystore
         if: always()
