@@ -2,7 +2,8 @@
 # Runs settings.sh against a fake `adb` on PATH whose phone is a directory of files, one per
 # setting. The fake hands `adb shell`'s arguments to `sh -c` joined by spaces, as adb does, so
 # a value that settings.sh failed to quote would be run there; the first case's value carries
-# a command that would leave a file behind. `make a11y-settings-test` runs it, and so does CI.
+# a command that would leave a file behind. With ADB_DROP_AFTER_PUTS=N, the device goes offline
+# once N `settings put`s have gone through. `make a11y-settings-test` runs it, and so does CI.
 set -euo pipefail
 
 script="${A11Y_SETTINGS:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/settings.sh}"
@@ -15,6 +16,12 @@ cat >"$work/bin/adb" <<'FAKE'
 set -eu
 # `adb -s SERIAL ...`, the way `make ADB="adb -s SERIAL"` calls it.
 if [ "$1" = -s ]; then shift 2; fi
+puts="$(cat "$PHONE.puts" 2>/dev/null || echo 0)"
+if [ -n "${ADB_DROP_AFTER_PUTS:-}" ] && [ "$puts" -ge "$ADB_DROP_AFTER_PUTS" ]; then
+  echo "error: device offline" >&2
+  exit 1
+fi
+case "$*" in *"settings put"*) echo $((puts + 1)) >"$PHONE.puts" ;; esac
 case "$1" in
   get-serialno) echo "FAKE-0001"; exit 0 ;;
   shell) shift ;;
@@ -53,7 +60,7 @@ expect() {
   [[ "$got" == "$3" ]] || fail "$1/$2 is [$got], want [$3]"
 }
 phone() {
-  rm -rf "$PHONE" "$A11Y_STATE_DIR" "$work/pwned"
+  rm -rf "$PHONE" "$PHONE.puts" "$A11Y_STATE_DIR" "$work/pwned"
   mkdir -p "$PHONE/secure" "$PHONE/system"
 }
 seed() { printf %s "$3" >"$PHONE/$1/$2"; }
@@ -76,6 +83,16 @@ expect secure accessibility_enabled 1
 expect system font_scale 1.15
 [[ ! -e "$work/pwned" ]] || fail "a value read off the phone was run by the phone's shell"
 [[ -z "$(ls -A "$A11Y_STATE_DIR")" ]] || fail "the saved state outlived the reset"
+
+case_name="the same list under bash 3.2's quoting rules, macOS's bash"
+phone
+seed secure enabled_accessibility_services "$HOSTILE"
+seed secure accessibility_enabled 1
+BASH_COMPAT=32 run enable-service "$SCANNER"
+expect secure enabled_accessibility_services "$HOSTILE:$SCANNER"
+BASH_COMPAT=32 run reset "$SCANNER"
+expect secure enabled_accessibility_services "$HOSTILE"
+[[ ! -e "$work/pwned" ]] || fail "a value read off the phone was run by the phone's shell"
 
 case_name="settings that were never written are deleted again, not left empty"
 phone
@@ -121,6 +138,20 @@ run reset "$SCANNER"
 expect secure enabled_accessibility_services "$OWN:$TALKBACK"
 expect secure accessibility_enabled 1
 expect system font_scale 1.3
+
+case_name="a step that adb drops halfway does not leave its change saved as the phone's own"
+phone
+seed secure enabled_accessibility_services "$OWN"
+seed secure accessibility_enabled 1
+if ADB_DROP_AFTER_PUTS=1 bash "$script" enable-service "$SCANNER" >/dev/null 2>&1; then
+  fail "settings.sh carried on after the device went offline"
+fi
+expect secure enabled_accessibility_services "$OWN:$SCANNER"
+rm -f "$PHONE.puts"
+run enable-service "$SCANNER"
+run reset "$SCANNER"
+expect secure enabled_accessibility_services "$OWN"
+expect secure accessibility_enabled 1
 
 case_name="a reset keeps what was changed by hand since the pass, and puts back the rest"
 phone

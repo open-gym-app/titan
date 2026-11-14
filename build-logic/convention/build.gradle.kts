@@ -8,8 +8,8 @@ plugins {
 group = "com.titan.buildlogic"
 
 // The toolchain every module compiles against, vendor included, read from the same catalog
-// entries `titanJdk()` in AndroidSdk.kt reads: this script cannot call the code it compiles.
-// The convention plugins are loaded into the same daemon that builds them.
+// entries `titanJdk()` in JvmToolchainConventionPlugin.kt reads: this script cannot call the
+// code it compiles. The convention plugins are loaded into the same daemon that builds them.
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(libs.versions.jdk.get()))

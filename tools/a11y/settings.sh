@@ -17,6 +17,8 @@
 # longer matches was changed outside the pass, by hand or after a pass that never reached
 # `reset`, so what the phone has now is the developer's own: the next step saves it in place
 # of the old value, and `reset` keeps it rather than writing back a snapshot from weeks ago.
+# A step writes the file before it changes the phone, with the values it is about to put, so
+# a step that adb drops halfway leaves its changes on record as the pass's and not the phone's.
 #
 # `adb shell` hands its arguments to the phone's shell as one command line, which parses them
 # again; a value read off the phone and passed back bare would be run as shell syntax there.
@@ -38,7 +40,13 @@ NOW=() SAVED=() LEFT=() STATE=""
 die() { echo "$*" >&2; exit 1; }
 
 # $1 quoted for a POSIX shell: inside single quotes, nothing is special but the quote itself.
-quote() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
+# The `'\''` that stands for a quote is held in a variable because bash before 4.3, macOS's
+# 3.2 among them, does no quote removal on a replacement written inside double quotes: there
+# `\'\\\'\'` comes out as `\'\'\'`, which leaves the value's quote unbalanced on the phone.
+quote() {
+  local escaped="'\\''"
+  printf "'%s'" "${1//\'/$escaped}"
+}
 
 # `settings get` answers `null` for a setting that was never written, which is a different
 # state from an empty one and is put back by deleting the setting.
@@ -85,7 +93,8 @@ read_state() {
 # Settles SAVED before a step changes anything. A setting still at what the pass left it at
 # keeps the value saved before the pass: the second target run must not record the first
 # one's changes as the phone's own. Any other setting was changed outside the pass, and what
-# it holds now is what the pass will put back.
+# it holds now is what the pass will put back. LEFT starts as the phone is now; the step sets
+# the entries it is about to change and calls `record` before its first `put`.
 begin() {
   local i have=1
   STATE="$(state_file)"
@@ -94,14 +103,23 @@ begin() {
   for i in 0 1 2; do
     if ((have == 0)) || [[ "${NOW[i]}" != "${LEFT[i]}" ]]; then SAVED[i]="${NOW[i]}"; fi
   done
+  LEFT=("${NOW[@]}")
 }
 
-# Writes SAVED and, read back off the phone, what this step left it at.
+# Writes SAVED and LEFT to the state file, replacing it whole so that a step cut short never
+# leaves half a file behind.
+record() {
+  mkdir -p "$STATE_DIR"
+  printf '%s\n' "${SAVED[@]}" "${LEFT[@]}" >"$STATE.tmp"
+  mv "$STATE.tmp" "$STATE"
+}
+
+# Records what this step left the phone at, read back off it rather than taken from what the
+# step asked for.
 finish() {
   read_now
-  mkdir -p "$STATE_DIR"
-  printf '%s\n' "${SAVED[@]}" "${NOW[@]}" >"$STATE.tmp"
-  mv "$STATE.tmp" "$STATE"
+  LEFT=("${NOW[@]}")
+  record
 }
 
 # $1, a colon-separated service list, without the services named after it and without empty
@@ -138,9 +156,12 @@ enable_service() {
   begin
   case ":${NOW[0]}:" in
     *":$service:"*) ;;
-    :null: | ::) put secure "$SERVICES" "$service" ;;
-    *) put secure "$SERVICES" "${NOW[0]}:$service" ;;
+    :null: | ::) LEFT[0]="$service" ;;
+    *) LEFT[0]="${NOW[0]}:$service" ;;
   esac
+  LEFT[1]=1
+  record
+  if [[ "${LEFT[0]}" != "${NOW[0]}" ]]; then put secure "$SERVICES" "${LEFT[0]}"; fi
   put secure "$SWITCH" 1
   finish
 }
@@ -148,6 +169,8 @@ enable_service() {
 font_scale() {
   [[ "$1" =~ ^[0-9]+(\.[0-9]+)?$ ]] || die "Not a font scale: $1"
   begin
+  LEFT[2]="$1"
+  record
   put system "$FONT_SCALE" "$1"
   finish
 }
