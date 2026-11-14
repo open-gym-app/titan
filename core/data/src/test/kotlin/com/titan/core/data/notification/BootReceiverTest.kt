@@ -1,5 +1,6 @@
 package com.titan.core.data.notification
 
+import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -44,6 +45,18 @@ class BootReceiverTest {
         assertEquals(
             receiversFor(Intent.ACTION_BOOT_COMPLETED).map { it.activityInfo.name },
             receiversFor(Intent.ACTION_MY_PACKAGE_REPLACED).map { it.activityInfo.name },
+        )
+    }
+
+    @Test
+    fun `and so does the exact-alarm permission being granted again`() {
+        // Android 12 lets the user revoke it in settings; the reminders set meanwhile are
+        // inexact until something re-syncs them, and the grant is the one signal there is.
+        val grant = AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED
+
+        assertEquals(
+            receiversFor(Intent.ACTION_BOOT_COMPLETED).map { it.activityInfo.name },
+            receiversFor(grant).map { it.activityInfo.name },
         )
     }
 
