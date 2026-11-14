@@ -1,5 +1,7 @@
 package com.titan.core.data.notification
 
+import android.annotation.SuppressLint
+import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
 import com.titan.core.domain.notification.ReminderScheduler
@@ -9,8 +11,8 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 
 /**
- * The four events that leave the alarm table wrong: a reboot, an update, and the two ways the
- * wall clock moves under a standing appointment.
+ * The five events that leave the alarm table wrong: a reboot, an update, the two ways the
+ * wall clock moves under a standing appointment, and the exact-alarm permission coming back.
  *
  * `AlarmManager` holds nothing across a restart or an app update. A phone restarted on Sunday
  * night has no Monday reminder left, and neither does one that took an app update on Sunday
@@ -25,7 +27,13 @@ import dagger.hilt.components.SingletonComponent
  * changes what is *stored*, so re-running [ReminderScheduler.sync] against the new zone is the
  * whole repair.
  *
- * All four are handled by one receiver because they are one event as far as this app is
+ * The last is Android 12 and 12L only, where the user can revoke and re-grant the permission in
+ * system settings. While it was revoked, every reminder was set inexact; the grant is the moment
+ * they can be exact again, and the platform sends this broadcast for it to this app alone. (The
+ * revocation sends nothing: it kills the app and cancels its exact alarms, and `MainViewModel`
+ * re-arms them at the next launch.)
+ *
+ * All five are handled by one receiver because they are one event as far as this app is
  * concerned: what is scheduled no longer matches what is stored, and [ReminderScheduler.sync]
  * puts back exactly what the stored preferences ask for. `sync` cancels what it does not want,
  * so running it against an alarm table that already happens to be right is a no-op rather than
@@ -71,7 +79,8 @@ class BootReceiver : SuspendingBroadcastReceiver() {
     private companion object {
 
         /**
-         * A restart, an update of this app, and the two ways the wall clock moves.
+         * A restart, an update of this app, the two ways the wall clock moves, and the
+         * exact-alarm permission being granted.
          *
          * `MY_PACKAGE_REPLACED` rather than `PACKAGE_REPLACED`: the first is delivered only to
          * the app that was replaced and needs no permission, while the second is every package
@@ -82,15 +91,21 @@ class BootReceiver : SuspendingBroadcastReceiver() {
          * They matter for the reason the class note gives: the alarms hold an absolute instant
          * and the schedule is a local time, so the two only agree until the zone moves.
          *
+         * `ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED` is API 31's. Lint's
+         * `InlinedApi` is suppressed because the string is copied into this class at compile
+         * time, so reading it is safe on any version, and below 31 nothing sends it.
+         *
          * Checked rather than trusted from the manifest filter, because a receiver declared in
          * the manifest is one anything holding the permission can be made to invoke, and
          * re-arming on an intent this app did not mean is a wake-up nobody asked for.
          */
+        @SuppressLint("InlinedApi")
         val HANDLED_ACTIONS = setOf(
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_MY_PACKAGE_REPLACED,
             Intent.ACTION_TIMEZONE_CHANGED,
             Intent.ACTION_TIME_CHANGED,
+            AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED,
         )
     }
 }

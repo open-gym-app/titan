@@ -8,6 +8,7 @@ import com.titan.core.domain.model.TrainingGoal
 import com.titan.core.domain.model.UnitSystem
 import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.notification.NotificationKind
+import com.titan.core.domain.notification.ReminderScheduler
 import com.titan.core.domain.plate.PlateInventory
 import com.titan.core.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.Dispatchers
@@ -55,7 +56,7 @@ class MainViewModelTest {
     @Test
     fun `a device that has not been through onboarding starts there`() =
         runTest {
-            val viewModel = MainViewModel(FakePreferences(UserPreferences()))
+            val viewModel = MainViewModel(FakePreferences(UserPreferences()), NoReminders)
             collectState(viewModel)
 
             assertTrue(ready(viewModel).startsOnOnboarding)
@@ -64,7 +65,7 @@ class MainViewModelTest {
     @Test
     fun `a device that has starts on the tabs`() =
         runTest {
-            val viewModel = MainViewModel(FakePreferences(UserPreferences(onboardingCompleted = true)))
+            val viewModel = MainViewModel(FakePreferences(UserPreferences(onboardingCompleted = true)), NoReminders)
             collectState(viewModel)
 
             assertFalse(ready(viewModel).startsOnOnboarding)
@@ -74,7 +75,7 @@ class MainViewModelTest {
     fun `completing onboarding does not change where this launch started`() =
         runTest {
             val store = FakePreferences(UserPreferences())
-            val viewModel = MainViewModel(store)
+            val viewModel = MainViewModel(store, NoReminders)
             collectState(viewModel)
 
             store.setOnboardingCompleted(true)
@@ -92,7 +93,7 @@ class MainViewModelTest {
     fun `a preference change is published`() =
         runTest {
             val store = FakePreferences(UserPreferences())
-            val viewModel = MainViewModel(store)
+            val viewModel = MainViewModel(store, NoReminders)
             collectState(viewModel)
 
             store.setTheme(ThemePreference.DARK)
@@ -100,7 +101,51 @@ class MainViewModelTest {
             assertEquals(ThemePreference.DARK, ready(viewModel).preferences.theme)
         }
 
+    @Test
+    fun `the reminders are re-armed at launch`() =
+        runTest {
+            // On Android 12 revoking the exact-alarm permission cancels every exact alarm and
+            // says nothing; opening the app is the first chance to put the week back.
+            val scheduler = RecordingScheduler()
+            MainViewModel(FakePreferences(UserPreferences(onboardingCompleted = true)), scheduler)
+
+            assertEquals(1, scheduler.syncs)
+        }
+
+    @Test
+    fun `a scheduler that fails does not take the launch down`() =
+        runTest {
+            val failing = object : ReminderScheduler {
+                override suspend fun sync(): Unit = error("store unreadable")
+
+                override fun isExact(): Boolean = false
+            }
+            val viewModel = MainViewModel(FakePreferences(UserPreferences()), failing)
+            collectState(viewModel)
+
+            assertTrue(ready(viewModel).startsOnOnboarding)
+        }
+
     // --- helpers ----------------------------------------------------------
+
+    /** Counts [sync] calls; the scheduling itself is `AndroidReminderSchedulerTest`'s. */
+    private class RecordingScheduler : ReminderScheduler {
+        var syncs = 0
+            private set
+
+        override suspend fun sync() {
+            syncs++
+        }
+
+        override fun isExact(): Boolean = true
+    }
+
+    /** For the tests about preferences, which do not look at the alarms. */
+    private object NoReminders : ReminderScheduler {
+        override suspend fun sync() = Unit
+
+        override fun isExact(): Boolean = true
+    }
 
     private fun ready(viewModel: MainViewModel): MainUiState.Ready = viewModel.uiState.value as MainUiState.Ready
 

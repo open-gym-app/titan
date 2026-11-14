@@ -172,7 +172,7 @@ class AppBackupDirectory @Inject constructor(@param:ApplicationContext private v
          * storage mode (targeting Android 9 or below, or opting out) see the whole of shared
          * storage, and Android's documentation lists other apps' app-specific directories among
          * what Android 11 closed. Internal storage is safe on Android 10 whatever a device check
-         * would find there, so the rule does not wait for one (`release/security-audit.md`).
+         * would find there, so the rule does not wait for one.
          */
         const val FIRST_SCOPED_SDK = Build.VERSION_CODES.R
 

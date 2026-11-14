@@ -86,7 +86,8 @@
           schedule is a wall-clock time: a flight or a corrected clock leaves the seven standing
           alarms pointed at the wrong local time, and only a re-sync fixes it. Both are exempt
           from the background limits on implicit broadcasts, so a manifest receiver still hears
-          them.
+          them. The exact-alarm grant (Android 12 and 12L) is sent to this app alone, so it is
+          heard too; it turns the reminders set while the permission was revoked exact again.
 
           Deliberately not `directBootAware`: the preferences the schedule is read from live in
           credential-encrypted storage, so there is nothing to read before the first unlock, and
@@ -100,6 +101,7 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
                 <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
 

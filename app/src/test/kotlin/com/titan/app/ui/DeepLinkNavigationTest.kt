@@ -208,6 +208,17 @@ class DeepLinkNavigationTest {
         assertOnScreen(hasText(HOME_MARKER))
     }
 
+    @Test
+    fun `a link under a known host that names no screen changes nothing either`() {
+        // Unlike the case above, the manifest's filter admits this one, so any app or web page
+        // can deliver it to the running activity.
+        launch()
+
+        openWhileRunning("${DeepLinks.SCHEME}://${DeepLinks.SESSION_HOST}/nonsense/42")
+
+        assertOnScreen(hasText(HOME_MARKER))
+    }
+
     // --- helpers ------------------------------------------------------------
 
     /** Starts the shell on Home, the way an ordinary launch does. */

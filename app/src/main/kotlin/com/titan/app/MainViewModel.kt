@@ -3,12 +3,14 @@ package com.titan.app
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.titan.core.domain.model.UserPreferences
+import com.titan.core.domain.notification.ReminderScheduler
 import com.titan.core.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -30,9 +32,27 @@ import javax.inject.Inject
  * content, so "nobody is subscribed" means the app is in the background, and dropping the
  * subscription there buys a re-read of one small file in exchange for a chance of rendering
  * [MainUiState.Loading] — a blank window — on the way back to the foreground.
+ *
+ * ### The reminders are re-armed on every launch
+ *
+ * On Android 12 and 12L the user can revoke the exact-alarm permission in system settings, and
+ * the platform answers by killing the app and cancelling every exact alarm it had set: the week
+ * of reminders is gone, and no broadcast says so. Nothing else would put them back before the
+ * next reboot, since the only other callers of [ReminderScheduler.sync] are a reminder firing,
+ * the reminder settings and the boot receiver. Opening the app is the first thing that can run
+ * after a revocation, so this is where the alarms come back, inexact now. `sync` is idempotent,
+ * so on every other launch it rewrites the same seven alarms. Failures are swallowed for the
+ * reason `BootReceiver` gives: the app's first frame is no place for a scheduling error.
  */
 @HiltViewModel
-class MainViewModel @Inject constructor(userPreferencesRepository: UserPreferencesRepository) : ViewModel() {
+class MainViewModel @Inject constructor(
+    userPreferencesRepository: UserPreferencesRepository,
+    reminderScheduler: ReminderScheduler,
+) : ViewModel() {
+
+    init {
+        viewModelScope.launch { runCatching { reminderScheduler.sync() } }
+    }
 
     val uiState: StateFlow<MainUiState> = userPreferencesRepository.observe()
         // `runningFold` rather than `map`, for one field: the routing decision is latched on
