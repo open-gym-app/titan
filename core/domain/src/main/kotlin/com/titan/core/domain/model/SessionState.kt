@@ -27,6 +27,20 @@ package com.titan.core.domain.model
  */
 sealed interface SessionState {
 
+    /**
+     * The session this state is carrying, running or paused, or null when none is open.
+     * `Finished` counts as closed: its summary describes a session that is over.
+     *
+     * One answer for the use cases, the workout screen and the notification receiver, which all
+     * ask whether a particular session is the one open and must agree on what "open" means.
+     */
+    val openSessionId: Long?
+        get() = when (this) {
+            is Active -> sessionId
+            is Paused -> sessionId
+            Idle, is Finished -> null
+        }
+
     /** Nothing is running. The state the app boots into before any session is resumed. */
     data object Idle : SessionState
 

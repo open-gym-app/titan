@@ -5,7 +5,6 @@ import android.content.Intent
 import com.titan.core.data.R
 import com.titan.core.domain.model.FinishOrigin
 import com.titan.core.domain.model.SessionRef
-import com.titan.core.domain.model.SessionState
 import com.titan.core.domain.navigation.DeepLinks
 import com.titan.core.domain.notification.AppNotification
 import com.titan.core.domain.notification.NotificationAction
@@ -194,9 +193,12 @@ class IdleSessionBroadcasts @Inject constructor(
     ) {
         idleSessionMonitor.disarm()
 
-        runCatching {
-            if (attach(session)) transition()
-        }
+        val applied = runCatching { attach(session) && transition().isSuccess }.getOrDefault(false)
+
+        // A refused press leaves a workout in progress — this one with a set logged since, or
+        // another that replaced it — and the disarm above took that workout's alarm with it.
+        // Re-arming puts it back for whatever is running now, and keeps the note down.
+        if (!applied) runCatching { idleSessionMonitor.arm() }
     }
 
     /**
@@ -215,12 +217,7 @@ class IdleSessionBroadcasts @Inject constructor(
      *   there.
      */
     private suspend fun attach(session: SessionRef): Boolean {
-        val open = when (val state = sessionStateRepository.observe().first()) {
-            is SessionState.Active -> state.sessionId
-            is SessionState.Paused -> state.sessionId
-            SessionState.Idle, is SessionState.Finished -> null
-        }
-
+        val open = sessionStateRepository.observe().first().openSessionId
         if (open != null) return open == session.sessionId
         return resumeSession(expected = session).isSuccess
     }

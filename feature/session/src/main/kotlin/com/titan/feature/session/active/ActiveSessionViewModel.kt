@@ -368,9 +368,13 @@ class ActiveSessionViewModel @Inject constructor(
      * link to one that is not running. See [Loaded.isThisWorkout].
      */
     private val loaded: StateFlow<Loaded?> = combine(
-        combine(sessionRepository.getById(sessionId), sessionStateRepository.observe()) { session, state ->
-            session to (state.openSessionId?.let { it != sessionId } ?: false)
-        },
+        sessionRepository.getById(sessionId),
+        // Folded to the boolean before it is combined, and deduplicated, so a pause or a resume
+        // of this page's own workout — which changes the state but not the answer — does not
+        // rebuild every row.
+        sessionStateRepository.observe()
+            .map { state -> state.openSessionId.let { it != null && it != sessionId } }
+            .distinctUntilChanged(),
         sessionRepository.getExercises(sessionId),
         sessionRepository.getSetsForSession(sessionId),
         // The fourth read, and the one that is about a workout other than this one: what each
@@ -380,7 +384,7 @@ class ActiveSessionViewModel @Inject constructor(
         // one value. A screen built from two flows would draw a `PREV` column for an exercise
         // that had already been swapped out of the slot.
         sessionRepository.getPreviousSets(sessionId),
-    ) { (session, anotherIsOpen), exercises, sets, previous ->
+    ) { session, anotherIsOpen, exercises, sets, previous ->
         Loaded(
             session = session,
             exercises = exercises,
@@ -709,14 +713,22 @@ class ActiveSessionViewModel @Inject constructor(
             // leaving is the moment it becomes worth saying — see `IdleSessionMonitor`. Both
             // are wrapped: an alarm that could not be set is not worth taking a workout down
             // for, and neither is one that could not be cancelled.
+            //
+            // Only over the workout in progress. The monitor is about that one, whichever page
+            // asks, so a page opened from a link to a session that is missing or over would
+            // otherwise take down the running workout's nudge just by being looked at.
             ActiveSessionEvent.ScreenShown ->
                 viewModelScope.launch {
-                    idleSessionMutex.withLock { runCatching { idleSessionMonitor.disarm() } }
+                    idleSessionMutex.withLock {
+                        runCatching { if (isTheWorkoutInProgress()) idleSessionMonitor.disarm() }
+                    }
                 }
 
             ActiveSessionEvent.ScreenHidden ->
                 viewModelScope.launch {
-                    idleSessionMutex.withLock { runCatching { idleSessionMonitor.arm() } }
+                    idleSessionMutex.withLock {
+                        runCatching { if (isTheWorkoutInProgress()) idleSessionMonitor.arm() }
+                    }
                 }
 
             else -> Unit
@@ -2554,6 +2566,14 @@ class ActiveSessionViewModel @Inject constructor(
     }
 
     /**
+     * Whether this page's session is the one in progress on disk.
+     *
+     * Asked of the row rather than of the state machine, which reads `Idle` after a process
+     * restart until [reattach] has run, while the row already says which workout is running.
+     */
+    private suspend fun isTheWorkoutInProgress(): Boolean = sessionRepository.getActive().first()?.id == sessionId
+
+    /**
      * Reads the stored draft back, if it describes this session.
      *
      * A draft naming another session is left alone rather than cleared: at most one session runs
@@ -2829,9 +2849,12 @@ class ActiveSessionViewModel @Inject constructor(
         // A page about a workout that is not running draws as one that is gone — no header, so
         // no END and no DISCARD, and a plain way out. A workout this page is itself closing out
         // stops being in progress on the way, and is drawn as it was until the screen leaves.
+        // Neither question is drawn over it: one raised by a back gesture while the page was
+        // still loading, or left up when its workout was closed out from the notification, would
+        // be a dialog about a workout this page no longer has.
         val session = loaded.session
             ?.takeIf { screen.isBusy || loaded.isThisWorkout }
-            ?: return base.copy(isLoading = false)
+            ?: return base.copy(isLoading = false, confirmingFinish = false, confirmingDiscard = false)
 
         val rows = loaded.rows(
             catalogue = catalogue,
@@ -3427,17 +3450,6 @@ private class Field<T> private constructor(
  */
 private val RestTimerState.isLive: Boolean
     get() = this is RestTimerState.Running || this is RestTimerState.Paused
-
-/**
- * The session this state has open — running or paused — or null when none is. `Finished` counts
- * as closed: its summary describes a session that is over.
- */
-private val SessionState.openSessionId: Long?
-    get() = when (this) {
-        is SessionState.Active -> sessionId
-        is SessionState.Paused -> sessionId
-        SessionState.Idle, is SessionState.Finished -> null
-    }
 
 private fun Throwable.toEntryError(): SetEntryError? =
     (this as? SessionError.SetRejected)?.let { SetEntryError.Refused(it.reason) }
