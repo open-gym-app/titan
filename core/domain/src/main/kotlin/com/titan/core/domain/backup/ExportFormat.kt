@@ -31,9 +31,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.jsonObject
-import java.io.FilterInputStream
 import java.io.IOException
-import java.io.InputStream
 
 /**
  * The wire format of an [ExportDocument]: one [Json] configuration, one row encoder, and one
@@ -210,7 +208,7 @@ object ExportFormat {
                 ExportDocument.SCHEMA_VERSION -> accept(capped.readDocument())
                 else -> unsupported(version)
             }
-        } catch (failure: DocumentTooLargeException) {
+        } catch (failure: SourceTooLargeException) {
             Decoded.Refused(ImportError.DocumentTooLarge(limitBytes = failure.limitBytes))
         } catch (failure: IllegalArgumentException) {
             // Covers every way the text can fail to be a document at once: `SerializationException`
@@ -266,46 +264,6 @@ object ExportFormat {
      */
     @Serializable
     private class VersionEnvelope(@SerialName(VERSION_KEY) val schemaVersion: Int? = null)
-
-    /**
-     * [delegate], refusing to hand over more than [limit] bytes.
-     *
-     * Every read path is counted — the single byte, the batch and the skip — because the
-     * decoder is free to use any of them. Throws on the read that would cross the limit, so the
-     * bytes up to it are all a refused file ever costs.
-     */
-    private class CappedStream(
-        delegate: InputStream,
-        private val limit: Long,
-    ) : FilterInputStream(delegate) {
-
-        private var count = 0L
-
-        override fun read(): Int = super.read().also { if (it >= 0) consumed(1) }
-
-        override fun read(
-            buffer: ByteArray,
-            offset: Int,
-            length: Int,
-        ): Int = super.read(buffer, offset, length).also { if (it > 0) consumed(it.toLong()) }
-
-        override fun skip(n: Long): Long = super.skip(n).also { consumed(it) }
-
-        override fun markSupported(): Boolean = false
-
-        private fun consumed(bytes: Long) {
-            count += bytes
-            if (count > limit) throw DocumentTooLargeException(limit)
-        }
-    }
-
-    /**
-     * Thrown by [CappedStream], and an [IOException] so it travels through the decoder the way
-     * a failed read does. Caught before the general [IOException] in [decode], which is what
-     * keeps it from being reported as a file that could not be read.
-     */
-    private class DocumentTooLargeException(val limitBytes: Long) :
-        IOException("the document is larger than $limitBytes bytes")
 
     /** What [decode] answers: a document, or the typed reason there is not one. */
     sealed interface Decoded {

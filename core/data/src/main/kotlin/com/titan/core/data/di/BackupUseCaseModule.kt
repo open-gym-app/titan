@@ -60,8 +60,9 @@ object BackupUseCaseModule {
      * reminder, and the alarms have to follow it.
      *
      * Both locks are the process-wide instances, named here so the wiring says so: the export
-     * above, `BackupWorker` through it, and `LocalDataRepositoryImpl.deleteAll` all hold the
-     * same [BackupLock], and every session use case the same [SessionLifecycleLock].
+     * above, `BackupWorker` through it, `LocalDataRepositoryImpl.deleteAll` and the import from
+     * another app in `HistoryImportUseCaseModule` all hold the same [BackupLock], and every session
+     * use case the same [SessionLifecycleLock].
      */
     @Provides
     fun provideImportUseCase(

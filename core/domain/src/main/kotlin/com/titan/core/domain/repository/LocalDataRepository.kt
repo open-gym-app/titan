@@ -58,8 +58,8 @@ interface LocalDataRepository {
      * user has been told what is lost and has said the word. Asking twice is the caller's
      * job — see #M4-23 — and this method's job is to leave nothing behind.
      *
-     * It waits for an export, a weekly backup or a restore that is running to finish before it
-     * touches anything, and session transitions wait for it in turn — see
+     * It waits for an export, a weekly backup, a restore or an import from another app that is
+     * running to finish before it touches anything, and session transitions wait for it in turn — see
      * [com.titan.core.domain.backup.BackupLock]. A call cancelled while it waits has deleted
      * nothing.
      *
