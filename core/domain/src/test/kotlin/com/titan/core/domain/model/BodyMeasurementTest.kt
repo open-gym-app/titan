@@ -71,7 +71,7 @@ class BodyMeasurementTest {
 
     @Test
     fun `any single measurement makes an entry non-empty`() {
-        // One per field: `isEmpty` is a six-way conjunction, and the way it goes wrong is a
+        // One per field: `isEmpty` is an eleven-way conjunction, and the way it goes wrong is a
         // field left out of it — which only a case per field detects.
         assertFalse(measurement(weight = 80_000_000).isEmpty)
         assertFalse(measurement(chest = 1_040).isEmpty)
@@ -79,6 +79,11 @@ class BodyMeasurementTest {
         assertFalse(measurement(arm = 385).isEmpty)
         assertFalse(measurement(thigh = 610).isEmpty)
         assertFalse(measurement(bodyFat = 155).isEmpty)
+        assertFalse(measurement().copy(neck = 390).isEmpty)
+        assertFalse(measurement().copy(shoulders = 1_210).isEmpty)
+        assertFalse(measurement().copy(hips = 980).isEmpty)
+        assertFalse(measurement().copy(forearm = 300).isEmpty)
+        assertFalse(measurement().copy(calf = 390).isEmpty)
     }
 
     @Test

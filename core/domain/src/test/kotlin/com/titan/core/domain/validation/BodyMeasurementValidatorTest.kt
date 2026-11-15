@@ -57,6 +57,11 @@ class BodyMeasurementValidatorTest {
         assertTrue(validate(measurement(arm = 385)).isValid)
         assertTrue(validate(measurement(thigh = 610)).isValid)
         assertTrue(validate(measurement(bodyFat = 155)).isValid)
+        assertTrue(validate(measurement().copy(neck = 390)).isValid)
+        assertTrue(validate(measurement().copy(shoulders = 1_210)).isValid)
+        assertTrue(validate(measurement().copy(hips = 980)).isValid)
+        assertTrue(validate(measurement().copy(forearm = 300)).isValid)
+        assertTrue(validate(measurement().copy(calf = 390)).isValid)
     }
 
     @Test
@@ -90,6 +95,11 @@ class BodyMeasurementValidatorTest {
         assertFalse(validate(measurement(waist = tooBig)).isValid)
         assertFalse(validate(measurement(arm = tooBig)).isValid)
         assertFalse(validate(measurement(thigh = tooBig)).isValid)
+        assertFalse(validate(measurement().copy(neck = tooBig)).isValid)
+        assertFalse(validate(measurement().copy(shoulders = tooBig)).isValid)
+        assertFalse(validate(measurement().copy(hips = tooBig)).isValid)
+        assertFalse(validate(measurement().copy(forearm = tooBig)).isValid)
+        assertFalse(validate(measurement().copy(calf = 0)).isValid)
         assertFalse(validate(measurement(waist = 0)).isValid)
 
         assertTrue(validate(measurement(waist = BodyMeasurementValidator.CIRCUMFERENCE_MIN_MM)).isValid)

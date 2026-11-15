@@ -26,6 +26,7 @@ import com.titan.core.ui.format.formatSessionDate
 import com.titan.core.ui.format.formatWeight
 import com.titan.core.ui.theme.TitanTheme
 import com.titan.feature.progression.R
+import com.titan.feature.progression.body.BodySite
 
 /**
  * One entry in the history: the day it was taken, what it recorded, and the two ways to change
@@ -119,17 +120,14 @@ fun MeasurementHistoryRow(
  * What this entry recorded, as one line: `78.4 kg · Chest 102 cm · 14.2%`.
  *
  * The circumferences carry their part's name and the other two do not, because a weight and a
- * percentage are unambiguous from their units and four figures all reading `cm` are not.
+ * percentage are unambiguous from their units and nine figures all reading `cm` are not.
  */
 @Composable
 private fun BodyMeasurement.summary(): String {
     val separator = stringResource(R.string.body_history_separator)
     val figures = buildList {
         weight?.let { add(formatWeight(it)) }
-        chest?.let { add(part(R.string.body_part_chest, it)) }
-        waist?.let { add(part(R.string.body_part_waist, it)) }
-        arm?.let { add(part(R.string.body_part_arm, it)) }
-        thigh?.let { add(part(R.string.body_part_thigh, it)) }
+        BodySite.entries.forEach { site -> site.of(this@summary)?.let { add(part(site.label, it)) } }
         bodyFat?.let { add(formatPercentTenths(it)) }
     }
 

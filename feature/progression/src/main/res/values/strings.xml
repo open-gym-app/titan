@@ -226,10 +226,15 @@
     <string name="body_no_reading" translatable="false">—</string>
 
     <!-- The four parts, as a tape measure goes round them. -->
+    <string name="body_part_neck">Neck</string>
+    <string name="body_part_shoulders">Shoulders</string>
     <string name="body_part_chest">Chest</string>
     <string name="body_part_waist">Waist</string>
+    <string name="body_part_hips">Hips</string>
     <string name="body_part_arm">Arm</string>
+    <string name="body_part_forearm">Forearm</string>
     <string name="body_part_thigh">Thigh</string>
+    <string name="body_part_calf">Calf</string>
     <!-- A part and its reading, announced as one phrase: "Chest, 102 cm". A label and a figure
          read as two unrelated fragments is not the same information. -->
     <string name="body_measurement_description">%1$s, %2$s</string>
@@ -272,10 +277,15 @@
     <!-- Each box says what it holds and what unit it is in, since the unit follows the user's
          setting and a box labelled "Chest" alone would be a number with no scale. -->
     <string name="body_field_weight">Weight (%1$s)</string>
+    <string name="body_field_neck">Neck (%1$s)</string>
+    <string name="body_field_shoulders">Shoulders (%1$s)</string>
     <string name="body_field_chest">Chest (%1$s)</string>
     <string name="body_field_waist">Waist (%1$s)</string>
+    <string name="body_field_hips">Hips (%1$s)</string>
     <string name="body_field_arm">Arm (%1$s)</string>
+    <string name="body_field_forearm">Forearm (%1$s)</string>
     <string name="body_field_thigh">Thigh (%1$s)</string>
+    <string name="body_field_calf">Calf (%1$s)</string>
     <string name="body_field_body_fat">Body fat (%1$s)</string>
     <string name="body_field_notes">Notes</string>
 

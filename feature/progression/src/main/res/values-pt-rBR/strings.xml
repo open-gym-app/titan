@@ -171,10 +171,15 @@
 
     <string name="body_weight_label">Peso corporal</string>
 
+    <string name="body_part_neck">Pescoço</string>
+    <string name="body_part_shoulders">Ombros</string>
     <string name="body_part_chest">Peito</string>
     <string name="body_part_waist">Cintura</string>
+    <string name="body_part_hips">Quadril</string>
     <string name="body_part_arm">Braço</string>
+    <string name="body_part_forearm">Antebraço</string>
     <string name="body_part_thigh">Coxa</string>
+    <string name="body_part_calf">Panturrilha</string>
     <string name="body_measurement_description">%1$s, %2$s</string>
 
     <string name="body_fat_label">Gordura corporal</string>
@@ -204,10 +209,15 @@
     <string name="body_form_save">Salvar</string>
     <string name="body_form_cancel">Cancelar</string>
     <string name="body_field_weight">Peso (%1$s)</string>
+    <string name="body_field_neck">Pescoço (%1$s)</string>
+    <string name="body_field_shoulders">Ombros (%1$s)</string>
     <string name="body_field_chest">Peito (%1$s)</string>
     <string name="body_field_waist">Cintura (%1$s)</string>
+    <string name="body_field_hips">Quadril (%1$s)</string>
     <string name="body_field_arm">Braço (%1$s)</string>
+    <string name="body_field_forearm">Antebraço (%1$s)</string>
     <string name="body_field_thigh">Coxa (%1$s)</string>
+    <string name="body_field_calf">Panturrilha (%1$s)</string>
     <string name="body_field_body_fat">Gordura corporal (%1$s)</string>
     <string name="body_field_notes">Notas</string>
 

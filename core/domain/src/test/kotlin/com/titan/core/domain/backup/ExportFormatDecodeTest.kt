@@ -124,6 +124,28 @@ class ExportFormatDecodeTest {
             assertEquals(document, (decoded as ExportFormat.Decoded.Success).document)
         }
 
+    /**
+     * The other half of that tolerance: a file written before `body_measurement` gained its five
+     * extra sites carries none of their keys, and restores with them null — what the row would
+     * have held — rather than being refused for a column it never had.
+     */
+    @Test
+    fun `a body measurement from before the extra sites restores with them empty`() =
+        runTest {
+            val document = sampleDocument()
+            val older = listOf("neck", "shoulders", "hips", "forearm", "calf")
+                .fold(stream(document)) { text, key -> text.replace(Regex("\"$key\":(null|\\d+),"), "") }
+
+            val decoded = (ExportFormat.decode(source(older)) as ExportFormat.Decoded.Success).document
+
+            val first = decoded.bodyMeasurement.first()
+            assertEquals(
+                listOf(null, null, null, null, null),
+                listOf(first.neck, first.shoulders, first.hips, first.forearm, first.calf),
+            )
+            assertEquals(document.bodyMeasurement.first().chest, first.chest)
+        }
+
     /** A table left out of a document at this version reads back empty rather than failing. */
     @Test
     fun `a missing table reads back as no rows`() {

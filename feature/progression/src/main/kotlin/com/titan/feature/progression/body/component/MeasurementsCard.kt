@@ -15,6 +15,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.tooling.preview.Preview
+import com.titan.core.domain.model.BodyMeasurement
 import com.titan.core.domain.model.ThemePreference
 import com.titan.core.ui.component.BodyDiagramDefaults
 import com.titan.core.ui.component.BodyFigure
@@ -27,6 +28,8 @@ import com.titan.core.ui.format.formatLength
 import com.titan.core.ui.theme.TitanTheme
 import com.titan.feature.progression.R
 import com.titan.feature.progression.body.BodyReadings
+import com.titan.feature.progression.body.BodySite
+import com.titan.feature.progression.body.latestReadings
 
 /**
  * The parts: a figure with what the user tracks picked out on it, and the latest tape reading
@@ -35,10 +38,10 @@ import com.titan.feature.progression.body.BodyReadings
  * ### The diagram is a readout, not decoration
  *
  * The wireframes draw a plain body here. What is drawn instead is the same figure with the
- * measured regions marked — chest, waist, arm and thigh, each lit only once there is a reading
- * for it — so the illustration says *what you track* rather than being a picture of a person
- * beside a list. A user who has only ever measured their waist sees one region lit and one row
- * filled, which is the list and the drawing agreeing.
+ * measured regions marked — each [BodySite], lit only once there is a reading for it — so the
+ * illustration says *what you track* rather than being a picture of a person beside a list. A
+ * user who has only ever measured their waist sees one region lit and one row filled, which is
+ * the list and the drawing agreeing.
  *
  * They are marked in [MuscleEmphasis.PRIMARY] — the accent, at full strength — rather than in
  * the container tone. The one-accent rule asks that the accent mean "this is the thing", and
@@ -48,13 +51,23 @@ import com.titan.feature.progression.body.BodyReadings
  * hairline outlines — a mark so quiet it stops saying anything.
  *
  * The mapping is the honest one available in the drawing vocabulary: a waist is the abdominal
- * region and a thigh is the quadriceps, because [BodyRegion] names muscles — it was built for
- * #28's muscles-worked diagram — and a tape does not go round a muscle. That is a small lie in
- * the drawing and a smaller one than adding four regions no exercise will ever reference.
+ * region, a thigh the quadriceps and a hip the abductors, because [BodyRegion] names muscles —
+ * it was built for #28's muscles-worked diagram — and a tape does not go round a muscle. That is
+ * a small lie in the drawing and a smaller one than adding regions no exercise will ever
+ * reference. The hip is the abductors rather than the glutes because the glutes have no shape on
+ * the front figure, and the abductors are the outer hip the tape actually passes over.
+ *
+ * ### The core four, and the rest once measured
+ *
+ * Chest, waist, arm and thigh always have a row — they are what the screen first offered to
+ * track, and a card that grew a row with each one would reflow on the first measurement of each.
+ * The other five ([BodySite.isCore] false) are sites most users never tape, mostly reaching the
+ * app from another tracker's import, so each gets its row once it has a reading. Nine rows of
+ * dashes for somebody who measures their waist would bury the one figure they track.
  *
  * ### Front only
  *
- * Every one of the four is measured from the front, so the back figure would be an unlit body
+ * Every site is measured from the front, so the back figure would be an unlit body
  * taking half the card's width. `BodyDiagram` draws both by default for a muscle set, which
  * usually spans them; a tape measure does not.
  *
@@ -84,13 +97,12 @@ fun MeasurementsCard(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md),
             ) {
-                MeasurementRow(label = stringResource(R.string.body_part_chest), millimetres = readings.chest)
-                HairlineDivider()
-                MeasurementRow(label = stringResource(R.string.body_part_waist), millimetres = readings.waist)
-                HairlineDivider()
-                MeasurementRow(label = stringResource(R.string.body_part_arm), millimetres = readings.arm)
-                HairlineDivider()
-                MeasurementRow(label = stringResource(R.string.body_part_thigh), millimetres = readings.thigh)
+                BodySite.entries
+                    .filter { it.isCore || readings[it] != null }
+                    .forEachIndexed { index, site ->
+                        if (index > 0) HairlineDivider()
+                        MeasurementRow(label = stringResource(site.label), millimetres = readings[site])
+                    }
             }
         }
     }
@@ -99,9 +111,8 @@ fun MeasurementsCard(
 /**
  * One part and what it last measured: the name on the left, the figure on the right.
  *
- * A row is drawn for every part whether or not it has a reading, because the four are the set
- * the screen offers to track and a card that grew a row per measurement would reflow every time
- * one was added. An unmeasured part carries the dash the rest of the app uses for "no reading
+ * A core part's row is drawn whether or not it has a reading — see [MeasurementsCard]. An
+ * unmeasured part carries the dash the rest of the app uses for "no reading
  * yet" rather than a zero, which is a measurement somebody took.
  */
 @Composable
@@ -138,12 +149,20 @@ private fun MeasurementRow(
 }
 
 /** The regions to light: the ones a reading exists for. See [MeasurementsCard]. */
-private fun BodyReadings.measuredRegions(): Set<BodyRegion> =
-    buildSet {
-        if (chest != null) add(BodyRegion.CHEST)
-        if (waist != null) add(BodyRegion.ABDOMINALS)
-        if (arm != null) add(BodyRegion.BICEPS)
-        if (thigh != null) add(BodyRegion.QUADRICEPS)
+private fun BodyReadings.measuredRegions(): Set<BodyRegion> = circumferences.keys.mapTo(HashSet()) { it.region }
+
+/** Where the figure marks this site. See [MeasurementsCard] for why a muscle stands in for it. */
+private val BodySite.region: BodyRegion
+    get() = when (this) {
+        BodySite.NECK -> BodyRegion.NECK
+        BodySite.SHOULDERS -> BodyRegion.SHOULDERS
+        BodySite.CHEST -> BodyRegion.CHEST
+        BodySite.WAIST -> BodyRegion.ABDOMINALS
+        BodySite.HIPS -> BodyRegion.ABDUCTORS
+        BodySite.ARM -> BodyRegion.BICEPS
+        BodySite.FOREARM -> BodyRegion.FOREARMS
+        BodySite.THIGH -> BodyRegion.QUADRICEPS
+        BodySite.CALF -> BodyRegion.CALVES
     }
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
@@ -152,7 +171,7 @@ private fun BodyReadings.measuredRegions(): Set<BodyRegion> =
 @Composable
 fun MeasurementsCardPreview() {
     TitanTheme(theme = ThemePreference.LIGHT) {
-        MeasurementsCard(readings = BodyReadings(chest = 1_020, waist = 820, arm = 360, thigh = 580))
+        MeasurementsCard(readings = previewReadings())
     }
 }
 
@@ -160,7 +179,7 @@ fun MeasurementsCardPreview() {
 @Composable
 fun MeasurementsCardDarkPreview() {
     TitanTheme(theme = ThemePreference.DARK) {
-        MeasurementsCard(readings = BodyReadings(chest = 1_020, waist = 820, arm = 360, thigh = 580))
+        MeasurementsCard(readings = previewReadings())
     }
 }
 
@@ -168,6 +187,25 @@ fun MeasurementsCardDarkPreview() {
 @Composable
 fun MeasurementsCardPartialPreview() {
     TitanTheme(theme = ThemePreference.LIGHT) {
-        MeasurementsCard(readings = BodyReadings(waist = 820))
+        MeasurementsCard(readings = previewReadings(previewEntry().copy(chest = null, arm = null, thigh = null)))
     }
 }
+
+@Preview(name = "Measurements card - every site", showBackground = true, widthDp = 360)
+@Composable
+fun MeasurementsCardEverySitePreview() {
+    TitanTheme(theme = ThemePreference.LIGHT) {
+        MeasurementsCard(
+            readings = previewReadings(
+                previewEntry().copy(neck = 390, shoulders = 1_210, hips = 980, forearm = 300, calf = 390),
+            ),
+        )
+    }
+}
+
+/** The readings the card is drawn from, taken off one entry the way the screen takes them off the history. */
+private fun previewReadings(entry: BodyMeasurement = previewEntry()): BodyReadings = listOf(entry).latestReadings()
+
+/** The core four, measured. */
+private fun previewEntry() =
+    BodyMeasurement(chest = 1_020, waist = 820, arm = 360, thigh = 580, createdAt = 0, updatedAt = 0)
