@@ -163,18 +163,15 @@ class BodyMeasurementsViewModel @Inject constructor(
         val readings = uiState.value.readings
         val now = clock.nowMillis()
 
-        return BodyMeasurement(
+        val blank = BodyMeasurement(
             id = NEW_ENTRY,
             weight = readings.weight,
-            chest = readings.chest,
-            waist = readings.waist,
-            arm = readings.arm,
-            thigh = readings.thigh,
             bodyFat = readings.bodyFat,
             notes = null,
             createdAt = now,
             updatedAt = now,
         )
+        return BodySite.entries.fold(blank) { entry, site -> site.on(entry, readings[site]) }
     }
 
     /**

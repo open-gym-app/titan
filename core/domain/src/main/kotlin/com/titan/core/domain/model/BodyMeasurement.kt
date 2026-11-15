@@ -27,7 +27,7 @@ import kotlinx.serialization.Serializable
  * | Field | Unit |
  * | --- | --- |
  * | [weight] | milligrams |
- * | [chest], [waist], [arm], [thigh] | millimetres |
+ * | [neck], [shoulders], [chest], [waist], [hips], [arm], [forearm], [thigh], [calf] | millimetres |
  * | [bodyFat] | tenths of a percent, so `155` is 15.5% |
  * | [createdAt], [updatedAt] | epoch milliseconds, UTC |
  *
@@ -44,11 +44,26 @@ data class BodyMeasurement(
     /** Body weight in milligrams. */
     val weight: Long? = null,
 
+    /** Neck circumference in millimetres. */
+    val neck: Int? = null,
+
+    /**
+     * Shoulder circumference in millimetres, taken around both shoulders at their widest.
+     *
+     * The sites from [neck] to [calf] beyond the original four are the ones Strong, Hevy and
+     * FitNotes let a user record, so an imported history keeps every figure it arrived with
+     * rather than the subset this screen first asked for.
+     */
+    val shoulders: Int? = null,
+
     /** Chest circumference in millimetres. */
     val chest: Int? = null,
 
     /** Waist circumference in millimetres. */
     val waist: Int? = null,
+
+    /** Hip circumference in millimetres, at the widest point of the glutes. */
+    val hips: Int? = null,
 
     /**
      * Upper-arm circumference in millimetres.
@@ -58,8 +73,17 @@ data class BodyMeasurement(
      */
     val arm: Int? = null,
 
+    /**
+     * Forearm circumference in millimetres. One figure, for [arm]'s reason; so are [thigh] and
+     * [calf]. A source that records both sides is read as the larger of the two.
+     */
+    val forearm: Int? = null,
+
     /** Thigh circumference in millimetres. */
     val thigh: Int? = null,
+
+    /** Calf circumference in millimetres. */
+    val calf: Int? = null,
 
     /** Body fat in tenths of a percent — `155` is 15.5%. */
     val bodyFat: Int? = null,
@@ -107,8 +131,11 @@ data class BodyMeasurement(
      * only a note is a diary entry the body screen has nothing to plot for.
      */
     val isEmpty: Boolean
-        get() = weight == null && chest == null && waist == null &&
-            thigh == null && arm == null && bodyFat == null
+        get() = weight == null && bodyFat == null && circumferences.all { it == null }
+
+    /** Every circumference, from the neck down, for the checks that treat them alike. */
+    val circumferences: List<Int?>
+        get() = listOf(neck, shoulders, chest, waist, hips, arm, forearm, thigh, calf)
 
     companion object {
 
