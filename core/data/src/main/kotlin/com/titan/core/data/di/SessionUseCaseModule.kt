@@ -15,6 +15,7 @@ import com.titan.core.domain.usecase.LinkSupersetUseCase
 import com.titan.core.domain.usecase.LogSetUseCase
 import com.titan.core.domain.usecase.MarkSetCompletedUseCase
 import com.titan.core.domain.usecase.PauseSessionUseCase
+import com.titan.core.domain.usecase.RecordSessionEffortUseCase
 import com.titan.core.domain.usecase.RemoveSessionExerciseUseCase
 import com.titan.core.domain.usecase.RenameSessionUseCase
 import com.titan.core.domain.usecase.ReorderSessionExercisesUseCase
@@ -280,6 +281,11 @@ object SessionUseCaseModule {
     @Provides
     fun provideRenameSessionUseCase(sessionRepository: SessionRepository): RenameSessionUseCase =
         RenameSessionUseCase(sessionRepository)
+
+    /** Calories and the rating, from the recap — no state check, for the rename's reason. */
+    @Provides
+    fun provideRecordSessionEffortUseCase(sessionRepository: SessionRepository): RecordSessionEffortUseCase =
+        RecordSessionEffortUseCase(sessionRepository)
 
     @Provides
     fun provideLogSetUseCase(

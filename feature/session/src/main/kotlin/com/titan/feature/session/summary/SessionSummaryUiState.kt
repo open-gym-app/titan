@@ -81,6 +81,11 @@ data class SessionSummaryUiState(
     val notes: String? = null,
     val notesDraft: String? = null,
     val isSavingNotes: Boolean = false,
+    val rating: Int? = null,
+    val calories: Int? = null,
+    /** The calories being typed, or null when that row is not being edited. */
+    val caloriesDraft: String? = null,
+    val isSavingEffort: Boolean = false,
     val templateName: String? = null,
     val templateCategory: TemplateCategory? = null,
     val isSavingTemplate: Boolean = false,
@@ -238,6 +243,9 @@ enum class SessionSummaryMessage {
 
     /** A note could not be written. The field stays open with the text still in it. */
     NOTES_SAVE_FAILED,
+
+    /** The rating or the calories could not be written. A calories field stays open. */
+    EFFORT_SAVE_FAILED,
 
     /** The name could not be written. The dialog stays open with the text still in it. */
     NAME_SAVE_FAILED,

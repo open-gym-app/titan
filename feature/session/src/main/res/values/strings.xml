@@ -107,6 +107,20 @@
          pad, which has no colon, and the parser reads either separator as one. -->
     <string name="active_duration_not_a_time">That time is not a time — type it as 1.30 or 1.05.30</string>
     <string name="active_distance_not_a_number">That distance is not a number</string>
+    <string name="active_elevation_not_a_number">That climb is not a number</string>
+    <string name="active_steps_not_a_number">That step count is not a whole number</string>
+    <string name="set_cardio_details_action">Elevation &amp; steps</string>
+    <string name="set_cardio_details_title">Elevation &amp; steps — set %1$d</string>
+    <string name="set_cardio_elevation_label">Elevation gain (%1$s)</string>
+    <string name="set_cardio_steps_label">Steps</string>
+    <string name="set_cardio_save">Save</string>
+    <string name="set_cardio_cancel">Cancel</string>
+    <string name="set_cardio_climb">%1$s climb</string>
+    <string name="set_cardio_edit">Edit elevation and steps, set %1$d</string>
+    <plurals name="set_cardio_steps">
+        <item quantity="one">%1$s step</item>
+        <item quantity="other">%1$s steps</item>
+    </plurals>
 
     <!-- The action that opens the picker from inside a running workout. "More" rather than
          "exercises", because the button sits under the ones the session already has. -->
@@ -269,6 +283,18 @@
         <item quantity="other">%1$d to %2$d reps</item>
     </plurals>
 
+    <string name="summary_effort">Effort</string>
+    <string name="summary_rating">Rating</string>
+    <string name="summary_rating_star">Rate %1$d out of %2$d</string>
+    <string name="summary_calories">Calories</string>
+    <string name="summary_calories_value">%1$s kcal</string>
+    <string name="summary_calories_empty">Not recorded</string>
+    <string name="summary_calories_description">%1$s, %2$s</string>
+    <string name="summary_calories_edit">Edit calories</string>
+    <string name="summary_calories_label">Calories (kcal)</string>
+    <string name="summary_effort_save">Save</string>
+    <string name="summary_effort_cancel">Cancel</string>
+    <string name="summary_effort_save_failed">Couldn’t save the effort. Try again.</string>
     <string name="summary_notes">Session notes</string>
     <string name="summary_notes_label">Session notes</string>
     <string name="summary_notes_empty">Add a note about this session — how it felt, what to change next time.</string>

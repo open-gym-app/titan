@@ -2,8 +2,12 @@ package com.titan.core.domain.model
 
 /**
  * Canonical storage units (see docs/db-schema): [weight] in milligrams,
- * [distance] in centimeters, [duration] and [restAfter] in seconds,
- * [rpe] as RPE x 10 (65 = RPE 6.5). Unit conversions happen in the UI layer.
+ * [distance] and [elevationGain] in centimeters, [duration] and [restAfter] in seconds,
+ * [steps] as a count, [rpe] as RPE x 10 (65 = RPE 6.5). Unit conversions happen in the UI
+ * layer.
+ *
+ * [elevationGain] and [steps] describe a piece of cardio — the climb of a hill run, the steps
+ * of a walk — and stay null on every other set, the way [distance] does on a bench press.
  */
 data class WorkoutSet(
     val id: Long = 0,
@@ -15,6 +19,8 @@ data class WorkoutSet(
     val distance: Long? = null,
     val heartRateAvg: Int? = null,
     val heartRateMax: Int? = null,
+    val elevationGain: Long? = null,
+    val steps: Int? = null,
     val restAfter: Long? = null,
     val rpe: Int? = null,
     val setType: SetType = SetType.NORMAL,

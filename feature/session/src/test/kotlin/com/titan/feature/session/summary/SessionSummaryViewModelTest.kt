@@ -22,6 +22,7 @@ import com.titan.core.domain.model.XpGrant
 import com.titan.core.domain.stats.MuscleVolumeCalculator
 import com.titan.core.domain.stats.SessionStatsCalculator
 import com.titan.core.domain.usecase.CreateTemplateUseCase
+import com.titan.core.domain.usecase.RecordSessionEffortUseCase
 import com.titan.core.domain.usecase.RenameSessionUseCase
 import com.titan.feature.session.SessionProgressionHandoff
 import com.titan.feature.session.afterProcessDeath
@@ -342,6 +343,94 @@ class SessionSummaryViewModelTest {
             assertEquals("Felt strong", state.notesDraft)
             assertFalse(state.isSavingNotes)
             assertEquals(SessionSummaryMessage.NOTES_SAVE_FAILED, state.message)
+        }
+
+    // ─── The effort ─────────────────────────────────────────────────────────────────────
+
+    private fun effortStore(session: WorkoutSession = finishedSession()) =
+        FakeSummarySessionStore(session = session, exercises = pushDayExercises(), sets = pushDaySets())
+
+    @Test
+    fun `a star is the rating, saved on the tap`() =
+        runTest {
+            val store = effortStore()
+            val viewModel = viewModel(store = store)
+
+            viewModel.onEvent(SessionSummaryEvent.RatingChosen(4))
+
+            assertEquals(4, store.stored(SESSION_ID)?.rating)
+            assertEquals(4, viewModel.uiState.value.rating)
+        }
+
+    @Test
+    fun `tapping the star that already is the rating takes it back`() =
+        runTest {
+            val store = effortStore(finishedSession().copy(rating = 4))
+            val viewModel = viewModel(store = store)
+
+            viewModel.onEvent(SessionSummaryEvent.RatingChosen(4))
+
+            assertNull(store.stored(SESSION_ID)?.rating)
+        }
+
+    @Test
+    fun `calories open on what is stored and save what was typed, leaving the rating alone`() =
+        runTest {
+            val store = effortStore(finishedSession().copy(calories = 400, rating = 3))
+            val viewModel = viewModel(store = store)
+
+            viewModel.onEvent(SessionSummaryEvent.CaloriesEditRequested)
+            assertEquals("400", viewModel.uiState.value.caloriesDraft)
+
+            viewModel.onEvent(SessionSummaryEvent.CaloriesChanged("520"))
+            viewModel.onEvent(SessionSummaryEvent.CaloriesSaved)
+
+            assertEquals(520, store.stored(SESSION_ID)?.calories)
+            assertEquals(3, store.stored(SESSION_ID)?.rating)
+            assertNull(viewModel.uiState.value.caloriesDraft)
+        }
+
+    @Test
+    fun `an emptied calories field clears the figure`() =
+        runTest {
+            val store = effortStore(finishedSession().copy(calories = 400))
+            val viewModel = viewModel(store = store)
+
+            viewModel.onEvent(SessionSummaryEvent.CaloriesEditRequested)
+            viewModel.onEvent(SessionSummaryEvent.CaloriesChanged(" "))
+            viewModel.onEvent(SessionSummaryEvent.CaloriesSaved)
+
+            assertNull(store.stored(SESSION_ID)?.calories)
+        }
+
+    @Test
+    fun `calories that are not a figure are never written, and the field stays open`() =
+        runTest {
+            val store = effortStore(finishedSession().copy(calories = 400))
+            val viewModel = viewModel(store = store)
+
+            viewModel.onEvent(SessionSummaryEvent.CaloriesEditRequested)
+            viewModel.onEvent(SessionSummaryEvent.CaloriesChanged("61O"))
+            viewModel.onEvent(SessionSummaryEvent.CaloriesSaved)
+
+            assertEquals(400, store.stored(SESSION_ID)?.calories)
+            assertEquals("61O", viewModel.uiState.value.caloriesDraft)
+        }
+
+    @Test
+    fun `an effort that could not be written says so and keeps the typed calories`() =
+        runTest {
+            val store = effortStore().apply { writeFailure = IllegalStateException("disk full") }
+            val viewModel = viewModel(store = store)
+
+            viewModel.onEvent(SessionSummaryEvent.CaloriesEditRequested)
+            viewModel.onEvent(SessionSummaryEvent.CaloriesChanged("520"))
+            viewModel.onEvent(SessionSummaryEvent.CaloriesSaved)
+
+            val state = viewModel.uiState.value
+            assertEquals("520", state.caloriesDraft)
+            assertFalse(state.isSavingEffort)
+            assertEquals(SessionSummaryMessage.EFFORT_SAVE_FAILED, state.message)
         }
 
     // ─── Save as template ───────────────────────────────────────────────────────────────
@@ -887,6 +976,7 @@ class SessionSummaryViewModelTest {
             personalRecordRepository = FakeRecordStore(bySession = mapOf(SESSION_ID to records)),
             createTemplate = CreateTemplateUseCase(templates),
             renameSession = RenameSessionUseCase(store),
+            recordEffort = RecordSessionEffortUseCase(store),
             progressionHandoff = progressionHandoff,
         )
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {

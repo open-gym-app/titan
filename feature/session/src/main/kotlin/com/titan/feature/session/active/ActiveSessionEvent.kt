@@ -145,6 +145,29 @@ sealed interface ActiveSessionEvent {
         val rpe: Int?,
     ) : ActiveSessionEvent
 
+    /**
+     * The set's menu asked for its climb and steps: raise `CardioDetailsSheet` over that set.
+     *
+     * A sheet rather than two more columns, because most sets never carry either figure and the
+     * row already fits four columns into a phone's width — see `SetMenuAction`.
+     */
+    data class CardioDetailsRequested(
+        val sessionExerciseId: Long,
+        val setId: Long,
+    ) : ActiveSessionEvent
+
+    /** The sheet's elevation field changed. */
+    data class CardioElevationChanged(val text: String) : ActiveSessionEvent
+
+    /** The sheet's steps field changed. */
+    data class CardioStepsChanged(val text: String) : ActiveSessionEvent
+
+    /** The sheet's Save: write the set with what the sheet holds, and close it. */
+    data object CardioDetailsSaved : ActiveSessionEvent
+
+    /** The sheet was dismissed: put both figures back as stored, and close it. */
+    data object CardioDetailsDismissed : ActiveSessionEvent
+
     /** A logged row's set type changed. Written on the spot, for [SetEditRpeChanged]'s reason. */
     data class SetEditTypeChanged(
         val sessionExerciseId: Long,

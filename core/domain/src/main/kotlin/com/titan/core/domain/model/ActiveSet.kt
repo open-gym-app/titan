@@ -15,8 +15,8 @@ import kotlinx.serialization.Serializable
  * numbers them.
  *
  * Units match [WorkoutSet] exactly, because these values are written straight through
- * to it: [weight] in milligrams, [distance] in centimeters, [duration] and [restAfter]
- * in seconds, [rpe] as RPE x 10.
+ * to it: [weight] in milligrams, [distance] and [elevationGain] in centimeters, [duration]
+ * and [restAfter] in seconds, [steps] as a count, [rpe] as RPE x 10.
  *
  * @property id the `workout_set` row this draft entry was read from, or null for a set
  *   the user has typed but that has not been written yet. Restoring uses it to update
@@ -40,6 +40,8 @@ data class ActiveSet(
     val distance: Long? = null,
     val heartRateAvg: Int? = null,
     val heartRateMax: Int? = null,
+    val elevationGain: Long? = null,
+    val steps: Int? = null,
     val restAfter: Long? = null,
     val rpe: Int? = null,
     val setType: SetType = SetType.NORMAL,

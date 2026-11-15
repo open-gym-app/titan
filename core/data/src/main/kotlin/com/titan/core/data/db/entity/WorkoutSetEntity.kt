@@ -51,6 +51,10 @@ data class WorkoutSetEntity(
     val heartRateAvg: Int? = null,
     @ColumnInfo(name = "heart_rate_max")
     val heartRateMax: Int? = null,
+    @ColumnInfo(name = "elevation_gain")
+    val elevationGain: Long? = null,
+    @ColumnInfo(name = "steps")
+    val steps: Int? = null,
     @ColumnInfo(name = "rest_after")
     val restAfter: Long? = null,
     @ColumnInfo(name = "rpe")

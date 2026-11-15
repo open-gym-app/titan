@@ -146,6 +146,24 @@ class ExportFormatDecodeTest {
             assertEquals(document.bodyMeasurement.first().chest, first.chest)
         }
 
+    /**
+     * The same tolerance for the cardio figures: a file from before sets gained a climb and steps,
+     * and sessions calories and a rating, restores with all four null.
+     */
+    @Test
+    fun `a session and its sets from before the effort figures restore with them empty`() =
+        runTest {
+            val document = sampleDocument()
+            val older = listOf("elevation_gain", "steps", "calories", "rating")
+                .fold(stream(document)) { text, key -> text.replace(Regex("\"$key\":(null|\\d+),"), "") }
+
+            val decoded = (ExportFormat.decode(source(older)) as ExportFormat.Decoded.Success).document
+
+            assertTrue(decoded.workoutSet.all { it.elevationGain == null && it.steps == null })
+            assertTrue(decoded.workoutSession.all { it.calories == null && it.rating == null })
+            assertEquals(document.workoutSet.size, decoded.workoutSet.size)
+        }
+
     /** A table left out of a document at this version reads back empty rather than failing. */
     @Test
     fun `a missing table reads back as no rows`() {

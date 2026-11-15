@@ -4,6 +4,7 @@ import com.titan.core.domain.usecase.ApplyTemplateUseCase
 import com.titan.core.domain.usecase.ExportUseCase
 import com.titan.core.domain.usecase.GetTemplateSummariesUseCase
 import com.titan.core.domain.usecase.ImportUseCase
+import com.titan.core.domain.usecase.RecordSessionEffortUseCase
 import com.titan.core.domain.usecase.SetAutoBackupEnabledUseCase
 import com.titan.core.domain.usecase.StartPlannedSessionUseCase
 import com.titan.core.domain.usecase.StartSessionUseCase
@@ -61,6 +62,9 @@ class UseCaseBindingsTest {
     lateinit var importBackup: Provider<ImportUseCase>
 
     @Inject
+    lateinit var recordEffort: Provider<RecordSessionEffortUseCase>
+
+    @Inject
     lateinit var setAutoBackupEnabled: Provider<SetAutoBackupEnabledUseCase>
 
     @Before
@@ -86,6 +90,11 @@ class UseCaseBindingsTest {
      * the only thing that will ever ask for it. A missing binding here would surface as a crash
      * the first time somebody tried to back their phone up.
      */
+    @Test
+    fun `recording a session's effort resolves`() {
+        assertNotNull(recordEffort.get())
+    }
+
     @Test
     fun `the backup use cases resolve`() {
         assertNotNull(exportBackup.get())

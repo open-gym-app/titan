@@ -31,6 +31,8 @@ class SessionMappersTest {
             isInProgress = false,
             lastActiveAt = 1_700_000_090_000,
             notes = "felt heavy",
+            calories = 640,
+            rating = 4,
             createdAt = 1_700_000_000_000,
             updatedAt = 1_700_000_100_000,
         )

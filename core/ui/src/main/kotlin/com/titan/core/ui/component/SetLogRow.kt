@@ -151,6 +151,8 @@ import com.titan.core.ui.theme.TitanTheme
  *   `distanceEntryUnit`, the one the caller parses with, as [weight] is typed in its weight unit.
  * @param footer drawn under the row, below the target line — the hold stopwatch, on the row a
  *   hold is typed into. Null for nothing.
+ * @param menuAction one more item for the set-number menu, under the set types — the climb and
+ *   steps of an endurance set. Null offers the types alone. See [SetMenuAction].
  * @param onCommit the fields have been left: focus has gone from the row altogether, or the
  *   keyboard's DONE was pressed. Null for a row whose text is not written until something else
  *   says so — the entry row, whose tick is that something.
@@ -192,6 +194,7 @@ fun SetLogRow(
     onFillTarget: (() -> Unit)? = null,
     footer: (@Composable () -> Unit)? = null,
     onCommit: (() -> Unit)? = null,
+    menuAction: SetMenuAction? = null,
 ) {
     val focusManager = LocalFocusManager.current
     // Cleared on DONE so the key that *looks* like it finishes the row actually does: dismissing
@@ -238,6 +241,7 @@ fun SetLogRow(
             onSetTypeChange = onSetTypeChange,
             isActive = isActive,
             enabled = enabled,
+            extraAction = menuAction,
         )
         PreviousCell(previous = previous, showPrevious = showPrevious)
 
@@ -510,6 +514,7 @@ internal fun SetTypeCell(
     onSetTypeChange: ((SetType) -> Unit)?,
     isActive: Boolean,
     enabled: Boolean,
+    extraAction: SetMenuAction? = null,
 ) {
     if (onSetTypeChange == null) {
         SetIndexCell(setNumber = setNumber, setType = setType, isActive = isActive)
@@ -523,6 +528,7 @@ internal fun SetTypeCell(
         isActive = isActive,
         enabled = enabled,
         modifier = Modifier.padding(end = INDEX_CLEARANCE),
+        extraAction = extraAction,
     )
 }
 

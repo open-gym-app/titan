@@ -16,6 +16,8 @@ class SessionMapper @Inject constructor() {
             isInProgress = entity.isInProgress,
             lastActiveAt = entity.lastActiveAt,
             notes = entity.notes,
+            calories = entity.calories,
+            rating = entity.rating,
             createdAt = entity.createdAt,
             updatedAt = entity.updatedAt,
         )
@@ -29,6 +31,8 @@ class SessionMapper @Inject constructor() {
             isInProgress = session.isInProgress,
             lastActiveAt = session.lastActiveAt,
             notes = session.notes,
+            calories = session.calories,
+            rating = session.rating,
             createdAt = session.createdAt,
             updatedAt = session.updatedAt,
         )

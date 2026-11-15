@@ -69,6 +69,21 @@
     <string name="active_reps_not_a_number">Ese número de repeticiones no es un número</string>
     <string name="active_duration_not_a_time">Ese tiempo no es un tiempo: escríbelo como 1,30 o 1,05,30</string>
     <string name="active_distance_not_a_number">Esa distancia no es un número</string>
+    <string name="active_elevation_not_a_number">Ese desnivel no es un número</string>
+    <string name="active_steps_not_a_number">Esa cantidad de pasos no es un número entero</string>
+    <string name="set_cardio_details_action">Desnivel y pasos</string>
+    <string name="set_cardio_details_title">Desnivel y pasos — serie %1$d</string>
+    <string name="set_cardio_elevation_label">Desnivel positivo (%1$s)</string>
+    <string name="set_cardio_steps_label">Pasos</string>
+    <string name="set_cardio_save">Guardar</string>
+    <string name="set_cardio_cancel">Cancelar</string>
+    <string name="set_cardio_climb">%1$s de desnivel</string>
+    <string name="set_cardio_edit">Editar desnivel y pasos, serie %1$d</string>
+    <plurals name="set_cardio_steps">
+        <item quantity="one">%1$s paso</item>
+        <item quantity="many">%1$s pasos</item>
+        <item quantity="other">%1$s pasos</item>
+    </plurals>
 
     <string name="active_add_exercises">Añadir más ejercicios</string>
     <string name="active_remove_exercise">Quitar %1$s de este entrenamiento</string>
@@ -177,6 +192,18 @@
         <item quantity="other">de %1$d a %2$d repeticiones</item>
     </plurals>
 
+    <string name="summary_effort">Esfuerzo</string>
+    <string name="summary_rating">Valoración</string>
+    <string name="summary_rating_star">Valorar %1$d de %2$d</string>
+    <string name="summary_calories">Calorías</string>
+    <string name="summary_calories_value">%1$s kcal</string>
+    <string name="summary_calories_empty">Sin registrar</string>
+    <string name="summary_calories_description">%1$s, %2$s</string>
+    <string name="summary_calories_edit">Editar calorías</string>
+    <string name="summary_calories_label">Calorías (kcal)</string>
+    <string name="summary_effort_save">Guardar</string>
+    <string name="summary_effort_cancel">Cancelar</string>
+    <string name="summary_effort_save_failed">No se pudo guardar el esfuerzo. Inténtalo de nuevo.</string>
     <string name="summary_notes">Notas de la sesión</string>
     <string name="summary_notes_label">Notas de la sesión</string>
     <string name="summary_notes_empty">Añade una nota sobre esta sesión: cómo fue, qué cambiar la próxima vez.</string>
