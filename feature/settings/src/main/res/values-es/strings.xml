@@ -158,6 +158,11 @@
         <item quantity="many">medidas corporales</item>
         <item quantity="other">medidas corporales</item>
     </plurals>
+    <plurals name="settings_count_progress_photos">
+        <item quantity="one">foto de progreso</item>
+        <item quantity="many">fotos de progreso</item>
+        <item quantity="other">fotos de progreso</item>
+    </plurals>
 
     <!-- Backup & restore (#38). -->
     <string name="backup_footprint_title">En este dispositivo</string>

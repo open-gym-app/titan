@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+
+        <!--
+          The camera app writes a new progress photo through this, and through nothing else.
+          `android:exported="false"` with `grantUriPermissions`: nothing may query it, and the only
+          access anybody gets is the one-shot write granted with the capture intent. See
+          `PhotoCaptureProvider` and `res/xml/photo_capture_paths.xml`.
+        -->
+        <provider
+            android:name="com.titan.feature.progression.photos.PhotoCaptureProvider"
+            android:authorities="${applicationId}.photocapture"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/photo_capture_paths" />
+        </provider>
+
+    </application>
+
+</manifest>

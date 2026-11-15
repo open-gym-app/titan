@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What `PhotoCaptureProvider` exposes: the one scratch directory a camera app writes a new
+  progress photo into, and nothing else. The photos themselves live in `files/photos/`, which no
+  provider in the app exposes.
+-->
+<paths>
+    <cache-path
+        name="photo-capture"
+        path="photo-capture/" />
+</paths>
