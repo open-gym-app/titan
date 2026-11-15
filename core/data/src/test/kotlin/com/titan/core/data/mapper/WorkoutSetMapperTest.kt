@@ -37,6 +37,8 @@ class WorkoutSetMapperTest {
             distance = 500,
             heartRateAvg = 130,
             heartRateMax = 160,
+            elevationGain = 12_000,
+            steps = 8_400,
             restAfter = 90,
             rpe = 85,
             setType = SetType.DROP_SET,

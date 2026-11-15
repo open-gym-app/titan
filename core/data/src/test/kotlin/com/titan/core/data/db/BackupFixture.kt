@@ -106,7 +106,7 @@ private suspend fun TitanDatabase.seedHistoryForBackup() {
                 lastActiveAt = FINISHED_AT,
                 createdAt = STARTED_AT,
                 completedAt = FINISHED_AT,
-            ).copy(id = 1, notes = "felt strong", updatedAt = FINISHED_AT),
+            ).copy(id = 1, notes = "felt strong", calories = 610, rating = 5, updatedAt = FINISHED_AT),
             session(lastActiveAt = STARTED_AT, createdAt = STARTED_AT).copy(id = 2),
         ),
     )
@@ -124,7 +124,15 @@ private suspend fun TitanDatabase.seedHistoryForBackup() {
                 .copy(id = 1, rpe = 85, restAfter = 180, createdAt = STARTED_AT, updatedAt = FINISHED_AT),
             // Planned but never performed: `completed_at = 0` beside `is_completed = 0`.
             workoutSet(sessionExerciseId = 2, setNumber = 1, isCompleted = false, completedAt = 0)
-                .copy(id = 2, duration = 60, distance = 2_000, heartRateAvg = 150, heartRateMax = 172),
+                .copy(
+                    id = 2,
+                    duration = 60,
+                    distance = 2_000,
+                    heartRateAvg = 150,
+                    heartRateMax = 172,
+                    elevationGain = 4_500,
+                    steps = 2_600,
+                ),
         ),
     )
     dao.insertPersonalRecords(

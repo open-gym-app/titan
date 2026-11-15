@@ -49,10 +49,12 @@ private const val GOLDEN_MAXIMAL_DOCUMENT =
     """{"version":1,"session":{"sessionId":7,"startedAt":1700000000000,"pausedDuration":"PT1M35S",""" +
         """"pausedAt":1700000600000,"exercises":[{"exerciseId":12,"sessionExerciseId":34,""" +
         """"supersetGroup":0,"notes":"belt on from set 3","sets":[{"id":56,"reps":5,"weight":102500000,"duration":45,""" +
-        """"distance":20000,"heartRateAvg":132,"heartRateMax":168,"restAfter":90,"rpe":85,""" +
+        """"distance":20000,"heartRateAvg":132,"heartRateMax":168,"elevationGain":3500,"steps":420,""" +
+        """"restAfter":90,"rpe":85,""" +
         """"setType":"DROP_SET","isCompleted":true,"completedAt":1700000120000,"notes":"last one moved slow"},""" +
         """{"id":null,"reps":8,"weight":null,"duration":null,"distance":null,"heartRateAvg":null,""" +
-        """"heartRateMax":null,"restAfter":null,"rpe":null,"setType":"NORMAL","isCompleted":false,""" +
+        """"heartRateMax":null,"elevationGain":null,"steps":null,"restAfter":null,"rpe":null,""" +
+        """"setType":"NORMAL","isCompleted":false,""" +
         """"completedAt":null,"notes":null}]},{"exerciseId":13,"sessionExerciseId":35,""" +
         """"supersetGroup":0,"notes":null,""" +
         """"sets":[]}],"currentExerciseIndex":1,"restTimer":{"type":"running","deadline":1700000700000,""" +
@@ -242,7 +244,18 @@ class ActiveSessionSerializationTest {
 
     @Test
     fun `a draft written before the stopwatch existed decodes with none running`() {
-        assertEquals(maximalSession().copy(stopwatch = null), ActiveSessionFormat.decode(PRE_STOPWATCH_DOCUMENT))
+        // Written before sets carried a climb and steps as well, so it pins that addition too:
+        // the keys are absent, and the sets come back with neither.
+        val expected = maximalSession().let { session ->
+            session.copy(
+                stopwatch = null,
+                exercises = session.exercises.map { exercise ->
+                    exercise.copy(sets = exercise.sets.map { it.copy(elevationGain = null, steps = null) })
+                },
+            )
+        }
+
+        assertEquals(expected, ActiveSessionFormat.decode(PRE_STOPWATCH_DOCUMENT))
     }
 
     @Test

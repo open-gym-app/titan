@@ -302,6 +302,22 @@ class SetValidatorTest {
     }
 
     @Test
+    fun `a climb of zero is a flat run, and its bounds are checked`() {
+        assertTrue(SetValidator.validate(set().copy(elevationGain = 0L)).isValid)
+        assertTrue(SetValidator.validate(set().copy(elevationGain = SetValidator.ELEVATION_GAIN_MAX_CM)).isValid)
+        assertFalse(SetValidator.validate(set().copy(elevationGain = -1L)).isValid)
+        assertFalse(SetValidator.validate(set().copy(elevationGain = SetValidator.ELEVATION_GAIN_MAX_CM + 1)).isValid)
+    }
+
+    @Test
+    fun `a step count of zero was not walked, and its bounds are checked`() {
+        assertTrue(SetValidator.validate(set().copy(steps = SetValidator.STEPS_MIN)).isValid)
+        assertTrue(SetValidator.validate(set().copy(steps = SetValidator.STEPS_MAX)).isValid)
+        assertFalse(SetValidator.validate(set().copy(steps = 0)).isValid)
+        assertFalse(SetValidator.validate(set().copy(steps = SetValidator.STEPS_MAX + 1)).isValid)
+    }
+
+    @Test
     fun `several violations are all reported in one reason`() {
         val reason = reasonOf(
             set(reps = 0, weight = -5L, duration = -1L, distance = -2L, restAfter = -7L),

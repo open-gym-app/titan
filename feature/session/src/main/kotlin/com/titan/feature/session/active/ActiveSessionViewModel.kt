@@ -74,9 +74,11 @@ import com.titan.core.ui.format.EntryUnits
 import com.titan.core.ui.format.distanceEntryUnit
 import com.titan.core.ui.format.formatClockValue
 import com.titan.core.ui.format.formatDistanceEntry
+import com.titan.core.ui.format.formatElevationValue
 import com.titan.core.ui.format.formatWeightValue
 import com.titan.core.ui.format.parseClockSeconds
 import com.titan.core.ui.format.parseDistanceCentimetres
+import com.titan.core.ui.format.parseElevationCentimetres
 import com.titan.core.ui.format.parseWeightMilligrams
 import com.titan.core.ui.state.savedScreenState
 import com.titan.feature.session.SessionProgressionHandoff
@@ -878,6 +880,10 @@ class ActiveSessionViewModel @Inject constructor(
         if (duration.isMalformed) return SetEntryError.DurationNotATime
         val distance = distanceField(entry.distance, units)
         if (distance.isMalformed) return SetEntryError.DistanceNotANumber
+        val elevation = elevationField(entry.elevation)
+        if (elevation.isMalformed) return SetEntryError.ElevationNotANumber
+        val steps = stepsField(entry.steps)
+        if (steps.isMalformed) return SetEntryError.StepsNotANumber
 
         val candidate = WorkoutSet(
             sessionExerciseId = 0,
@@ -886,6 +892,8 @@ class ActiveSessionViewModel @Inject constructor(
             weight = weight.value,
             duration = duration.value,
             distance = distance.value,
+            elevationGain = elevation.value,
+            steps = steps.value,
             rpe = entry.rpe,
             setType = entry.setType,
             completedAt = 0,
@@ -920,6 +928,20 @@ class ActiveSessionViewModel @Inject constructor(
         when {
             text.isBlank() -> Field.absent()
             else -> Field.of(parseClockSeconds(text, units.bareClockNumber))
+        }
+
+    /** The elevation field read as centimetres, in the system's elevation unit. */
+    private fun elevationField(text: String): Field<Long> =
+        when {
+            text.isBlank() -> Field.absent()
+            else -> Field.of(parseElevationCentimetres(text, unitSystem.value))
+        }
+
+    /** The steps field read as a whole count. */
+    private fun stepsField(text: String): Field<Int> =
+        when {
+            text.isBlank() -> Field.absent()
+            else -> Field.of(text.trim().toIntOrNull())
         }
 
     /** The distance field read as centimetres, in the unit its exercise is typed in. */
@@ -1165,6 +1187,22 @@ class ActiveSessionViewModel @Inject constructor(
             is ActiveSessionEvent.SetEditCommitted ->
                 commitSet(event.sessionExerciseId, event.setId)
 
+            is ActiveSessionEvent.CardioDetailsRequested -> openCardioDetails(event.sessionExerciseId, event.setId)
+
+            is ActiveSessionEvent.CardioElevationChanged ->
+                screenState.value.cardioSet?.let { (_, setId) ->
+                    typeIntoSet(
+                        setId,
+                    ) { it.copy(elevation = event.text) }
+                }
+
+            is ActiveSessionEvent.CardioStepsChanged ->
+                screenState.value.cardioSet?.let { (_, setId) -> typeIntoSet(setId) { it.copy(steps = event.text) } }
+
+            ActiveSessionEvent.CardioDetailsSaved -> saveCardioDetails()
+
+            ActiveSessionEvent.CardioDetailsDismissed -> dismissCardioDetails()
+
             is ActiveSessionEvent.SetDeleted -> delete(event.sessionExerciseId, event.setId)
 
             is ActiveSessionEvent.SetCompletionToggled ->
@@ -1210,6 +1248,45 @@ class ActiveSessionViewModel @Inject constructor(
                 message = null,
             )
         }
+    }
+
+    /**
+     * Raises the climb-and-steps sheet over one set, reading the row into a correction first so the
+     * sheet has fields to type into — the same draft the row's own fields write through.
+     */
+    private fun openCardioDetails(
+        sessionExerciseId: Long,
+        setId: Long,
+    ) {
+        typeIntoSet(setId) { it }
+        screenState.update { it.copy(cardioSet = sessionExerciseId to setId) }
+    }
+
+    /**
+     * Writes the set with the sheet's figures and lowers it — refused, with the sheet left up, while
+     * either figure is malformed or out of bounds. Goes through [commitSet], so it takes its turn
+     * behind any correction to the same row and can never race one.
+     */
+    private fun saveCardioDetails() {
+        val (sessionExerciseId, setId) = screenState.value.cardioSet ?: return
+        if (screenState.value.setEdits[setId]?.error != null) return
+        screenState.update { it.copy(cardioSet = null) }
+        commitSet(sessionExerciseId, setId)
+    }
+
+    /**
+     * Lowers the sheet with nothing it typed kept: both figures go back to what the set stores, and
+     * a correction typed into the row's own fields stays exactly as it was.
+     */
+    private fun dismissCardioDetails() {
+        val (sessionExerciseId, setId) = screenState.value.cardioSet ?: return
+        val stored = loaded.value?.setById(setId)?.toEntry(unitSystem.value)
+        screenState.update { it.copy(cardioSet = null) }
+        if (stored != null) typeIntoSet(setId) { it.copy(elevation = stored.elevation, steps = stored.steps) }
+        // Through the ordinary gate, which finds the row unchanged and drops the draft the sheet
+        // opened — the row had already been left when its menu was opened, so there is nothing
+        // of the user's own typing for this to write early.
+        commitSet(sessionExerciseId, setId)
     }
 
     /**
@@ -1304,6 +1381,8 @@ class ActiveSessionViewModel @Inject constructor(
             reps = repsField(entry.reps).value,
             duration = durationField(entry.duration, units).value,
             distance = distanceField(entry.distance, units).value,
+            elevationGain = elevationField(entry.elevation).value,
+            steps = stepsField(entry.steps).value,
             rpe = entry.rpe,
             setType = entry.setType,
         )
@@ -2839,35 +2918,7 @@ class ActiveSessionViewModel @Inject constructor(
         advice: Advice,
         now: Long,
     ): ActiveSessionUiState {
-        val base = ActiveSessionUiState(
-            nameDraft = screen.nameDraft,
-            isRenaming = screen.isRenaming,
-            isAddingExercises = screen.isAddingExercises,
-            isRegrouping = screen.isRegrouping,
-            refusedReorders = screen.refusedReorders,
-            isReordering = screen.isReordering,
-            swappingExerciseId = screen.swappingExerciseId,
-            isPaused = screen.pausedAt != null,
-            loggingExerciseIds = screen.loggingExerciseIds,
-            togglingSetIds = screen.togglingSetIds,
-            isFinishing = screen.isFinishing,
-            confirmingFinish = screen.confirmingFinish,
-            isDiscarding = screen.isDiscarding,
-            confirmingDiscard = screen.confirmingDiscard,
-            finishedSessionId = screen.finishedSessionId,
-            isDiscarded = screen.isDiscarded,
-            deletedSet = screen.deletedSet,
-            // The flag says the sheet was raised and not since dismissed; whether there is
-            // anything to *look* at is the timer's answer. Reading them together here is what
-            // makes the sheet come down of its own accord when the countdown reaches zero,
-            // without anything having to remember to lower a flag — and what stops a sheet
-            // being restored over a rest that ended while the process was dead.
-            isRestSheetOpen = screen.isRestSheetOpen && screen.isRestLive,
-            timedExerciseId = screen.stopwatch?.sessionExerciseId,
-            notificationPermissionRequest = screen.notificationPermissionRequest,
-            workingExerciseId = screen.workingExerciseId,
-            message = screen.message,
-        )
+        val base = screen.toBaseUiState()
 
         if (loaded == null || catalogue == null) return base
         // A page about a workout that is not running draws as one that is gone — no header, so
@@ -3028,6 +3079,45 @@ class ActiveSessionViewModel @Inject constructor(
 }
 
 /**
+ * The part of the state that is a reading of [ScreenState] alone — the flags, the drafts and the
+ * sheets — before anything read from the store is laid over it.
+ *
+ * Split out of `ActiveSessionViewModel.build` because it needs nothing but the screen's own state,
+ * and it is also what the screen draws while the session is still loading.
+ */
+private fun ScreenState.toBaseUiState(): ActiveSessionUiState =
+    ActiveSessionUiState(
+        nameDraft = nameDraft,
+        isRenaming = isRenaming,
+        isAddingExercises = isAddingExercises,
+        isRegrouping = isRegrouping,
+        refusedReorders = refusedReorders,
+        isReordering = isReordering,
+        swappingExerciseId = swappingExerciseId,
+        isPaused = pausedAt != null,
+        loggingExerciseIds = loggingExerciseIds,
+        togglingSetIds = togglingSetIds,
+        isFinishing = isFinishing,
+        confirmingFinish = confirmingFinish,
+        isDiscarding = isDiscarding,
+        confirmingDiscard = confirmingDiscard,
+        finishedSessionId = finishedSessionId,
+        isDiscarded = isDiscarded,
+        deletedSet = deletedSet,
+        // The flag says the sheet was raised and not since dismissed; whether there is
+        // anything to *look* at is the timer's answer. Reading them together here is what
+        // makes the sheet come down of its own accord when the countdown reaches zero,
+        // without anything having to remember to lower a flag — and what stops a sheet
+        // being restored over a rest that ended while the process was dead.
+        isRestSheetOpen = isRestSheetOpen && isRestLive,
+        timedExerciseId = stopwatch?.sessionExerciseId,
+        notificationPermissionRequest = notificationPermissionRequest,
+        workingExerciseId = workingExerciseId,
+        cardioDetails = cardioDetails(),
+        message = message,
+    )
+
+/**
  * The part of [ScreenState] that outlives the process in saved instance state.
  *
  * Deliberately these four and no more. Everything else the workout screen holds is either
@@ -3144,8 +3234,23 @@ private data class ScreenState(
     val workingExerciseId: Long? = null,
     /** The prompt should go up. See [ActiveSessionUiState.notificationPermissionRequest]. */
     val notificationPermissionRequest: Boolean = false,
+    /** The set whose climb and steps sheet is up, as (session exercise, set), or null. */
+    val cardioSet: Pair<Long, Long>? = null,
     val message: ActiveSessionMessage? = null,
 ) {
+
+    /** The climb-and-steps sheet's contents, read off the correction it types into, or null. */
+    fun cardioDetails(): CardioDetailsEdit? {
+        val (sessionExerciseId, setId) = cardioSet ?: return null
+        val entry = setEdits[setId] ?: return null
+        return CardioDetailsEdit(
+            sessionExerciseId = sessionExerciseId,
+            setId = setId,
+            elevation = entry.elevation,
+            steps = entry.steps,
+            error = entry.error,
+        )
+    }
 
     /** What is typed against one exercise, which for an untouched one is an empty row. */
     fun entryFor(sessionExerciseId: Long): SetEntry = entries[sessionExerciseId] ?: SetEntry()
@@ -3533,12 +3638,14 @@ private fun WorkoutSet.toEntry(unitSystem: UnitSystem): SetEntry =
         distance = distance?.let { formatDistanceEntry(it, unitSystem.distanceEntryUnit) }.orEmpty(),
         rpe = rpe,
         setType = setType,
+        elevation = elevationGain?.let { formatElevationValue(it, unitSystem) }.orEmpty(),
+        steps = steps?.toString().orEmpty(),
     )
 
 /**
  * Whether this correction says the same thing as the set it was read from.
  *
- * The six dimensions a row can change, compared as *values* rather than as text: `70` and
+ * The eight dimensions a row can change, compared as *values* rather than as text: `70` and
  * `70.0` are the same weight, `1:30` and `90` the same hold, and a lifter who tabbed through a
  * field without altering it has made no correction to write.
  */
@@ -3547,15 +3654,19 @@ private fun ActiveSet.matches(stored: WorkoutSet): Boolean =
         reps == stored.reps &&
         duration == stored.duration &&
         distance == stored.distance &&
+        elevationGain == stored.elevationGain &&
+        steps == stored.steps &&
         rpe == stored.rpe &&
         setType == stored.setType
 
-/** The same six dimensions, against a correction rather than against a stored row. */
+/** The same eight dimensions, against a correction rather than against a stored row. */
 private fun ActiveSet.matches(other: ActiveSet): Boolean =
     weight == other.weight &&
         reps == other.reps &&
         duration == other.duration &&
         distance == other.distance &&
+        elevationGain == other.elevationGain &&
+        steps == other.steps &&
         rpe == other.rpe &&
         setType == other.setType
 
@@ -3569,6 +3680,8 @@ private fun ActiveSet.toEntry(unitSystem: UnitSystem): SetEntry =
         rpe = rpe,
         setType = setType,
         notes = notes,
+        elevation = elevationGain?.let { formatElevationValue(it, unitSystem) }.orEmpty(),
+        steps = steps?.toString().orEmpty(),
     )
 
 /**
@@ -3596,6 +3709,8 @@ private fun WorkoutSet.toActiveSet(): ActiveSet =
         distance = distance,
         heartRateAvg = heartRateAvg,
         heartRateMax = heartRateMax,
+        elevationGain = elevationGain,
+        steps = steps,
         restAfter = restAfter,
         rpe = rpe,
         setType = setType,
