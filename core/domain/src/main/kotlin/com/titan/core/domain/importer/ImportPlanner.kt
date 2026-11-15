@@ -10,6 +10,7 @@ import com.titan.core.domain.model.WorkoutSession
 import com.titan.core.domain.model.WorkoutSet
 import com.titan.core.domain.superset.Supersets
 import com.titan.core.domain.validation.BodyMeasurementValidator
+import com.titan.core.domain.validation.SessionEffortValidator
 import com.titan.core.domain.validation.SetValidator
 
 /**
@@ -30,6 +31,9 @@ import com.titan.core.domain.validation.SetValidator
  * than costing the set:
  *
  * - an RPE outside `10..100`, a negative rest, a non-positive heart rate: not recorded;
+ * - a climb or a step count on a set that is not cardio, or out of `SetValidator`'s bounds, and
+ *   a workout's calories or rating out of `SessionEffortValidator`'s: not recorded. They describe
+ *   the set or the workout; they are not what makes it one;
  * - zero reps or a zero duration: not recorded, which leaves the set valid if its exercise is not
  *   logged by that dimension, and invalid if it is;
  * - a negative weight: not recorded. Several apps write an assisted pull-up's assistance as a
@@ -81,6 +85,9 @@ object ImportPlanner {
     const val MAX_WORKOUT_SECONDS = 24L * 60 * 60
 
     private const val MILLIS_PER_SECOND = 1_000L
+
+    private val CALORIES = SessionEffortValidator.CALORIES_MIN..SessionEffortValidator.CALORIES_MAX
+    private val RATINGS = SessionEffortValidator.RATING_MIN..SessionEffortValidator.RATING_MAX
 
     /** Plans [history] against [baseline]. Pure, and never throws for anything [history] holds. */
     fun plan(
@@ -135,6 +142,7 @@ object ImportPlanner {
             // the library entry for it resolves to the same thing.
             history.exercises.forEach(::resolve)
             val measurements = planMeasurements()
+            val photos = planPhotos()
 
             return ImportPlan(
                 newExercises = newExercises.toList(),
@@ -143,6 +151,7 @@ object ImportPlanner {
                 measurements = measurements,
                 matchedExercises = refs.values.filterIsInstance<ExerciseRef.Existing>().distinct().size,
                 skipped = skips,
+                photos = photos,
             )
         }
 
@@ -278,6 +287,8 @@ object ImportPlanner {
                 name = WorkoutSession.normalizeName(workout.name),
                 notes = cleanNotes(workout.notes),
                 exercises = stamped.mapIndexed { index, line -> line.copy(supersetGroup = grouping[index]) },
+                calories = workout.calories?.takeIf { it in CALORIES },
+                rating = workout.rating?.takeIf { it in RATINGS },
             )
         }
 
@@ -321,6 +332,12 @@ object ImportPlanner {
                 distance = distance.takeIfPositive(),
                 heartRateAvg = heartRateAvg.takeIfPositive(),
                 heartRateMax = heartRateMax.takeIfPositive(),
+                elevationGain = elevationGain
+                    ?.takeIf { type == ExerciseType.ENDURANCE }
+                    ?.takeIf { it in SetValidator.ELEVATION_GAIN_MIN_CM..SetValidator.ELEVATION_GAIN_MAX_CM },
+                steps = steps
+                    ?.takeIf { type == ExerciseType.ENDURANCE }
+                    ?.takeIf { it in SetValidator.STEPS_MIN..SetValidator.STEPS_MAX },
                 restAfter = restAfter?.takeIf { it >= 0L },
                 rpe = rpe?.takeIf { it in WorkoutSet.RPE_MIN..WorkoutSet.RPE_MAX },
                 setType = setType,
@@ -396,6 +413,34 @@ object ImportPlanner {
                     ?.takeIf { it in SetValidator.DURATION_MIN_SECONDS..SetValidator.DURATION_MAX_SECONDS },
                 distance = set.distance?.takeIf { it in SetValidator.DISTANCE_MIN_CM..SetValidator.DISTANCE_MAX_CM },
             )
+
+        // ------------------------------------------------------------------ photos
+
+        /**
+         * Photos dated inside the import's window, oldest first, without one already on the device
+         * or earlier in the file at the same millisecond — the measurement rule, for the same
+         * reason. Whether the bytes are an image is the store's to find out, when it reads them.
+         */
+        private fun planPhotos(): List<ImportedPhoto> {
+            val times = baseline.photoTimes.toHashSet()
+            return history.photos
+                .sortedBy(ImportedPhoto::takenAt)
+                .filter { photo ->
+                    when {
+                        photo.takenAt !in 0..now -> {
+                            skips = skips.copy(invalidPhotos = skips.invalidPhotos + 1)
+                            false
+                        }
+
+                        !times.add(photo.takenAt) -> {
+                            skips = skips.copy(duplicatePhotos = skips.duplicatePhotos + 1)
+                            false
+                        }
+
+                        else -> true
+                    }
+                }
+        }
 
         // ------------------------------------------------------------------ measurements
 

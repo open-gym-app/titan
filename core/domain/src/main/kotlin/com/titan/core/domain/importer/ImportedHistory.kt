@@ -5,6 +5,7 @@ import com.titan.core.domain.model.EquipmentType
 import com.titan.core.domain.model.ExerciseType
 import com.titan.core.domain.model.PlannedSet
 import com.titan.core.domain.model.SetType
+import com.titan.core.domain.repository.PhotoSource
 
 /**
  * A training history as another app exported it, translated into Titan's units and nothing else.
@@ -45,11 +46,27 @@ data class ImportedHistory(
      * which is when the measurement was taken.
      */
     val bodyMeasurements: List<BodyMeasurement> = emptyList(),
+    /** Progress photos, for the sources whose export carries the images themselves. */
+    val photos: List<ImportedPhoto> = emptyList(),
 ) {
     /** Whether the source held nothing an import could write. */
     val isEmpty: Boolean
-        get() = exercises.isEmpty() && workouts.isEmpty() && templates.isEmpty() && bodyMeasurements.isEmpty()
+        get() = exercises.isEmpty() && workouts.isEmpty() && templates.isEmpty() &&
+            bodyMeasurements.isEmpty() && photos.isEmpty()
 }
+
+/**
+ * One progress photo from the source.
+ *
+ * @property takenAt when it was taken, when the image itself does not say — the store prefers the
+ *   camera's own timestamp, and this is its fallback. Also how a photo already imported is
+ *   recognised, as a workout is by its start.
+ * @property source the image's bytes, opened afresh on every read; see [PhotoSource].
+ */
+data class ImportedPhoto(
+    val takenAt: Long,
+    val source: PhotoSource,
+)
 
 /**
  * An exercise as the source names it, with whatever the source says about how it is performed.
@@ -97,6 +114,9 @@ data class ImportedExercise(
  * @property durationSeconds how long it lasted, when the source records it. Null asks the planner
  *   to estimate one from the sets — see [ImportPlanner.ESTIMATED_SECONDS_PER_SET].
  * @property exercises in the order they were performed.
+ * @property calories what the workout burned, in kilocalories, when the source records it.
+ * @property rating how the workout went, 1 to 5, when the source rates workouts — a parser maps
+ *   its own scale onto Titan's five stars.
  */
 data class ImportedWorkout(
     val startedAt: Long,
@@ -104,6 +124,8 @@ data class ImportedWorkout(
     val name: String? = null,
     val notes: String? = null,
     val exercises: List<ImportedWorkoutExercise>,
+    val calories: Int? = null,
+    val rating: Int? = null,
 )
 
 /**
@@ -125,7 +147,9 @@ data class ImportedWorkoutExercise(
  * was never ticked off is not history, and no source this was designed against exports one.
  *
  * Units as [ImportedHistory] lists them. [rpe] is RPE times ten; a value outside
- * `10..100` is read as not recorded rather than refusing the set.
+ * `10..100` is read as not recorded rather than refusing the set. [elevationGain] is in
+ * centimetres and [steps] a count; both describe a piece of cardio and are kept on endurance sets
+ * only.
  */
 data class ImportedSet(
     val setType: SetType = SetType.NORMAL,
@@ -136,6 +160,8 @@ data class ImportedSet(
     val rpe: Int? = null,
     val heartRateAvg: Int? = null,
     val heartRateMax: Int? = null,
+    val elevationGain: Long? = null,
+    val steps: Int? = null,
     val restAfter: Long? = null,
     val notes: String? = null,
 )

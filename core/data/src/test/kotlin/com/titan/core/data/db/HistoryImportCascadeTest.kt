@@ -40,8 +40,11 @@ import com.titan.core.domain.importer.ParseResult
 import com.titan.core.domain.model.BodyMeasurement
 import com.titan.core.domain.model.PlannedSet
 import com.titan.core.domain.model.PrType
+import com.titan.core.domain.model.ProgressPhoto
 import com.titan.core.domain.model.UnitSystem
 import com.titan.core.domain.random.RandomSource
+import com.titan.core.domain.repository.PhotoSource
+import com.titan.core.domain.repository.ProgressPhotoRepository
 import com.titan.core.domain.time.Clock
 import com.titan.core.domain.usecase.AchievementTriggerUseCase
 import com.titan.core.domain.usecase.AwardXpUseCase
@@ -52,6 +55,8 @@ import com.titan.core.domain.usecase.QuestCompletionUseCase
 import com.titan.core.domain.usecase.QuestProgressUseCase
 import com.titan.core.domain.usecase.SessionCompletionPipeline
 import com.titan.core.domain.usecase.SessionLifecycleLock
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.flow.toList
@@ -166,6 +171,9 @@ class HistoryImportCascadeTest : RoomTestBase() {
                 bodyMeasurementDao = db.bodyMeasurementDao(),
                 bodyMeasurementMapper = BodyMeasurementMapper(),
             ),
+            // Photos are the store's own concern, and `ProgressPhotoRepositoryImplTest` drives the
+            // real one over real images; here an in-memory one keeps this suite about the history.
+            progressPhotoRepository = InMemoryPhotos(),
             completeSession = pipeline,
             clock = Clock { NOW },
             backupLock = BackupLock(),
@@ -212,7 +220,7 @@ class HistoryImportCascadeTest : RoomTestBase() {
             val fly = ImportedExercise(name = "Cable Fly", primaryMuscle = "chest")
             val history = ImportedHistory(
                 workouts = listOf(
-                    benchWorkout(day = 1, weight = KG_100),
+                    benchWorkout(day = 1, weight = KG_100).copy(calories = 480, rating = 4),
                     benchWorkout(day = 8, weight = KG_110).let { workout ->
                         workout.copy(
                             exercises = workout.exercises + ImportedWorkoutExercise(
@@ -251,6 +259,7 @@ class HistoryImportCascadeTest : RoomTestBase() {
 
             val stored = sessions.getAll().first()
             assertEquals(2, stored.size)
+            assertEquals(480 to 4, stored.minBy { it.createdAt }.let { it.calories to it.rating })
             assertTrue(stored.all { !it.isInProgress && it.completedAt != null })
             assertEquals(1, countRows("exercise_muscle_group"))
             val measured = db.bodyMeasurementDao().getAll().first().single()
@@ -383,5 +392,26 @@ class HistoryImportCascadeTest : RoomTestBase() {
         const val NOW = 100 * DAY
         const val KG_100 = 100_000_000L
         const val KG_110 = 110_000_000L
+    }
+}
+
+/** A photo store holding nothing but what it is given, for a suite that is not about photos. */
+private class InMemoryPhotos : ProgressPhotoRepository {
+
+    private val photos = MutableStateFlow<List<ProgressPhoto>>(emptyList())
+
+    override fun getAll(): Flow<List<ProgressPhoto>> = photos
+
+    override suspend fun add(
+        source: PhotoSource,
+        takenAt: Long,
+    ): Long {
+        val id = photos.value.size + 1L
+        photos.value += ProgressPhoto(id = id, takenAt = takenAt, path = "/photos/$id.jpg", createdAt = takenAt)
+        return id
+    }
+
+    override suspend fun delete(id: Long) {
+        photos.value = photos.value.filterNot { it.id == id }
     }
 }

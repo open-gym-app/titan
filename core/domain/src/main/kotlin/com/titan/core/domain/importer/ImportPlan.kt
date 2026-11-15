@@ -32,6 +32,8 @@ data class ImportPlan(
     val measurements: List<BodyMeasurement>,
     val matchedExercises: Int,
     val skipped: ImportSkips,
+    /** Photos to store, oldest first, after the history itself has committed. */
+    val photos: List<ImportedPhoto> = emptyList(),
 ) {
     /** How many sets [workouts] hold between them. */
     val setCount: Int get() = workouts.sumOf(PlannedWorkout::setCount)
@@ -68,6 +70,8 @@ data class PlannedWorkout(
     val name: String?,
     val notes: String?,
     val exercises: List<PlannedWorkoutExercise>,
+    val calories: Int? = null,
+    val rating: Int? = null,
 ) {
     val setCount: Int get() = exercises.sumOf { it.sets.size }
 }
@@ -120,6 +124,8 @@ data class ImportSkips(
     val invalidTemplates: Int = 0,
     val duplicateMeasurements: Int = 0,
     val invalidMeasurements: Int = 0,
+    val duplicatePhotos: Int = 0,
+    val invalidPhotos: Int = 0,
 ) {
     /** Whether nothing was left out. */
     val isEmpty: Boolean get() = this == ImportSkips()
@@ -137,6 +143,7 @@ data class ImportSkips(
  *   recognised.
  * @property measurementTimes every body measurement's `created_at`, for the same reason.
  * @property templates every template's name and exercise sequence.
+ * @property photoTimes every progress photo's `taken_at`, for the duplicate check.
  * @property nowMillis the present: nothing may be imported as having happened after it.
  */
 data class ImportBaseline(
@@ -146,6 +153,7 @@ data class ImportBaseline(
     val measurementTimes: Set<Long>,
     val templates: List<ExistingTemplate>,
     val nowMillis: Long,
+    val photoTimes: Set<Long> = emptySet(),
 )
 
 /** A template already on the device, reduced to what a duplicate is judged by. */

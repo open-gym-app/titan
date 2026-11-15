@@ -4,6 +4,7 @@ import com.titan.core.domain.backup.BackupLock
 import com.titan.core.domain.repository.BodyMeasurementRepository
 import com.titan.core.domain.repository.ExerciseRepository
 import com.titan.core.domain.repository.HistoryImportRepository
+import com.titan.core.domain.repository.ProgressPhotoRepository
 import com.titan.core.domain.repository.SessionRepository
 import com.titan.core.domain.repository.TemplateRepository
 import com.titan.core.domain.time.Clock
@@ -39,6 +40,7 @@ object HistoryImportUseCaseModule {
         sessionRepository: SessionRepository,
         templateRepository: TemplateRepository,
         bodyMeasurementRepository: BodyMeasurementRepository,
+        progressPhotoRepository: ProgressPhotoRepository,
         completeSession: SessionCompletionPipeline,
         clock: Clock,
     ): ImportHistoryUseCase =
@@ -48,6 +50,7 @@ object HistoryImportUseCaseModule {
             sessionRepository = sessionRepository,
             templateRepository = templateRepository,
             bodyMeasurementRepository = bodyMeasurementRepository,
+            progressPhotoRepository = progressPhotoRepository,
             completeSession = completeSession,
             clock = clock,
             backupLock = BackupLock.SHARED,
