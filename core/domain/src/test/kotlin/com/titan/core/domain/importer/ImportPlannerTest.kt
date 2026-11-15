@@ -8,6 +8,7 @@ import com.titan.core.domain.model.MuscleGroup
 import com.titan.core.domain.model.PlannedSet
 import com.titan.core.domain.model.SetType
 import com.titan.core.domain.model.WorkoutSet
+import com.titan.core.domain.repository.PhotoSource
 import com.titan.core.domain.validation.SetValidator
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -598,6 +599,91 @@ class ImportPlannerTest {
         )
 
         assertTrue(plan.skipped.isEmpty)
+    }
+
+    // ------------------------------------------------------------------ cardio and effort
+
+    @Test
+    fun `a climb and steps are kept on a run and dropped from a lift, where they are column noise`() {
+        val exercises = plan(
+            ImportedHistory(
+                workouts = listOf(
+                    workout(
+                        exercises = arrayOf(
+                            line(importedBench, ImportedSet(reps = 5, elevationGain = 0, steps = 30)),
+                            line(
+                                importedRun,
+                                ImportedSet(duration = 1_800, distance = 500_000, elevationGain = 0, steps = 6_000),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ).workouts.single().exercises
+
+        assertNull(exercises[0].sets.single().elevationGain)
+        assertNull(exercises[0].sets.single().steps)
+        // Zero is a flat run, and kept; it is a measurement where it is not on a bench press.
+        assertEquals(0L, exercises[1].sets.single().elevationGain)
+        assertEquals(6_000, exercises[1].sets.single().steps)
+    }
+
+    @Test
+    fun `a climb or step count out of bounds is not recorded, and the run is kept`() {
+        val set = plan(
+            ImportedHistory(
+                workouts = listOf(
+                    workout(
+                        exercises = arrayOf(
+                            line(importedRun, ImportedSet(duration = 1_800, elevationGain = -10, steps = 0)),
+                        ),
+                    ),
+                ),
+            ),
+        ).workouts.single().exercises.single().sets.single()
+
+        assertNull(set.elevationGain)
+        assertNull(set.steps)
+        assertEquals(1_800L, set.duration)
+    }
+
+    @Test
+    fun `a workout's calories and rating come through, and are dropped when out of bounds`() {
+        val workouts = plan(
+            ImportedHistory(
+                workouts = listOf(
+                    workout(startedAt = DAY).copy(calories = 520, rating = 4),
+                    workout(startedAt = 2 * DAY).copy(calories = 0, rating = 9),
+                ),
+            ),
+        ).workouts
+
+        assertEquals(520 to 4, workouts[0].calories to workouts[0].rating)
+        assertEquals(null to null, workouts[1].calories to workouts[1].rating)
+    }
+
+    // ------------------------------------------------------------------ photos
+
+    private val photoBytes = PhotoSource { ByteArray(0).inputStream() }
+
+    @Test
+    fun `photos are planned oldest first, without duplicates or ones dated outside the window`() {
+        val plan = plan(
+            ImportedHistory(
+                photos = listOf(
+                    ImportedPhoto(takenAt = 3 * DAY, source = photoBytes),
+                    ImportedPhoto(takenAt = DAY, source = photoBytes),
+                    ImportedPhoto(takenAt = DAY, source = photoBytes),
+                    ImportedPhoto(takenAt = 2 * DAY, source = photoBytes),
+                    ImportedPhoto(takenAt = NOW + 1, source = photoBytes),
+                ),
+            ),
+            baseline.copy(photoTimes = setOf(2 * DAY)),
+        )
+
+        assertEquals(listOf(DAY, 3 * DAY), plan.photos.map(ImportedPhoto::takenAt))
+        assertEquals(2, plan.skipped.duplicatePhotos)
+        assertEquals(1, plan.skipped.invalidPhotos)
     }
 
     private companion object {

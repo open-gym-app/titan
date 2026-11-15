@@ -13,6 +13,7 @@ import com.titan.core.domain.importer.ImportContext
 import com.titan.core.domain.importer.ImportPlan
 import com.titan.core.domain.importer.ImportPlanner
 import com.titan.core.domain.importer.ImportedHistory
+import com.titan.core.domain.importer.ImportedPhoto
 import com.titan.core.domain.importer.MAX_SOURCE_BYTES
 import com.titan.core.domain.importer.ParseOutcome
 import com.titan.core.domain.importer.ParseResult
@@ -28,6 +29,7 @@ import com.titan.core.domain.model.WorkoutTemplate
 import com.titan.core.domain.repository.BodyMeasurementRepository
 import com.titan.core.domain.repository.ExerciseRepository
 import com.titan.core.domain.repository.HistoryImportRepository
+import com.titan.core.domain.repository.ProgressPhotoRepository
 import com.titan.core.domain.repository.SessionRepository
 import com.titan.core.domain.repository.TemplateRepository
 import com.titan.core.domain.time.Clock
@@ -36,6 +38,7 @@ import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.first
+import java.io.IOException
 import java.time.Instant
 
 /**
@@ -84,11 +87,18 @@ import java.time.Instant
  * from the last session counted, so imported weeks older than it do not join a streak; and an
  * achievement already unlocked keeps the date it was first unlocked here.
  *
- * ### One transaction, two locks
+ * ### One transaction, two locks — and the photos after it
  *
- * The whole import, writes and replay, is one transaction
+ * The whole history, writes and replay, is one transaction
  * ([HistoryImportRepository.atomically]): it lands entirely or not at all, so a failure or a
- * cancelled collector leaves the device exactly as it was and a retry starts clean. It runs under
+ * cancelled collector leaves the device exactly as it was and a retry starts clean.
+ *
+ * Progress photos are the one exception, and are stored **after** that transaction commits. Each
+ * is an image to decode, scale and re-encode, and holding the database's single write transaction
+ * across seconds of that would hold every other write in the app behind it. So a photo that will
+ * not store is counted in the report rather than undoing a history that is already in — and since
+ * a photo already on the device is recognised by when it was taken, running the same import again
+ * stores only the ones that did not land. It runs under
  * [BackupLock], so no export, weekly backup, restore or delete-all interleaves with it, and under
  * [SessionLifecycleLock] inside that — the order every other holder of both takes them in — so no
  * session finishes between the counters the replay reads and the rows it writes. A workout in
@@ -112,6 +122,7 @@ class ImportHistoryUseCase(
     private val sessionRepository: SessionRepository,
     private val templateRepository: TemplateRepository,
     private val bodyMeasurementRepository: BodyMeasurementRepository,
+    private val progressPhotoRepository: ProgressPhotoRepository,
     private val completeSession: SessionCompletionPipeline,
     private val clock: Clock = Clock.SYSTEM,
     private val backupLock: BackupLock = BackupLock.SHARED,
@@ -147,9 +158,16 @@ class ImportHistoryUseCase(
         if (history.isEmpty) return failed(HistoryImportError.NothingToImport)
         return try {
             backupLock.exclusively {
-                sessionLock.withTransition {
-                    historyImportRepository.atomically { write(ImportPlanner.plan(history, baseline())) }
+                val (plan, report) = sessionLock.withTransition {
+                    historyImportRepository.atomically {
+                        val plan = ImportPlanner.plan(history, baseline())
+                        plan to write(plan)
+                    }
                 }
+                // After the commit, outside the transaction and the session lock but still under
+                // the backup lock: see the class doc. A photo that will not store is counted, not
+                // fatal — the history it came with is already in.
+                storePhotos(plan.photos, report)
             }.let(HistoryImportProgress::Complete)
         } catch (failure: CancellationException) {
             throw failure
@@ -177,7 +195,33 @@ class ImportHistoryUseCase(
                 )
             },
             nowMillis = clock.nowMillis(),
+            photoTimes = progressPhotoRepository.getAll().first().mapTo(HashSet()) { it.takenAt },
         )
+    }
+
+    /**
+     * Stores [photos] one at a time and answers with [report] counting them. A photo the store
+     * refuses — bytes that will not read, or are not an image — is counted in
+     * [HistoryImportReport.photosFailed] and the rest carry on.
+     */
+    private suspend fun ProducerScope<HistoryImportProgress>.storePhotos(
+        photos: List<ImportedPhoto>,
+        report: HistoryImportReport,
+    ): HistoryImportReport {
+        if (photos.isEmpty()) return report
+        var stored = 0
+        var failed = 0
+        send(HistoryImportProgress.StoringPhotos(photosStored = 0, photosTotal = photos.size))
+        photos.forEach { photo ->
+            try {
+                progressPhotoRepository.add(photo.source, takenAt = photo.takenAt)
+                stored++
+            } catch (_: IOException) {
+                failed++
+            }
+            send(HistoryImportProgress.StoringPhotos(photosStored = stored + failed, photosTotal = photos.size))
+        }
+        return report.copy(photosImported = stored, photosFailed = failed)
     }
 
     /** Writes [plan] and replays its workouts, answering with what landed. */
@@ -277,6 +321,8 @@ class ImportHistoryUseCase(
                 isInProgress = false,
                 lastActiveAt = workout.finishedAt,
                 notes = workout.notes,
+                calories = workout.calories,
+                rating = workout.rating,
                 createdAt = workout.startedAt,
                 updatedAt = workout.finishedAt,
             ),

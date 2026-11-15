@@ -11,6 +11,7 @@ import com.titan.core.domain.importer.HistoryParser
 import com.titan.core.domain.importer.ImportContext
 import com.titan.core.domain.importer.ImportedExercise
 import com.titan.core.domain.importer.ImportedHistory
+import com.titan.core.domain.importer.ImportedPhoto
 import com.titan.core.domain.importer.ImportedSet
 import com.titan.core.domain.importer.ImportedTemplate
 import com.titan.core.domain.importer.ImportedTemplateExercise
@@ -25,6 +26,7 @@ import com.titan.core.domain.model.ExerciseMuscleGroupLink
 import com.titan.core.domain.model.MuscleGroup
 import com.titan.core.domain.model.PlannedSet
 import com.titan.core.domain.model.PrType
+import com.titan.core.domain.model.ProgressPhoto
 import com.titan.core.domain.model.SessionExerciseDraft
 import com.titan.core.domain.model.UnitSystem
 import com.titan.core.domain.model.UserPreferences
@@ -33,6 +35,8 @@ import com.titan.core.domain.model.WorkoutSet
 import com.titan.core.domain.random.RandomSource
 import com.titan.core.domain.repository.BodyMeasurementRepository
 import com.titan.core.domain.repository.HistoryImportRepository
+import com.titan.core.domain.repository.PhotoSource
+import com.titan.core.domain.repository.ProgressPhotoRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -72,6 +76,7 @@ class ImportHistoryUseCaseTest {
     private val records = FakePersonalRecordRepository()
     private val gamification = FakeGamificationRepository()
     private val store = FakeHistoryImportRepository()
+    private val photos = FakeProgressPhotoRepository().also { it.transaction = store }
 
     private val pipeline = run {
         val awardXp = AwardXpUseCase(gamification)
@@ -111,6 +116,7 @@ class ImportHistoryUseCaseTest {
             sessionRepository = sessions,
             templateRepository = templates,
             bodyMeasurementRepository = measurements,
+            progressPhotoRepository = photos,
             completeSession = pipeline,
             clock = MutableClock(now = NOW),
             backupLock = backupLock,
@@ -224,6 +230,77 @@ class ImportHistoryUseCaseTest {
             // two imported ones — so it set a record of its own against the day-5 baseline.
             val bySession = records.inserted.map { record -> sessions.sessionOfSet(record.workoutSetId) }.distinct()
             assertTrue(existing in bySession)
+        }
+
+    @Test
+    fun `a workout's calories and rating are written on its session`() =
+        runBlocking {
+            import(ImportedHistory(workouts = listOf(workout(day = 1).copy(calories = 520, rating = 4))))
+
+            val session = sessions.getAll().first().single()
+            assertEquals(520 to 4, session.calories to session.rating)
+        }
+
+    @Test
+    fun `photos are stored after the history has committed, one at a time`() =
+        runBlocking {
+            val bytes = PhotoSource { ByteArray(1).inputStream() }
+            val progress = import(
+                ImportedHistory(
+                    workouts = listOf(workout(day = 1)),
+                    photos = listOf(
+                        ImportedPhoto(takenAt = 2 * DAY, source = bytes),
+                        ImportedPhoto(takenAt = DAY, source = bytes),
+                    ),
+                ),
+            )
+
+            assertEquals(
+                listOf(
+                    HistoryImportProgress.StoringPhotos(0, 2),
+                    HistoryImportProgress.StoringPhotos(1, 2),
+                    HistoryImportProgress.StoringPhotos(2, 2),
+                ),
+                progress.filterIsInstance<HistoryImportProgress.StoringPhotos>(),
+            )
+            // Outside the transaction: none was stored while it was open.
+            assertEquals(0, photos.storedInsideTransaction)
+            assertEquals(listOf(DAY, 2 * DAY), photos.stored.map { it.second })
+            assertEquals(2, progress.report().photosImported)
+        }
+
+    @Test
+    fun `a photo that will not store is counted, and the history it came with is kept`() =
+        runBlocking {
+            photos.failOn = setOf(DAY)
+            val report = import(
+                ImportedHistory(
+                    workouts = listOf(workout(day = 1)),
+                    photos = listOf(
+                        ImportedPhoto(takenAt = DAY, source = PhotoSource { ByteArray(1).inputStream() }),
+                        ImportedPhoto(takenAt = 2 * DAY, source = PhotoSource { ByteArray(1).inputStream() }),
+                    ),
+                ),
+            ).report()
+
+            assertEquals(1, report.photosImported)
+            assertEquals(1, report.photosFailed)
+            assertEquals(1, sessions.getAll().first().size)
+        }
+
+    @Test
+    fun `a photo already on the device is not stored again`() =
+        runBlocking {
+            photos.add(PhotoSource { ByteArray(1).inputStream() }, takenAt = DAY)
+
+            val report = import(
+                ImportedHistory(
+                    photos = listOf(ImportedPhoto(takenAt = DAY, source = PhotoSource { ByteArray(1).inputStream() })),
+                ),
+            ).report()
+
+            assertEquals(0, report.photosImported)
+            assertEquals(1, report.skipped.duplicatePhotos)
         }
 
     // ------------------------------------------------------------------ refusals
@@ -364,6 +441,10 @@ private class FakeHistoryImportRepository : HistoryImportRepository {
     var transactions = 0
         private set
 
+    /** Whether a transaction is open right now, for a check that something happened outside one. */
+    var isOpen = false
+        private set
+
     var forgottenFrom: Long? = null
         private set
 
@@ -373,7 +454,12 @@ private class FakeHistoryImportRepository : HistoryImportRepository {
     override suspend fun <T> atomically(block: suspend () -> T): T {
         transactions++
         failure?.let { throw it }
-        return block()
+        isOpen = true
+        return try {
+            block()
+        } finally {
+            isOpen = false
+        }
     }
 
     override suspend fun forgetRecordsOfSessionsFinishedFrom(finishedAt: Long): Int {
@@ -405,5 +491,40 @@ private class FakeBodyMeasurementRepository : BodyMeasurementRepository {
 
     override suspend fun delete(id: Long) {
         entries.value = entries.value.filterNot { it.id == id }
+    }
+}
+
+/** The photo store, in memory: it records what it was handed, and when relative to the transaction. */
+private class FakeProgressPhotoRepository : ProgressPhotoRepository {
+
+    private val photos = MutableStateFlow<List<ProgressPhoto>>(emptyList())
+
+    /** What was stored, as (id, takenAt). */
+    val stored = mutableListOf<Pair<Long, Long>>()
+
+    /** Photos refused as though their bytes were not an image, by their `takenAt`. */
+    var failOn: Set<Long> = emptySet()
+
+    var storedInsideTransaction = 0
+        private set
+
+    var transaction: FakeHistoryImportRepository? = null
+
+    override fun getAll(): Flow<List<ProgressPhoto>> = photos
+
+    override suspend fun add(
+        source: PhotoSource,
+        takenAt: Long,
+    ): Long {
+        if (takenAt in failOn) throw IOException("not an image")
+        if (transaction?.isOpen == true) storedInsideTransaction++
+        val id = stored.size + 1L
+        stored += id to takenAt
+        photos.value += ProgressPhoto(id = id, takenAt = takenAt, path = "/photos/$id.jpg", createdAt = takenAt)
+        return id
+    }
+
+    override suspend fun delete(id: Long) {
+        photos.value = photos.value.filterNot { it.id == id }
     }
 }

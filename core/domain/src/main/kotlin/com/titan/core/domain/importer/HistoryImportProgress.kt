@@ -8,9 +8,10 @@ package com.titan.core.domain.importer
  * a screen has to show. A collector that reaches the end has seen exactly one of [Complete] and
  * [Failed].
  *
- * The phases are ordered and do not repeat: [Reading], then [Writing] once per workout, then a
- * terminal. Nothing is written before [Writing], and nothing written is kept unless [Complete]
- * follows — see [com.titan.core.domain.usecase.ImportHistoryUseCase].
+ * The phases are ordered and do not repeat: [Reading], then [Writing] once per workout, then
+ * [StoringPhotos] once per photo when the file has any, then a terminal. Nothing is written before
+ * [Writing], and the history written during it is kept only if it all commits; the photos are
+ * stored after that commit, one at a time — see [com.titan.core.domain.usecase.ImportHistoryUseCase].
  */
 sealed interface HistoryImportProgress {
 
@@ -27,6 +28,15 @@ sealed interface HistoryImportProgress {
     data class Writing(
         val workoutsWritten: Int,
         val workoutsTotal: Int,
+    ) : HistoryImportProgress
+
+    /**
+     * The history has committed and the photos are being stored, one at a time. Counts photos,
+     * since each is an image to decode and re-encode and is the slow part of this phase.
+     */
+    data class StoringPhotos(
+        val photosStored: Int,
+        val photosTotal: Int,
     ) : HistoryImportProgress
 
     /** Everything in [report] is on the device. */
@@ -76,6 +86,9 @@ sealed interface HistoryImportError {
  *   first figure of each kind an exercise has is a record, as it is for a logged one.
  * @property xpEarned XP banked by the replay: the workouts, their records, and the achievements
  *   and quests they completed.
+ * @property photosImported progress photos stored.
+ * @property photosFailed photos whose bytes could not be read or were not an image. The history
+ *   is imported regardless: photos are stored after it commits.
  * @property progressionFailures workouts whose replay could not finish one of its steps. The
  *   workout itself is imported regardless — see
  *   [com.titan.core.domain.usecase.SessionCompletionPipeline] for why a refused award never costs
@@ -88,6 +101,8 @@ data class HistoryImportReport(
     val exercisesCreated: Int,
     val templatesImported: Int,
     val measurementsImported: Int,
+    val photosImported: Int = 0,
+    val photosFailed: Int = 0,
     val skipped: ImportSkips,
     val recordsSet: Int,
     val xpEarned: Long,
