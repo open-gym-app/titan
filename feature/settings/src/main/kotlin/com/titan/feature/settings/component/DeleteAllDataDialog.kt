@@ -28,7 +28,7 @@ fun DeleteAllDataDialog(
 ) {
     TypedConfirmationDialog(
         title = stringResource(R.string.settings_delete_dialog_title),
-        body = if (footprint.isEmpty) {
+        body = if (footprint.nothingToDelete) {
             stringResource(R.string.settings_delete_dialog_body_empty)
         } else {
             stringResource(R.string.settings_delete_dialog_body)
@@ -44,6 +44,7 @@ fun DeleteAllDataDialog(
         FootprintList(
             footprint = footprint,
             settingsLine = stringResource(R.string.settings_delete_dialog_settings_line),
+            includePhotos = true,
         )
     }
 }

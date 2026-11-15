@@ -8,6 +8,7 @@ import com.titan.core.data.db.DatabaseSeed
 import com.titan.core.data.db.TitanDatabase
 import com.titan.core.data.di.DATABASE_NAME
 import com.titan.core.data.di.IoDispatcher
+import com.titan.core.data.photo.ProgressPhotoFiles
 import com.titan.core.domain.backup.BackupLock
 import com.titan.core.domain.model.DataFootprint
 import com.titan.core.domain.model.SessionState
@@ -149,7 +150,7 @@ class LocalDataRepositoryImpl @Inject constructor(
     private val sessionLock = SessionLifecycleLock.SHARED
 
     /**
-     * The six counts, as one value, and never at the cost of the flow itself.
+     * The seven counts, as one value, and never at the cost of the flow itself.
      *
      * [retryWhen] rather than [kotlinx.coroutines.flow.catch], for the reason
      * `UserPreferencesRepositoryImpl.observe` spells out at length: `catch` emits *and then
@@ -168,6 +169,7 @@ class LocalDataRepositoryImpl @Inject constructor(
                 localDataDao.countPersonalRecords(),
                 localDataDao.countCustomExercises(),
                 localDataDao.countBodyMeasurements(),
+                localDataDao.countProgressPhotos(),
             ) { it },
             localDataDao.firstSessionAt(),
         ) { counts, firstSessionAt ->
@@ -178,6 +180,7 @@ class LocalDataRepositoryImpl @Inject constructor(
                 personalRecords = counts[PERSONAL_RECORDS],
                 customExercises = counts[CUSTOM_EXERCISES],
                 bodyMeasurements = counts[BODY_MEASUREMENTS],
+                progressPhotos = counts[PROGRESS_PHOTOS],
                 firstSessionAt = firstSessionAt,
                 // Read here rather than observed, because a file's length is not something
                 // SQLite can notify on: it changes on a checkpoint and a vacuum as much as on
@@ -271,7 +274,7 @@ class LocalDataRepositoryImpl @Inject constructor(
             writable.execSQL(RESET_ID_COUNTERS)
             DatabaseSeed.insertInto(writable, context)
         }
-        val stuckBackups = deleteBackups()
+        val stuckBackups = deleteBackups() + deleteProgressPhotos()
         // The dates the backup screen shows under the toggle describe the files just deleted.
         autoBackupRepository.forgetRuns()
         userPreferencesRepository.clear()
@@ -322,6 +325,15 @@ class LocalDataRepositoryImpl @Inject constructor(
         }
         return stuck
     }
+
+    /**
+     * Empties the private photo directory — every progress photo, and any scratch file an add left
+     * behind. The rows went with `clearAllTables` above, so this only removes what nothing names
+     * any more. Answers with the files it could not delete, for [wipe] to report as it reports
+     * backups: a photo left on a phone the user asked to clear is the same failure.
+     */
+    private fun deleteProgressPhotos(): List<File> =
+        ProgressPhotoFiles.directory(context).listFiles().orEmpty().filter { !it.delete() && it.exists() }
 
     /**
      * How much space the database occupies, in bytes, or **0** if it cannot be measured.
@@ -382,5 +394,6 @@ class LocalDataRepositoryImpl @Inject constructor(
         const val PERSONAL_RECORDS = 3
         const val CUSTOM_EXERCISES = 4
         const val BODY_MEASUREMENTS = 5
+        const val PROGRESS_PHOTOS = 6
     }
 }

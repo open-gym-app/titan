@@ -46,6 +46,9 @@ interface LocalDataDao {
     @Query("SELECT COUNT(*) FROM body_measurement")
     fun countBodyMeasurements(): Flow<Int>
 
+    @Query("SELECT COUNT(*) FROM progress_photo")
+    fun countProgressPhotos(): Flow<Int>
+
     /**
      * When the oldest session on the device was started, or **null** on a device that has
      * never logged one.

@@ -355,6 +355,18 @@ Every backup file, manual or automatic, is under one `backups/` directory, and o
 - **Files under the other root are moved on first use.** The first `resolve()` in a process moves every finished `titan-*.json` from the other root's `backups/` into the chosen one, keeps the copy already in place when both have a name, deletes the `titan-*.json.tmp` scratch files an interrupted export left, and removes the old directory if that empties it. It covers an install upgraded from a build that wrote to shared storage on Android 8 to 10, and a phone upgraded to Android 11 with its backups in `filesDir`. A backup larger than `ExportFormat.MAX_DOCUMENT_BYTES` is not moved, since no restore would read it and below Android 11 the old directory is one other apps can write to; it stays where it is, unreported, until "Delete all data" or an uninstall. Once per process, idempotent across processes, and a file that will not move is retried by the next process; it never fails the caller. On first use rather than at startup, because every reader and writer asks the resolver first and a startup hook would put the listing, and on an old phone the copy, on every cold start. The move crosses filesystems on most devices, so it falls back from `renameTo` to a copy into a `.tmp` sibling, a rename, and only then the delete.
 - **Both roots are excluded from Android's own backup**, below.
 
+## Progress photos
+
+Progress photos (#304) are the one thing the app keeps that is not a row: an image, and a `progress_photo` row naming it.
+
+- **Where.** `files/photos/<uuid>.jpg`, internal storage on every Android version (`ProgressPhotoFiles`) - never the shared gallery and never the external files directory the backups may use, so no other app can read one with any permission. The row holds the file's *name*, never a path, so a move of the files directory cannot strand it; `file_name` is unique so two rows cannot claim one image.
+- **What is stored.** Not the picture the camera or picker handed over: `PhotoEncoder` re-encodes it as a JPEG at most 2048 px on its longer side, turned the right way up, with **no metadata at all** - a phone photo routinely carries the GPS position it was taken at. The one tag read on the way in is when it was taken, which becomes `taken_at`.
+- **Linked by date, not by row.** There is no foreign key to `body_measurement`: a restore replaces and renumbers those rows, so a stored id would point at the wrong entry, while a date keeps meaning the day.
+- **Never exported.** `progress_photo` is deliberately absent from `BackupTable`, and `ExportSchemaTest.NOT_EXPORTED` is the one place that says so. A backup is a file users copy to drives and clouds, and an intimate photo should not travel in one by default.
+- **A restore leaves them alone**, since it only replaces the exported tables. **"Delete all data" removes them** - the rows with `clearAllTables`, the files with the photo directory - and its confirmation counts them (`DataFootprint.progressPhotos`), where the restore confirmation, which does not touch them, does not.
+- **Excluded from Android's own backup**, below, so the guarantee holds by every road.
+- **The file first, then the row** (`ProgressPhotoRepositoryImpl`): a crash can leave an image no row names, never a row naming an image that is not there.
+
 ## Android's own backup
 
 Everything above is about what the app writes. This is about what the **platform** does with it behind the app's back, which until #180 was: upload all of it to the user's Google Drive, and restore it on reinstall before the first frame.
@@ -375,6 +387,7 @@ What they exclude is the whole of the app's durable footprint:
 | The in-progress draft and its scratch file | `files/in-progress-session.json`, `.json.tmp` | excluded by name |
 | The half-built template draft and its scratch file | `files/template-draft.json`, `.json.tmp` | excluded by name |
 | Exported and automatic backups | `backups/` under `files/` below Android 11 or when there is no external volume, under the external files directory otherwise | the directory is excluded in both domains |
+| Progress photos | `files/photos/` | the directory is excluded |
 | The auto-backup schedule | `no_backup/datastore/auto-backup.preferences_pb` | no rule needed - `no_backup/` is exempt by the platform |
 
 - **Excluding the files rather than setting `allowBackup="false"`.** Off wholesale is the safe-looking option and it is the worse one. It throws away device-transfer for anything that *should* travel - nothing does today, but `no_backup/` is where non-durable state goes and that boundary only means something while the mechanism exists - and an app that opts out of backup entirely reads, to a store reviewer, as one with something to hide. The exclusion list gets the actual guarantee: **the user's training history leaves this phone only in an export file they asked for**.

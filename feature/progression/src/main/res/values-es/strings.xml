@@ -187,6 +187,26 @@
 
     <!-- ── Health Connect, disabled until #54 ───────────────────────────────────── -->
 
+    <string name="body_photos_heading">Fotos</string>
+    <string name="body_photos_label">Fotos de progreso</string>
+    <string name="body_photos_detail">Guardadas solo en este teléfono, nunca en una copia de seguridad ni en la nube</string>
+    <string name="photos_title">Fotos de progreso</string>
+    <string name="photos_add">Añadir una foto de progreso</string>
+    <string name="photos_take">Hacer una foto</string>
+    <string name="photos_pick">Elegir de la galería</string>
+    <string name="photos_empty_title">Aún no hay fotos de progreso</string>
+    <string name="photos_empty_body">Haz una de vez en cuando para ver cómo cambias. Se quedan en este teléfono: nunca en una copia de seguridad ni en la nube.</string>
+    <string name="photos_photo_description">Foto de progreso, %1$s</string>
+    <string name="photos_compare">Comparar</string>
+    <string name="photos_compare_hint">Elige una foto para comparar con la del %1$s</string>
+    <string name="photos_cancel">Cancelar</string>
+    <string name="photos_delete">Eliminar</string>
+    <string name="photos_delete_title">¿Eliminar esta foto?</string>
+    <string name="photos_delete_body">La foto del %1$s se elimina de este teléfono. No hay ninguna copia en otro lugar.</string>
+    <string name="photos_delete_confirm">Eliminar</string>
+    <string name="photos_close">Cerrar</string>
+    <string name="photos_add_failed">No se pudo añadir esa foto.</string>
+    <string name="photos_delete_failed">No se pudo eliminar esa foto.</string>
     <string name="body_health_connect_heading">Health Connect</string>
     <string name="body_health_connect_label">Sincronizar con Health Connect</string>
     <string name="body_health_connect_detail">Peso y grasa corporal, en ambos sentidos</string>

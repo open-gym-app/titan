@@ -44,6 +44,12 @@ data class DataFootprint(
 
     /** Logged body measurement entries — a weigh-in, a set of circumferences, or both. */
     val bodyMeasurements: Int = 0,
+    /**
+     * Progress photos. Counted for "Delete all data", which removes them, and deliberately left
+     * out of [isEmpty]: a restore — the other caller — does not touch them, so they are not
+     * something a restore puts at stake. See [nothingToDelete].
+     */
+    val progressPhotos: Int = 0,
 
     /**
      * When the oldest session on the device was started, epoch milliseconds UTC, or **null**
@@ -95,4 +101,7 @@ data class DataFootprint(
     val isEmpty: Boolean
         get() = sessions == 0 && sets == 0 && templates == 0 &&
             personalRecords == 0 && customExercises == 0 && bodyMeasurements == 0
+
+    /** Whether "Delete all data" would erase nothing of the user's: no history and no photos. */
+    val nothingToDelete: Boolean get() = isEmpty && progressPhotos == 0
 }

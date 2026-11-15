@@ -158,6 +158,11 @@
         <item quantity="many">mensurations</item>
         <item quantity="other">mensurations</item>
     </plurals>
+    <plurals name="settings_count_progress_photos">
+        <item quantity="one">photo de progression</item>
+        <item quantity="many">photos de progression</item>
+        <item quantity="other">photos de progression</item>
+    </plurals>
 
     <!-- Backup & restore (#38). -->
     <string name="backup_footprint_title">Sur cet appareil</string>

@@ -43,6 +43,9 @@
   the auto-backup schedule store lives there (see AutoBackupModule), alongside WorkManager's
   own database.
 
+  `photos/` holds progress photos (`ProgressPhotoFiles`), which never leave the phone by any
+  road: not in an export, and not here.
+
   Anything new the app persists under `files/`, `databases/` or its external files directory
   belongs in both files. See docs/PERSISTENCE.md, "Android's own backup".
 -->
@@ -61,6 +64,7 @@
         <exclude domain="file" path="template-draft.json.tmp" />
         <exclude domain="file" path="backups" />
         <exclude domain="external" path="backups" />
+        <exclude domain="file" path="photos" />
     </cloud-backup>
 
     <!--
@@ -80,6 +84,7 @@
         <exclude domain="file" path="template-draft.json.tmp" />
         <exclude domain="file" path="backups" />
         <exclude domain="external" path="backups" />
+        <exclude domain="file" path="photos" />
     </device-transfer>
 
 </data-extraction-rules>

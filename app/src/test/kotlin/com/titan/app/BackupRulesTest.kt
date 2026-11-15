@@ -2,6 +2,7 @@ package com.titan.app
 
 import com.titan.core.data.di.DATABASE_NAME
 import com.titan.core.data.di.DATASTORE_DIRECTORY
+import com.titan.core.data.photo.ProgressPhotoFiles
 import com.titan.core.data.repository.InProgressSessionRepositoryImpl
 import com.titan.core.data.repository.TemplateDraftRepositoryImpl
 import com.titan.core.domain.backup.BackupDirectory
@@ -74,6 +75,9 @@ class BackupRulesTest {
         // while both lines are here.
         "file" to BackupDirectory.NAME,
         "external" to BackupDirectory.NAME,
+        // Progress photos, which never leave the phone by any road — not in an export, and not
+        // here. Internal storage only, so one domain.
+        "file" to ProgressPhotoFiles.DIRECTORY,
     )
 
     @Test

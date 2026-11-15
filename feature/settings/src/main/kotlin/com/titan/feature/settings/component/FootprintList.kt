@@ -26,8 +26,11 @@ import com.titan.feature.settings.R
  *
  * Shared by both destructive confirmations, and that is the point: a wipe and a restore
  * destroy the same rows, so they must describe them in the same words. Two copies would be
- * two chances to disagree about what a restore costs.
+ * two chances to disagree about what a restore costs. The one difference is the progress
+ * photos, which a wipe erases and a restore leaves alone, and the caller says which it is.
  *
+ * @param includePhotos whether the progress photos are among what is lost. True for a wipe, which
+ *   erases them; false for a restore, which leaves them exactly as they are — see `ProgressPhoto`.
  * @param settingsLine what happens to the user's settings, drawn at the end without a count.
  *   Always shown and never the same sentence twice: a wipe resets them to a fresh install's
  *   defaults, a restore replaces them with the file's. They do not survive either way, and a
@@ -40,6 +43,7 @@ fun FootprintList(
     footprint: DataFootprint,
     settingsLine: String,
     modifier: Modifier = Modifier,
+    includePhotos: Boolean = false,
 ) {
     Column(
         modifier = modifier,
@@ -51,6 +55,7 @@ fun FootprintList(
         FootprintLine(footprint.personalRecords, R.plurals.settings_count_personal_records)
         FootprintLine(footprint.customExercises, R.plurals.settings_count_custom_exercises)
         FootprintLine(footprint.bodyMeasurements, R.plurals.settings_count_body_measurements)
+        if (includePhotos) FootprintLine(footprint.progressPhotos, R.plurals.settings_count_progress_photos)
 
         Text(
             text = settingsLine,
