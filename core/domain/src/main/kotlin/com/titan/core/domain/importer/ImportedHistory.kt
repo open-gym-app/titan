@@ -38,7 +38,9 @@ data class ImportedHistory(
     val workouts: List<ImportedWorkout> = emptyList(),
     val templates: List<ImportedTemplate> = emptyList(),
     /**
-     * Body measurements, as rows Titan stores directly. `id` and `updatedAt` are ignored:
+     * Body measurements, as rows Titan stores directly — every site the body screen records, so a
+     * parser fills whichever of them its source tracks and the rest stay null. `id` and
+     * `updatedAt` are ignored:
      * the store assigns the first, and the second is stamped with [BodyMeasurement.createdAt],
      * which is when the measurement was taken.
      */

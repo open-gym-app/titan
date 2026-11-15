@@ -225,7 +225,9 @@ class HistoryImportCascadeTest : RoomTestBase() {
                 templates = listOf(
                     ImportedTemplate("Push", listOf(ImportedTemplateExercise(bench, listOf(PlannedSet(reps = 5))))),
                 ),
-                bodyMeasurements = listOf(BodyMeasurement(weight = 80_000_000, createdAt = DAY, updatedAt = DAY)),
+                bodyMeasurements = listOf(
+                    BodyMeasurement(weight = 80_000_000, neck = 390, calf = 385, createdAt = DAY, updatedAt = DAY),
+                ),
             )
 
             val progress = import(history)
@@ -251,6 +253,8 @@ class HistoryImportCascadeTest : RoomTestBase() {
             assertEquals(2, stored.size)
             assertTrue(stored.all { !it.isInProgress && it.completedAt != null })
             assertEquals(1, countRows("exercise_muscle_group"))
+            val measured = db.bodyMeasurementDao().getAll().first().single()
+            assertEquals(390 to 385, measured.neck to measured.calf)
 
             // The second workout beat the first: the latest heaviest bench is its 110 kg.
             val heaviest = records.getRecordsForExercise(benchId).first().filter { it.type == PrType.MAX_WEIGHT }

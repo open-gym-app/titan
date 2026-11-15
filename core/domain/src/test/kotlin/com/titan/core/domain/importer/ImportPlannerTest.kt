@@ -539,6 +539,34 @@ class ImportPlannerTest {
     }
 
     @Test
+    fun `every site the body screen records comes through, the extra five included`() {
+        val sites = BodyMeasurement(
+            neck = 390,
+            shoulders = 1_210,
+            chest = 1_040,
+            waist = 820,
+            hips = 980,
+            arm = 385,
+            forearm = 300,
+            thigh = 610,
+            calf = 390,
+            createdAt = DAY,
+            updatedAt = DAY,
+        )
+
+        val planned = plan(ImportedHistory(bodyMeasurements = listOf(sites))).measurements.single()
+
+        assertEquals(sites.circumferences, planned.circumferences)
+    }
+
+    @Test
+    fun `a measurement of one of the extra sites alone is a measurement`() {
+        val neckOnly = BodyMeasurement(neck = 390, createdAt = DAY, updatedAt = DAY)
+
+        assertEquals(1, plan(ImportedHistory(bodyMeasurements = listOf(neckOnly))).measurements.size)
+    }
+
+    @Test
     fun `a measurement recording nothing, or dated in the future, is refused`() {
         val plan = plan(
             ImportedHistory(bodyMeasurements = listOf(measurement(weight = null), measurement(at = NOW + 1))),
