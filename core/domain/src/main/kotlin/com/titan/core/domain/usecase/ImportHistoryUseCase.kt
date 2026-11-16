@@ -38,7 +38,6 @@ import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.first
-import java.io.IOException
 import java.time.Instant
 
 /**
@@ -201,9 +200,10 @@ class ImportHistoryUseCase(
 
     /**
      * Stores [photos] one at a time and answers with [report] counting them. A photo the store
-     * refuses — bytes that will not read, or are not an image — is counted in
+     * refuses for any reason — bytes that will not read, or are not an image — is counted in
      * [HistoryImportReport.photosFailed] and the rest carry on.
      */
+    @Suppress("TooGenericExceptionCaught")
     private suspend fun ProducerScope<HistoryImportProgress>.storePhotos(
         photos: List<ImportedPhoto>,
         report: HistoryImportReport,
@@ -214,9 +214,14 @@ class ImportHistoryUseCase(
         send(HistoryImportProgress.StoringPhotos(photosStored = 0, photosTotal = photos.size))
         photos.forEach { photo ->
             try {
-                progressPhotoRepository.add(photo.source, takenAt = photo.takenAt)
+                progressPhotoRepository.add(photo.source, takenAt = photo.takenAt, preferImageTime = false)
                 stored++
-            } catch (_: IOException) {
+            } catch (failure: CancellationException) {
+                throw failure
+            } catch (_: Exception) {
+                // Not only an IOException: a source whose permission was revoked throws a
+                // SecurityException, a full table a database exception. The history is already
+                // committed, so none of them may turn into a Failed that says nothing was imported.
                 failed++
             }
             send(HistoryImportProgress.StoringPhotos(photosStored = stored + failed, photosTotal = photos.size))

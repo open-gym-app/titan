@@ -289,6 +289,36 @@ class ImportHistoryUseCaseTest {
         }
 
     @Test
+    fun `a photo whose store throws anything is counted, not reported as a failed import`() =
+        runBlocking {
+            photos.crashOn = setOf(DAY)
+            val report = import(
+                ImportedHistory(
+                    workouts = listOf(workout(day = 1)),
+                    photos = listOf(
+                        ImportedPhoto(takenAt = DAY, source = PhotoSource { ByteArray(1).inputStream() }),
+                        ImportedPhoto(takenAt = 2 * DAY, source = PhotoSource { ByteArray(1).inputStream() }),
+                    ),
+                ),
+            ).report()
+
+            assertEquals(1, report.photosImported)
+            assertEquals(1, report.photosFailed)
+        }
+
+    @Test
+    fun `an imported photo keeps the time its source declared, which is how a re-run recognises it`() =
+        runBlocking {
+            import(
+                ImportedHistory(
+                    photos = listOf(ImportedPhoto(takenAt = DAY, source = PhotoSource { ByteArray(1).inputStream() })),
+                ),
+            )
+
+            assertEquals(listOf(false), photos.imageTimePreferred)
+        }
+
+    @Test
     fun `a photo already on the device is not stored again`() =
         runBlocking {
             photos.add(PhotoSource { ByteArray(1).inputStream() }, takenAt = DAY)
@@ -505,6 +535,12 @@ private class FakeProgressPhotoRepository : ProgressPhotoRepository {
     /** Photos refused as though their bytes were not an image, by their `takenAt`. */
     var failOn: Set<Long> = emptySet()
 
+    /** Photos whose store throws something other than an `IOException`, by their `takenAt`. */
+    var crashOn: Set<Long> = emptySet()
+
+    /** Whether each store let the image's own time overrule `takenAt`, in order. */
+    val imageTimePreferred = mutableListOf<Boolean>()
+
     var storedInsideTransaction = 0
         private set
 
@@ -515,9 +551,12 @@ private class FakeProgressPhotoRepository : ProgressPhotoRepository {
     override suspend fun add(
         source: PhotoSource,
         takenAt: Long,
+        preferImageTime: Boolean,
     ): Long {
         if (takenAt in failOn) throw IOException("not an image")
+        if (takenAt in crashOn) throw IllegalStateException("store failure")
         if (transaction?.isOpen == true) storedInsideTransaction++
+        imageTimePreferred += preferImageTime
         val id = stored.size + 1L
         stored += id to takenAt
         photos.value += ProgressPhoto(id = id, takenAt = takenAt, path = "/photos/$id.jpg", createdAt = takenAt)

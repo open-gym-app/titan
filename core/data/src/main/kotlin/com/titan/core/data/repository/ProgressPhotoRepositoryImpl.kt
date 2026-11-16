@@ -63,10 +63,11 @@ class ProgressPhotoRepositoryImpl @Inject constructor(
     override suspend fun add(
         source: PhotoSource,
         takenAt: Long,
+        preferImageTime: Boolean,
     ): Long =
         withContext(ioDispatcher) {
             val metadata = PhotoEncoder.metadata(source, ZoneId.systemDefault())
-            val stamped = metadata.takenAt ?: takenAt
+            val stamped = metadata.takenAt?.takeIf { preferImageTime } ?: takenAt
             val name = "${UUID.randomUUID()}.jpg"
             val target = File(directory.apply { mkdirs() }, name)
             val scratch = File(directory, "$name.tmp")

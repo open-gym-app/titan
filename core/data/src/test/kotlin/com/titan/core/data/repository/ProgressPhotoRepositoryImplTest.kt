@@ -163,6 +163,22 @@ class ProgressPhotoRepositoryImplTest {
     }
 
     @Test
+    fun `a photo whose image time is not preferred keeps the caller's, even when the camera dated it`() =
+        runBlocking {
+            val original = File(context.cacheDir, "dated.jpg").apply { writeBytes(jpeg(50, 50)) }
+            ExifInterface(original.absolutePath).apply {
+                setAttribute(ExifInterface.TAG_DATETIME_ORIGINAL, "2025:03:02 07:30:00")
+                saveAttributes()
+            }
+
+            repository.add(PhotoSource { original.inputStream() }, takenAt = TAKEN, preferImageTime = false)
+
+            assertEquals(TAKEN, repository.getAll().first().single().takenAt)
+            original.delete()
+            Unit
+        }
+
+    @Test
     fun `a photo that does not say when it was taken is dated by the caller`() =
         runBlocking {
             repository.add(jpeg(50, 50).source(), takenAt = TAKEN)

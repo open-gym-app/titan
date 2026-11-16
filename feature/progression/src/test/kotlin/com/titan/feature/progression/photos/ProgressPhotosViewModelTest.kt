@@ -189,6 +189,7 @@ private class FakePhotoStore : ProgressPhotoRepository {
     override suspend fun add(
         source: PhotoSource,
         takenAt: Long,
+        preferImageTime: Boolean,
     ): Long {
         addFailure?.let { throw it }
         val id = nextId++

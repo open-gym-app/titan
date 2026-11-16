@@ -58,9 +58,9 @@ data class ImportedHistory(
 /**
  * One progress photo from the source.
  *
- * @property takenAt when it was taken, when the image itself does not say — the store prefers the
- *   camera's own timestamp, and this is its fallback. Also how a photo already imported is
- *   recognised, as a workout is by its start.
+ * @property takenAt when it was taken, as the source declares it. This is the time stored, even
+ *   when the image records a different one, because it is also how a photo already imported is
+ *   recognised, as a workout is by its start, and only the declared time is there for every photo.
  * @property source the image's bytes, opened afresh on every read; see [PhotoSource].
  */
 data class ImportedPhoto(

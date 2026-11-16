@@ -18,7 +18,8 @@ package com.titan.core.domain.model
  * point at the wrong entry, or at nothing, while a date keeps meaning the day it was taken.
  *
  * @property takenAt when the photo was taken, epoch milliseconds UTC — the camera's own timestamp
- *   for a picked photo when it has one, otherwise the moment it was added.
+ *   for a picked photo when it has one, otherwise the moment it was added; for an imported photo,
+ *   the time its source declared.
  * @property path where the image is on this device, absolute. Read-only to everything but the
  *   repository, and not stable across installs: never store it anywhere else.
  * @property createdAt when it was added to the app.
