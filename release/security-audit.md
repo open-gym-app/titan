@@ -6,9 +6,6 @@ changes in the same pull request. Items still open are listed at the end, each w
 
 Checked at commit `b9842deda93ae51ef0df31bf624c02f5bcc923fb` (`main`) on 2026-11-14, on the
 output of `./gradlew :app:assembleRelease :app:bundleRelease`, the same tasks `release.yml` runs.
-The signing certificate was since read from the first pipeline artifacts (`v1.0.0-rc.3`, see
-*Release pipeline*). Re-run the rest of *The release artifact* on the first `v1.0.0` APK and
-update the commit above.
 
 ## Threat model
 
