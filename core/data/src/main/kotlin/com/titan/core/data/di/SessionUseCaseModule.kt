@@ -1,15 +1,19 @@
 package com.titan.core.data.di
 
 import com.titan.core.domain.notification.ProgressionAnnouncer
+import com.titan.core.domain.repository.BodyMeasurementRepository
+import com.titan.core.domain.repository.ExerciseRepository
 import com.titan.core.domain.repository.InProgressSessionRepository
 import com.titan.core.domain.repository.SessionRepository
 import com.titan.core.domain.repository.SessionStateRepository
+import com.titan.core.domain.repository.UserPreferencesRepository
 import com.titan.core.domain.time.Clock
 import com.titan.core.domain.usecase.AddPlannedSetsUseCase
 import com.titan.core.domain.usecase.AddSessionExercisesUseCase
 import com.titan.core.domain.usecase.DeleteSetUseCase
 import com.titan.core.domain.usecase.DiscardSessionUseCase
 import com.titan.core.domain.usecase.EditSetUseCase
+import com.titan.core.domain.usecase.EstimateSessionCaloriesUseCase
 import com.titan.core.domain.usecase.FinishSessionUseCase
 import com.titan.core.domain.usecase.LinkSupersetUseCase
 import com.titan.core.domain.usecase.LogSetUseCase
@@ -128,6 +132,9 @@ object SessionUseCaseModule {
         inProgressSessionRepository: InProgressSessionRepository,
         completeSession: SessionCompletionPipeline,
         announceProgression: ProgressionAnnouncer,
+        exerciseRepository: ExerciseRepository,
+        userPreferencesRepository: UserPreferencesRepository,
+        bodyMeasurementRepository: BodyMeasurementRepository,
         clock: Clock,
     ): FinishSessionUseCase =
         FinishSessionUseCase(
@@ -153,6 +160,15 @@ object SessionUseCaseModule {
             // nudge's "Finish now", where there is no screen at all — and a null here would
             // make that the finish that silently says nothing.
             announce = announceProgression,
+            // Non-optional for the same reason: a recap that opened on an empty calories field
+            // for want of a binding would look exactly like one that had nothing to estimate.
+            // Built here rather than provided, because nothing but the finish asks for it.
+            estimateCalories = EstimateSessionCaloriesUseCase(
+                sessionRepository = sessionRepository,
+                exerciseRepository = exerciseRepository,
+                userPreferencesRepository = userPreferencesRepository,
+                bodyMeasurementRepository = bodyMeasurementRepository,
+            ),
         )
 
     @Provides

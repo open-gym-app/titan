@@ -2,6 +2,7 @@ package com.titan.core.data.di
 
 import com.titan.core.domain.usecase.ApplyTemplateUseCase
 import com.titan.core.domain.usecase.ExportUseCase
+import com.titan.core.domain.usecase.FinishSessionUseCase
 import com.titan.core.domain.usecase.GetTemplateSummariesUseCase
 import com.titan.core.domain.usecase.ImportUseCase
 import com.titan.core.domain.usecase.RecordSessionEffortUseCase
@@ -48,6 +49,10 @@ class UseCaseBindingsTest {
     @Inject
     lateinit var startPlannedSession: Provider<StartPlannedSessionUseCase>
 
+    /** Reaches the body measurement history and the catalogue, to estimate the calories. */
+    @Inject
+    lateinit var finishSession: Provider<FinishSessionUseCase>
+
     @Inject
     lateinit var applyTemplate: Provider<ApplyTemplateUseCase>
 
@@ -76,6 +81,7 @@ class UseCaseBindingsTest {
     fun `the session lifecycle use cases resolve`() {
         assertNotNull(startSession.get())
         assertNotNull(startPlannedSession.get())
+        assertNotNull(finishSession.get())
     }
 
     @Test
@@ -84,17 +90,17 @@ class UseCaseBindingsTest {
         assertNotNull(templateSummaries.get())
     }
 
+    @Test
+    fun `recording a session's effort resolves`() {
+        assertNotNull(recordEffort.get())
+    }
+
     /**
      * Backup reaches further into the graph than any other use case — the row-level repository,
      * the settings store, the draft file and the in-memory session state — and #38's screen is
      * the only thing that will ever ask for it. A missing binding here would surface as a crash
      * the first time somebody tried to back their phone up.
      */
-    @Test
-    fun `recording a session's effort resolves`() {
-        assertNotNull(recordEffort.get())
-    }
-
     @Test
     fun `the backup use cases resolve`() {
         assertNotNull(exportBackup.get())

@@ -13,7 +13,9 @@ import com.titan.core.domain.validation.ValidationResult
  * Tuesday's session is as much the point as one given a minute after finishing.
  *
  * Both figures are written together because they are edited together, on one card; either may be
- * null, and null clears it. They are bounded by [SessionEffortValidator] first, and a refusal is
+ * null, and null clears it. A figure written here replaces the estimate [FinishSessionUseCase]
+ * left, and clearing it does not bring the estimate back: an empty field is the user saying the
+ * workout was not measured. They are bounded by [SessionEffortValidator] first, and a refusal is
  * [SessionError.EffortRejected] with nothing written.
  *
  * `updatedAt` is left where it is, for the reason [RenameSessionUseCase] gives: neither figure is
