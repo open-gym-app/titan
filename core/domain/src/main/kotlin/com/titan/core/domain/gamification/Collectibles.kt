@@ -62,9 +62,9 @@ object Collectibles {
     /**
      * The wireframe's own example — "Pet egg · Rare".
      *
-     * It hatches into nothing, because nothing hatches anything yet; see [Collectible]. Kept at
-     * the rarity the wireframe gave it so the mechanic the drawing describes is the mechanic
-     * that shipped.
+     * It hatches into a pet when the user asks it to — see
+     * [com.titan.core.domain.usecase.HatchEggUseCase]. Kept at the rarity the wireframe gave it
+     * so the mechanic the drawing describes is the mechanic that shipped.
      */
     val PET_EGG = collectible("pet_egg", Rarity.RARE)
 
