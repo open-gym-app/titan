@@ -8,9 +8,12 @@ import com.titan.feature.progression.R
  * A place the tape goes round, and the one column of [BodyMeasurement] it is stored in.
  *
  * The form, the parts card, the history row and the latest readings all treat the nine
- * circumferences alike, so they all walk this list rather than each naming nine fields. Adding
- * a site is then one entry here and two strings per locale, instead of a field forgotten in one
- * of four places, which is how a measurement gets saved and never shown.
+ * circumferences alike, so they all walk this list rather than each naming nine fields. On this
+ * screen, adding a site is then one entry here, its region in `MeasurementsCard` (an exhaustive
+ * `when`, so the compiler asks for it) and two strings per locale, instead of a field forgotten
+ * in one of four places, which is how a measurement gets saved and never shown. The column
+ * itself still has to be added to [BodyMeasurement] and carried through the entity, the mappers
+ * and the backup row — see [BodyMeasurement.circumferences].
  *
  * Declared head to foot, which is the order every one of those surfaces lists them in.
  *

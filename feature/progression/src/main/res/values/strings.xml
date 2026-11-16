@@ -225,7 +225,7 @@
          rather than a zero: "0 cm" is a reading somebody took, and this one has not been. -->
     <string name="body_no_reading" translatable="false">—</string>
 
-    <!-- The four parts, as a tape measure goes round them. -->
+    <!-- The nine parts, head to foot, as a tape measure goes round them. -->
     <string name="body_part_neck">Neck</string>
     <string name="body_part_shoulders">Shoulders</string>
     <string name="body_part_chest">Chest</string>

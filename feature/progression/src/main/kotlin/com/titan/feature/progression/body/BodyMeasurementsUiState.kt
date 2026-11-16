@@ -52,7 +52,7 @@ data class BodyMeasurementsUiState(
      * entry's fields.
      *
      * Every measurement is independently optional, so a user who stepped on the scale this
-     * morning without reaching for the tape has a newest entry holding a weight and five
+     * morning without reaching for the tape has a newest entry holding a weight and ten
      * nulls. Reading the tiles off that entry would blank a chest measurement the user took
      * last week and has not been asked to retake — so each figure is carried down from
      * wherever it was last recorded. See [latestReadings].

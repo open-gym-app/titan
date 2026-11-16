@@ -135,23 +135,30 @@ private suspend fun TitanDatabase.seedHistoryForBackup() {
     )
 }
 
+/**
+ * Every site a tape goes round, so a column the backup mapper forgot fails the round trip rather
+ * than restoring as null.
+ */
+private fun everySiteMeasured() =
+    bodyMeasurement(
+        neck = 390,
+        shoulders = 1_210,
+        chest = 1_050,
+        waist = 830,
+        hips = 980,
+        arm = 380,
+        forearm = 300,
+        thigh = 600,
+        calf = 390,
+        bodyFat = 152,
+        notes = "morning",
+    )
+
 private suspend fun TitanDatabase.seedProgressAndSpoils() {
     val dao = backupDao()
     dao.insertBodyMeasurements(
         listOf(
-            bodyMeasurement(chest = 1_050, waist = 830, arm = 380, thigh = 600, bodyFat = 152, notes = "morning")
-                // Every site a tape goes round, so a column the backup mapper forgot fails the
-                // round trip rather than restoring as null.
-                .copy(
-                    id = 1,
-                    neck = 390,
-                    shoulders = 1_210,
-                    hips = 980,
-                    forearm = 300,
-                    calf = 390,
-                    createdAt = STARTED_AT,
-                    updatedAt = STARTED_AT,
-                ),
+            everySiteMeasured().copy(id = 1, createdAt = STARTED_AT, updatedAt = STARTED_AT),
             // A trip to the tape with no weight on it, which the schema allows.
             bodyMeasurement(weight = null, waist = 828).copy(id = 2, createdAt = STARTED_AT, updatedAt = STARTED_AT),
         ),
