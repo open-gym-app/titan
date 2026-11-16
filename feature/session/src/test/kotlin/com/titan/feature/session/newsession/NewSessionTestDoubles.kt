@@ -163,7 +163,8 @@ class FakeSessionStore : SessionRepository {
     override fun getTotals(): Flow<Map<Long, SessionTotals>> =
         throw UnsupportedOperationException("the new-session flow logs nothing")
 
-    override suspend fun countFinished(): Int = throw UnsupportedOperationException("the new-session flow logs nothing")
+    override suspend fun countFinishedBy(atMillis: Long): Int =
+        throw UnsupportedOperationException("the new-session flow logs nothing")
 
     override suspend fun insert(session: WorkoutSession): Long {
         val id = nextSessionId++

@@ -10,10 +10,10 @@ import java.util.Locale
 /**
  * Reads RFC 4180 comma-separated values one record at a time.
  *
- * Every app this milestone imports from but one exports a CSV, and every one of them writes it a
- * little differently: a semicolon where the locale uses a decimal comma, a byte order mark from a
- * spreadsheet round trip, CRLF from one platform and LF from another, notes that run over several
- * lines inside quotes. Those are all properties of CSV rather than of an app, so they are handled
+ * Most apps export their history as CSV, and every one of them writes it a little differently: a
+ * semicolon where the locale uses a decimal comma, a byte order mark from a spreadsheet round
+ * trip, CRLF from one platform and LF from another, notes that run over several lines inside
+ * quotes. Those are all properties of CSV rather than of an app, so they are handled
  * here once and every parser reads records instead of characters.
  *
  * ### What it accepts

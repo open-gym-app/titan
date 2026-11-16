@@ -175,8 +175,8 @@ object ImportPlanner {
             return shapes.mapValues { (exercise, sets) -> exercise.type ?: inferType(sets) }
         }
 
-        private fun typeOf(exercise: ImportedExercise): ExerciseType =
-            exercise.type ?: types[exercise] ?: ExerciseType.STRENGTH
+        /** Every exercise the history names is a key of [types], which already prefers its own. */
+        private fun typeOf(exercise: ImportedExercise): ExerciseType = types.getValue(exercise)
 
         /**
          * The exercise [imported] resolves to, decided once per source exercise; null when it

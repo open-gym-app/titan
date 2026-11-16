@@ -98,21 +98,28 @@ interface SessionRepository {
     fun getTotals(): Flow<Map<Long, SessionTotals>>
 
     /**
-     * How many sessions the user has ever finished — closed out, not merely started.
+     * How many sessions the user had finished by [atMillis] — closed out, not merely started —
+     * counting one that finished at that very millisecond.
      *
      * "Finished" is the pair [com.titan.core.domain.usecase.FinishSessionUseCase] writes
      * together, `is_in_progress = 0` with a `completed_at`, the same definition the analytics
      * queries count by. A session still in progress is not one shown up for yet, and one
      * discarded left no row at all.
      *
+     * As of a moment rather than over every row, because the post-session cascade is also run
+     * over sessions older than the newest one on file: an imported history is replayed among
+     * the device's own sessions, and a 2023 workout must not be judged against a total that
+     * already holds the user's 2025 ones. For a workout finished just now the two answers are
+     * the same.
+     *
      * A suspend one-shot rather than a `Flow`, and a count rather than a list, because its
      * caller is the post-session cascade: it needs the figure *now*, for the session it has
      * just closed out, and a hot flow's latest emission is not guaranteed to include a write
      * from a moment ago. Counting in the store rather than over [getAll] keeps the cost flat
      * as the history grows — see [com.titan.core.domain.model.AchievementProgress] for why
-     * the figure has to be a lifetime total and not a delta.
+     * the figure has to be a running total and not a delta.
      */
-    suspend fun countFinished(): Int
+    suspend fun countFinishedBy(atMillis: Long): Int
 
     suspend fun insert(session: WorkoutSession): Long
 

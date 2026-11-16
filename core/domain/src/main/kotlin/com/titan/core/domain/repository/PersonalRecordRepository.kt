@@ -81,7 +81,7 @@ interface PersonalRecordRepository {
      * size is the figure.
      *
      * A suspend one-shot for the same reason as
-     * [SessionRepository.countFinished]: the post-session cascade needs the total including
+     * [SessionRepository.countFinishedBy]: the post-session cascade needs the total including
      * the records it has just written, and it needs it in the same breath.
      */
     suspend fun count(): Int

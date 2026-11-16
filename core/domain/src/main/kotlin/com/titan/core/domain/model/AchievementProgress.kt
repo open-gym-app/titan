@@ -19,7 +19,11 @@ package com.titan.core.domain.model
  * broken *this session*" would make `first_record` unlockable only by the session that broke
  * one, and silently unreachable for a user whose first record predates the achievement.
  *
- * @property sessionsFinished sessions finished over the user's whole history.
+ * "Lifetime" ends at the moment that session finished, not at the newest row on file: an
+ * imported history is replayed among sessions that came after it, and an unlock dated in 2023
+ * has to have been earned by 2023.
+ *
+ * @property sessionsFinished sessions finished up to and including the one just finished.
  * @property currentStreak the streak held after the session just finished — the figure
  *   [StreakResult.streakAfter] produces, not the one it was computed from.
  * @property recordsBroken personal records broken over the user's whole history, counted per

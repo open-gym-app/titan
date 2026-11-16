@@ -172,7 +172,7 @@ class DemoDatasetTest {
 
             val restored = restore(ImportSource { file.inputStream() }).last()
             assertTrue("${file.name} does not restore: $restored", restored is ImportProgress.Complete)
-            assertEquals(DemoHistory.SESSION_COUNT, sessions.countFinished())
+            assertEquals(DemoHistory.SESSION_COUNT, sessions.countFinishedBy(Long.MAX_VALUE))
         }
 
     /**

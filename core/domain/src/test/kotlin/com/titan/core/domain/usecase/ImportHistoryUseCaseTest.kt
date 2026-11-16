@@ -37,13 +37,18 @@ import com.titan.core.domain.repository.BodyMeasurementRepository
 import com.titan.core.domain.repository.HistoryImportRepository
 import com.titan.core.domain.repository.PhotoSource
 import com.titan.core.domain.repository.ProgressPhotoRepository
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -175,7 +180,6 @@ class ImportHistoryUseCaseTest {
             assertEquals(listOf(KG_100, KG_110), heaviest)
             assertEquals(records.inserted.size, report.recordsSet)
             assertTrue(report.xpEarned > 0)
-            assertEquals(0, report.progressionFailures)
         }
 
     @Test
@@ -354,6 +358,45 @@ class ImportHistoryUseCaseTest {
                 HistoryImportProgress.Failed(HistoryImportError.StorageFailure("disk full")),
                 import(ImportedHistory(workouts = listOf(workout(day = 1)))).last(),
             )
+        }
+
+    @Test
+    fun `a replay step that fails is a storage failure, because the store would roll it all back anyway`() =
+        runBlocking {
+            gamification.streakFailure = IllegalStateException("streak refused")
+
+            val progress = import(ImportedHistory(workouts = listOf(workout(day = 1))))
+
+            val failed = progress.last() as HistoryImportProgress.Failed
+            val error = failed.error as HistoryImportError.StorageFailure
+            assertTrue(error.reason, "STREAK" in error.reason && "streak refused" in error.reason)
+        }
+
+    @Test
+    fun `a collector that stops taking updates does not hold the transaction open`() =
+        runBlocking {
+            // No buffer at all, and a collector that takes the first update and then stops: the
+            // screen gone to the background. Every update the replay sends is one nobody takes.
+            val stalled = CompletableDeferred<Unit>()
+            val seen = mutableListOf<HistoryImportProgress>()
+            val collecting = launch {
+                useCase()(ImportedHistory(workouts = listOf(workout(day = 1), workout(day = 2))))
+                    .buffer(Channel.RENDEZVOUS)
+                    .collect {
+                        seen += it
+                        stalled.await()
+                    }
+            }
+
+            withTimeout(5_000) {
+                while (store.transactions == 0 || store.isOpen) yield()
+            }
+
+            assertEquals(2, sessions.getAll().first().size)
+            assertEquals(listOf(HistoryImportProgress.Reading), seen)
+            stalled.complete(Unit)
+            collecting.join()
+            assertTrue(seen.last() is HistoryImportProgress.Complete)
         }
 
     @Test
