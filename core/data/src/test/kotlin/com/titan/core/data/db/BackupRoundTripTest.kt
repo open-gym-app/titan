@@ -23,6 +23,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -268,6 +270,46 @@ class BackupRoundTripTest : RoomTestBase() {
             assertEquals(2, db.dumpTable(BackupTable.COLLECTED_ITEM).count { it["collectible_id"] == "steel_shaker" })
         }
 
+    /** A species from a newer build is a pet the user owns; a restore must not lose or rename it. */
+    @Test
+    fun `a pet of a species this build does not recognise survives`() =
+        runBlocking {
+            db.seedEveryTable()
+            val before = db.dumpTable(BackupTable.PET)
+            val document = exportToText()
+
+            wipeEverything()
+            import(source(document)).toList()
+
+            assertEquals(before, db.dumpTable(BackupTable.PET))
+            assertTrue(before.any { it["species_id"] == "from_a_newer_version" })
+        }
+
+    /**
+     * A file written before the Titans milestone: version 1, and no `pet` key at all. Everything
+     * it held comes back, and the tables its version never had are empty.
+     */
+    @Test
+    fun `a version 1 export restores on this build`() =
+        runBlocking {
+            db.seedEveryTable()
+            val before = db.dumpEverything()
+            val current = Json.parseToJsonElement(exportToText()).jsonObject
+            val versionOne = JsonObject(current.filterKeys { it != "pet" } + ("schema_version" to JsonPrimitive(1)))
+
+            wipeEverything()
+            val progress = import(source(versionOne.toString())).toList()
+
+            assertTrue(
+                "expected the restore to complete, was ${progress.last()}",
+                progress.last() is ImportProgress.Complete,
+            )
+            BackupTable.entries.filter { it != BackupTable.PET }.forEach { table ->
+                assertEquals("${table.tableName} did not restore", before.getValue(table), db.dumpTable(table))
+            }
+            assertTrue(db.dumpTable(BackupTable.PET).isEmpty())
+        }
+
     /**
      * An unrecognised `schema_version` leaves **every** table byte-identical to before the
      * attempt — asserted against a dump taken first, not against the fixture, so a wipe that
@@ -278,12 +320,20 @@ class BackupRoundTripTest : RoomTestBase() {
         runBlocking {
             db.seedEveryTable()
             val before = db.dumpEverything()
-            val newer = exportToText().replace("\"schema_version\":1", "\"schema_version\":2")
+            val newer = exportToText().replace(
+                "\"schema_version\":${ExportDocument.SCHEMA_VERSION}",
+                "\"schema_version\":${ExportDocument.SCHEMA_VERSION + 1}",
+            )
 
             val progress = import(source(newer)).toList()
 
             assertEquals(
-                ImportProgress.Failed(ImportError.UnsupportedSchemaVersion(found = 2, supported = 1)),
+                ImportProgress.Failed(
+                    ImportError.UnsupportedSchemaVersion(
+                        found = ExportDocument.SCHEMA_VERSION + 1,
+                        supported = ExportDocument.SCHEMA_VERSION,
+                    ),
+                ),
                 progress.last(),
             )
             assertEquals(before, db.dumpEverything())

@@ -33,11 +33,8 @@ internal class MigrationFixture(
  * `Migration` without adding the fixture for the version it starts from fails
  * `every migration preserves the data seeded at its start version`, so no
  * version bump can reach main without a data-loss test behind it.
- *
- * Empty today because version 1 is the current version: there is nothing below
- * it to upgrade from.
  */
-internal val MIGRATION_FIXTURES: Map<Int, MigrationFixture> = emptyMap()
+internal val MIGRATION_FIXTURES: Map<Int, MigrationFixture> = mapOf(1 to versionOneFixture())
 
 /**
  * Guards the migration contract for [TitanDatabase] without naming any

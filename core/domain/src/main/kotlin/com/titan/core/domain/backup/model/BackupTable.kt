@@ -81,8 +81,14 @@ enum class BackupTable(val tableName: String) {
     /** Points at nothing. */
     QUEST_COMPLETION("quest_completion"),
 
-    /** Points at nothing. */
+    /**
+     * Points at nothing, and is pointed at: `pet` names the egg it hatched from. Its place before
+     * `pet` is load-bearing.
+     */
     COLLECTED_ITEM("collected_item"),
+
+    /** Needs `collected_item`: a pet names the drop row of the egg it hatched from. */
+    PET("pet"),
     ;
 
     companion object {
