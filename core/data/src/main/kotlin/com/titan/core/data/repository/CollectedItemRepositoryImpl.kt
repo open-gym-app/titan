@@ -2,6 +2,7 @@ package com.titan.core.data.repository
 
 import com.titan.core.data.db.dao.CollectedItemDao
 import com.titan.core.data.db.entity.CollectedItemEntity
+import com.titan.core.domain.gamification.Collectibles
 import com.titan.core.domain.model.CollectedItem
 import com.titan.core.domain.repository.CollectedItemRepository
 import kotlinx.coroutines.flow.Flow
@@ -37,6 +38,12 @@ class CollectedItemRepositoryImpl @Inject constructor(private val collectedItemD
         require(limit >= 1) { "a recent-drops read must ask for at least one, was $limit" }
         return collectedItemDao.observeRecent(limit).map { rows -> rows.map(CollectedItemEntity::toDomain) }
     }
+
+    override suspend fun find(id: Long): CollectedItem? = collectedItemDao.find(id)?.toDomain()
+
+    override fun observeUnhatchedEggs(): Flow<List<CollectedItem>> =
+        collectedItemDao.observeUnhatched(Collectibles.PET_EGG.id)
+            .map { rows -> rows.map(CollectedItemEntity::toDomain) }
 
     override suspend fun recordDrop(
         collectibleId: String,

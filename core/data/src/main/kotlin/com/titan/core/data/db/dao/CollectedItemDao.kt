@@ -39,4 +39,23 @@ interface CollectedItemDao {
      */
     @Query("SELECT * FROM collected_item ORDER BY acquired_at DESC, id DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<CollectedItemEntity>>
+
+    @Query("SELECT * FROM collected_item WHERE id = :id")
+    suspend fun find(id: Long): CollectedItemEntity?
+
+    /**
+     * Rows of [eggCollectibleId] that no pet names, oldest drop first.
+     *
+     * An anti-join against `pet.hatched_from_item_id`, which is uniquely indexed. Room re-runs it
+     * when either table changes, so an egg leaves the list as it hatches and joins it as it drops.
+     */
+    @Query(
+        """
+        SELECT collected_item.* FROM collected_item
+        LEFT JOIN pet ON pet.hatched_from_item_id = collected_item.id
+        WHERE collected_item.collectible_id = :eggCollectibleId AND pet.id IS NULL
+        ORDER BY collected_item.acquired_at, collected_item.id
+        """,
+    )
+    fun observeUnhatched(eggCollectibleId: String): Flow<List<CollectedItemEntity>>
 }
