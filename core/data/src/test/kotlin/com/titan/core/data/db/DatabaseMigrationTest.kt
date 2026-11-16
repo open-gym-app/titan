@@ -29,15 +29,63 @@ internal class MigrationFixture(
 )
 
 /**
+ * Version 1, the schema v1.0 shipped with, carried to the version that adds `gym`.
+ *
+ * The 1 to 2 migration creates one table and touches no other, so what there is to lose is
+ * whatever it should have left alone: a logged session and a body measurement stand in for
+ * the user's history. The new table has to arrive empty and take a row.
+ */
+private val V1_FIXTURE = MigrationFixture(
+    seed = { db ->
+        db.execSQL(
+            "INSERT INTO workout_session " +
+                "(id, template_id, name, completed_at, is_in_progress, last_active_at, notes, created_at, updated_at) " +
+                "VALUES (7, NULL, 'Push day', 1700000003600000, 0, 1700000003600000, 'felt strong', " +
+                "1700000000000000, 1700000003600000)",
+        )
+        db.execSQL(
+            "INSERT INTO body_measurement " +
+                "(id, weight, chest, waist, arm, thigh, body_fat, notes, created_at, updated_at) " +
+                "VALUES (3, 82500, NULL, 850, NULL, NULL, 152, NULL, 1700000000000000, 1700000000000000)",
+        )
+    },
+    assertPreserved = { db ->
+        db.query("SELECT name, notes, is_in_progress, completed_at FROM workout_session WHERE id = 7").use { row ->
+            assertTrue("the v1 session did not survive the upgrade", row.moveToFirst())
+            assertEquals("Push day", row.getString(0))
+            assertEquals("felt strong", row.getString(1))
+            assertEquals(0, row.getInt(2))
+            assertEquals(1_700_000_003_600_000, row.getLong(3))
+        }
+        db.query("SELECT weight, waist, body_fat FROM body_measurement WHERE id = 3").use { row ->
+            assertTrue("the v1 body measurement did not survive the upgrade", row.moveToFirst())
+            assertEquals(82_500, row.getInt(0))
+            assertEquals(850, row.getInt(1))
+            assertEquals(152, row.getInt(2))
+        }
+        db.query("SELECT COUNT(*) FROM gym").use { row ->
+            row.moveToFirst()
+            assertEquals("a v1 install has no gyms to arrive with", 0, row.getInt(0))
+        }
+        db.execSQL(
+            "INSERT INTO gym (name, address, latitude_micro, longitude_micro, equipment_tags, created_at) " +
+                "VALUES ('Iron Works', '12 Forge Street', 51507400, -127800, '', 1700000000000000)",
+        )
+        // The pin is optional: a gym is a name and an address.
+        db.execSQL(
+            "INSERT INTO gym (name, address, equipment_tags, created_at) " +
+                "VALUES ('Garage', '3 Home Lane', '', 1700000000000000)",
+        )
+    },
+)
+
+/**
  * One fixture per released schema version below the current one. Adding a
  * `Migration` without adding the fixture for the version it starts from fails
  * `every migration preserves the data seeded at its start version`, so no
  * version bump can reach main without a data-loss test behind it.
- *
- * Empty today because version 1 is the current version: there is nothing below
- * it to upgrade from.
  */
-internal val MIGRATION_FIXTURES: Map<Int, MigrationFixture> = emptyMap()
+internal val MIGRATION_FIXTURES: Map<Int, MigrationFixture> = mapOf(1 to V1_FIXTURE)
 
 /**
  * Guards the migration contract for [TitanDatabase] without naming any

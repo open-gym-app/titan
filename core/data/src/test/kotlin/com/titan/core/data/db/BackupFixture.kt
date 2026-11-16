@@ -3,6 +3,7 @@ package com.titan.core.data.db
 import com.titan.core.data.db.entity.AchievementEntity
 import com.titan.core.data.db.entity.CollectedItemEntity
 import com.titan.core.data.db.entity.ExerciseTagEntity
+import com.titan.core.data.db.entity.GymEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
 import com.titan.core.data.db.entity.SessionLootClaimEntity
 import com.titan.core.data.db.entity.SessionXpClaimEntity
@@ -11,7 +12,7 @@ import com.titan.core.data.db.entity.UserProgressEntity
 import com.titan.core.domain.backup.model.BackupTable
 
 /**
- * Seeds **every one of the nineteen tables** through the backup DAO, so a round trip has
+ * Seeds **every one of the twenty tables** through the backup DAO, so a round trip has
  * something to lose in each of them.
  *
  * A fixture that left three tables empty would let an export that silently dropped them pass
@@ -69,6 +70,7 @@ suspend fun TitanDatabase.seedEveryTable() {
     seedTemplates()
     seedHistoryForBackup()
     seedProgressAndSpoils()
+    seedGyms()
 }
 
 private suspend fun TitanDatabase.seedTemplates() {
@@ -187,6 +189,32 @@ private suspend fun TitanDatabase.seedProgressAndSpoils() {
                 collectibleId = "steel_shaker",
                 source = "session_finished",
                 acquiredAt = FINISHED_AT,
+            ),
+        ),
+    )
+}
+
+private suspend fun TitanDatabase.seedGyms() {
+    val dao = backupDao()
+    dao.insertGyms(
+        listOf(
+            GymEntity(
+                id = 1,
+                name = "Iron Works",
+                address = "12 Forge Street",
+                latitudeMicro = 51_507_400,
+                longitudeMicro = -127_800,
+                equipmentTags = "squat rack\nplates",
+                userNotes = "closes at 22:00",
+                createdAt = STARTED_AT,
+            ),
+            // A gym with no pin, no tags and no notes: the empty tag column and the nulls have to survive.
+            GymEntity(
+                id = 2,
+                name = "Park Pull-ups",
+                address = "",
+                equipmentTags = "",
+                createdAt = STARTED_AT,
             ),
         ),
     )

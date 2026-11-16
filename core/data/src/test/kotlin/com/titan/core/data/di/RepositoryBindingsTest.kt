@@ -5,6 +5,7 @@ import com.titan.core.data.repository.AutoBackupRepositoryImpl
 import com.titan.core.data.repository.BackupRepositoryImpl
 import com.titan.core.data.repository.ExerciseRepositoryImpl
 import com.titan.core.data.repository.GamificationRepositoryImpl
+import com.titan.core.data.repository.GymRepositoryImpl
 import com.titan.core.data.repository.InProgressSessionRepositoryImpl
 import com.titan.core.data.repository.LocalDataRepositoryImpl
 import com.titan.core.data.repository.PersonalRecordRepositoryImpl
@@ -18,6 +19,7 @@ import com.titan.core.domain.repository.AutoBackupRepository
 import com.titan.core.domain.repository.BackupRepository
 import com.titan.core.domain.repository.ExerciseRepository
 import com.titan.core.domain.repository.GamificationRepository
+import com.titan.core.domain.repository.GymRepository
 import com.titan.core.domain.repository.InProgressSessionRepository
 import com.titan.core.domain.repository.LocalDataRepository
 import com.titan.core.domain.repository.PersonalRecordRepository
@@ -26,9 +28,11 @@ import com.titan.core.domain.repository.SessionStateRepository
 import com.titan.core.domain.repository.TemplateDraftRepository
 import com.titan.core.domain.repository.TemplateRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
+import com.titan.core.domain.usecase.NearbyGymsUseCase
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -102,6 +106,12 @@ class RepositoryBindingsTest {
     @Inject
     lateinit var autoBackupRepository: Provider<AutoBackupRepository>
 
+    @Inject
+    lateinit var gymRepository: Provider<GymRepository>
+
+    @Inject
+    lateinit var nearbyGymsUseCase: Provider<NearbyGymsUseCase>
+
     // Not a repository, but bound the same way and resolvable for the same reason: nothing
     // reaches it until a toggle is flipped, so a missing binding would first be seen on a
     // device. Resolving it touches no WorkManager — see `WorkManagerAutoBackupScheduler`.
@@ -127,6 +137,8 @@ class RepositoryBindingsTest {
         assertTrue(gamificationRepository.get() is GamificationRepositoryImpl)
         assertTrue(backupRepository.get() is BackupRepositoryImpl)
         assertTrue(autoBackupRepository.get() is AutoBackupRepositoryImpl)
+        assertTrue(gymRepository.get() is GymRepositoryImpl)
+        assertNotNull(nearbyGymsUseCase.get())
         assertTrue(autoBackupScheduler.get() is WorkManagerAutoBackupScheduler)
     }
 

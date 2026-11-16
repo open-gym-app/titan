@@ -321,3 +321,23 @@ data class CollectedItemRow(
     @SerialName("source") val source: String,
     @SerialName("acquired_at") val acquiredAt: Long,
 ) : BackupRow
+
+/**
+ * A row of `gym`.
+ *
+ * Coordinates travel as the stored integers - microdegrees, not decimal degrees - so the file
+ * carries exactly the column, with no floating point to lose a digit in. Both are null for a
+ * gym saved without a pin. [equipmentTags] is the
+ * column as it stands: one tag per line, empty for a gym with none.
+ */
+@Serializable
+data class GymRow(
+    @SerialName("id") val id: Long,
+    @SerialName("name") val name: String,
+    @SerialName("address") val address: String,
+    @SerialName("latitude_micro") val latitudeMicro: Int? = null,
+    @SerialName("longitude_micro") val longitudeMicro: Int? = null,
+    @SerialName("equipment_tags") val equipmentTags: String,
+    @SerialName("user_notes") val userNotes: String? = null,
+    @SerialName("created_at") val createdAt: Long,
+) : BackupRow

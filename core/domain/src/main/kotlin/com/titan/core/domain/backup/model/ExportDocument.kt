@@ -35,8 +35,9 @@ import kotlinx.serialization.Serializable
  * not misread. `ExportFormat` does that literally — it reads the version with the rest of the
  * document left as raw JSON — for the reason `ActiveSessionFormat` does the same with a draft.
  * A Room migration ladder upgrades a database *file*; it has never had anything to say about a
- * JSON document, so nothing here up-converts and a reader accepts its own version only. See
- * docs/export-schema.md for the version history and the compatibility rule.
+ * JSON document, so a reader accepts its own version and the older ones `ExportUpgrade` has an
+ * up-converter for, and nothing else. See docs/export-schema.md for the version history and
+ * the compatibility rule.
  *
  * [exportedAt] is epoch milliseconds UTC, like every other timestamp in the schema.
  * [appVersion] is diagnostic only: nothing reads it, nothing branches on it, and a document
@@ -68,6 +69,7 @@ data class ExportDocument(
     @SerialName("achievement") val achievement: List<AchievementRow> = emptyList(),
     @SerialName("quest_completion") val questCompletion: List<QuestCompletionRow> = emptyList(),
     @SerialName("collected_item") val collectedItem: List<CollectedItemRow> = emptyList(),
+    @SerialName("gym") val gym: List<GymRow> = emptyList(),
 ) {
 
     /**
@@ -99,6 +101,7 @@ data class ExportDocument(
             BackupTable.ACHIEVEMENT -> achievement
             BackupTable.QUEST_COMPLETION -> questCompletion
             BackupTable.COLLECTED_ITEM -> collectedItem
+            BackupTable.GYM -> gym
         }
 
     /** How many rows the whole document holds, across every table. What a progress bar divides by. */
@@ -116,7 +119,9 @@ data class ExportDocument(
          * docs/export-schema.md's version-history table and, if older files are to keep
          * restoring, an up-converter listed there; until one is written, a reader refuses
          * every version but its own, older ones included.
+         *
+         * 2 added the `gym` table. Version 1 files still restore — see `ExportUpgrade`.
          */
-        const val SCHEMA_VERSION: Int = 1
+        const val SCHEMA_VERSION: Int = 2
     }
 }

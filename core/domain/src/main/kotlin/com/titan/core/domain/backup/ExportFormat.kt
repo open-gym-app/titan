@@ -9,6 +9,7 @@ import com.titan.core.domain.backup.model.ExerciseMuscleGroupRow
 import com.titan.core.domain.backup.model.ExerciseRow
 import com.titan.core.domain.backup.model.ExerciseTagRow
 import com.titan.core.domain.backup.model.ExportDocument
+import com.titan.core.domain.backup.model.GymRow
 import com.titan.core.domain.backup.model.ImportError
 import com.titan.core.domain.backup.model.MuscleGroupRow
 import com.titan.core.domain.backup.model.PersonalRecordRow
@@ -46,7 +47,8 @@ import java.io.InputStream
  * ### Reading the version first
  *
  * [decode] streams the document once for `schema_version` alone, with every other key skipped,
- * and only then decodes it against *this* build's model. A future document is therefore refused
+ * and only then decodes it against *this* build's model — or, for an older version
+ * [ExportUpgrade] can read, decodes it and brings it up to this one. A future document is refused
  * for the reason it should be — the version — rather than incidentally, by the decoder tripping
  * over a table it does not recognise. Two passes over the bytes rather than one over a parsed
  * tree, because a tree of a 50,000-set history is heap this app does not have; see [decode].
@@ -77,7 +79,7 @@ object ExportFormat {
      * The configuration every document is written and read with.
      *
      * `encodeDefaults` is on so every field is written even when it holds its default, which is
-     * what makes the document's top-level key set constant: nineteen table keys are present in
+     * what makes the document's top-level key set constant: twenty table keys are present in
      * every file, empty arrays included, so `jq 'keys'` on any export gives the same answer and
      * docs/export-schema.md can state the shape without qualifying it. `explicitNulls` is on
      * for the same reason one column further down — a null `machine_brand` is written as
@@ -133,6 +135,7 @@ object ExportFormat {
             is AchievementRow -> json.encodeToString(AchievementRow.serializer(), row)
             is QuestCompletionRow -> json.encodeToString(QuestCompletionRow.serializer(), row)
             is CollectedItemRow -> json.encodeToString(CollectedItemRow.serializer(), row)
+            is GymRow -> json.encodeToString(GymRow.serializer(), row)
         }
 
     /**
@@ -187,11 +190,13 @@ object ExportFormat {
      * Two openings are two reads of whatever the source serves at the time, and a content
      * provider owes nothing about serving the same bytes twice — a file can also be replaced
      * between them. So the version the decoded document carries is compared again rather than
-     * assumed to be the one the first pass saw, and a document that changed version in between
-     * is refused for it.
+     * assumed to be the one the first pass saw: the document is accepted, up-converted or
+     * refused by the version it carries itself.
      *
-     * @return [Decoded.Success] with the parsed document, [Decoded.Refused] with
-     *   [ImportError.UnsupportedSchemaVersion] when the version is not this build's,
+     * @return [Decoded.Success] with the parsed document, at this build's version whichever
+     *   version the file was written at, [Decoded.Refused] with
+     *   [ImportError.UnsupportedSchemaVersion] when the version is neither this build's nor one
+     *   [ExportUpgrade] reads,
      *   [ImportError.DocumentTooLarge] when the bytes run past [MAX_DOCUMENT_BYTES],
      *   [ImportError.MalformedJson] when they are not a document at all, or
      *   [ImportError.IoFailure] when they could not be read.
@@ -207,7 +212,7 @@ object ExportFormat {
             val capped = ImportSource { CappedStream(source.open(), maxBytes) }
             when (val version = capped.readVersion()) {
                 null -> Decoded.Refused(ImportError.MalformedJson("no `$VERSION_KEY` in the document"))
-                ExportDocument.SCHEMA_VERSION -> accept(capped.readDocument())
+                ExportDocument.SCHEMA_VERSION, in ExportUpgrade.READABLE_VERSIONS -> accept(capped.readDocument())
                 else -> unsupported(version)
             }
         } catch (failure: DocumentTooLargeException) {
@@ -225,12 +230,18 @@ object ExportFormat {
             Decoded.Refused(ImportError.IoFailure(failure.message.orEmpty()))
         }
 
-    /** [document] if the second pass read the version the first one did, else the refusal. */
+    /**
+     * [document] at this build's version, or the refusal — decided by the version the second
+     * pass decoded, whatever the first one saw.
+     */
     private fun accept(document: ExportDocument): Decoded =
-        if (document.schemaVersion == ExportDocument.SCHEMA_VERSION) {
-            Decoded.Success(WeeklyStreakUpgrade.apply(document))
-        } else {
-            unsupported(document.schemaVersion)
+        when (document.schemaVersion) {
+            ExportDocument.SCHEMA_VERSION -> Decoded.Success(WeeklyStreakUpgrade.apply(document))
+
+            in ExportUpgrade.READABLE_VERSIONS ->
+                Decoded.Success(ExportUpgrade.toCurrent(WeeklyStreakUpgrade.apply(document)))
+
+            else -> unsupported(document.schemaVersion)
         }
 
     private fun unsupported(version: Int): Decoded =
@@ -310,7 +321,7 @@ object ExportFormat {
     /** What [decode] answers: a document, or the typed reason there is not one. */
     sealed interface Decoded {
 
-        /** The [source][decode] held a document at this build's schema version. */
+        /** The [source][decode] held a document this build reads, now at its schema version. */
         data class Success(val document: ExportDocument) : Decoded
 
         /** It did not, and this is why. */

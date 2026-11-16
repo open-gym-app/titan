@@ -7,6 +7,7 @@ import com.titan.core.domain.backup.model.ExerciseMuscleGroupRow
 import com.titan.core.domain.backup.model.ExerciseRow
 import com.titan.core.domain.backup.model.ExerciseTagRow
 import com.titan.core.domain.backup.model.ExportDocument
+import com.titan.core.domain.backup.model.GymRow
 import com.titan.core.domain.backup.model.MuscleGroupRow
 import com.titan.core.domain.backup.model.PersonalRecordRow
 import com.titan.core.domain.backup.model.PlateStockPayload
@@ -37,7 +38,7 @@ fun String.asSource(): ImportSource = ImportSource { byteInputStream() }
  * need a valid whole rather than one interesting row.
  *
  * Every table populated is the point rather than a convenience: a fixture that left three of
- * nineteen empty would let the streaming writer, the validator and the round trip all pass
+ * twenty empty would let the streaming writer, the validator and the round trip all pass
  * while silently dropping them. Tests that want a violation start here and break one thing, so
  * what they assert on is that one difference.
  */
@@ -93,21 +94,46 @@ fun sampleDocument(
         questCompletion = listOf(
             QuestCompletionRow(questId = "weekly_volume", periodStart = STARTED_AT, completedAt = FINISHED_AT),
         ),
-        collectedItem = listOf(
-            CollectedItemRow(
-                id = 1,
-                collectibleId = "steel_shaker",
-                source = "session_finished",
-                acquiredAt = FINISHED_AT,
-            ),
-            // The same collectible again: the inventory is a bag, not a set, and an import must
-            // not collapse these into one row.
-            CollectedItemRow(
-                id = 2,
-                collectibleId = "steel_shaker",
-                source = "session_finished",
-                acquiredAt = FINISHED_AT,
-            ),
+        collectedItem = sampleCollectedItems(),
+        gym = sampleGyms(),
+    )
+
+private fun sampleCollectedItems() =
+    listOf(
+        CollectedItemRow(
+            id = 1,
+            collectibleId = "steel_shaker",
+            source = "session_finished",
+            acquiredAt = FINISHED_AT,
+        ),
+        // The same collectible again: the inventory is a bag, not a set, and an import must
+        // not collapse these into one row.
+        CollectedItemRow(
+            id = 2,
+            collectibleId = "steel_shaker",
+            source = "session_finished",
+            acquiredAt = FINISHED_AT,
+        ),
+    )
+
+private fun sampleGyms() =
+    listOf(
+        GymRow(
+            id = 1,
+            name = "Iron Works",
+            address = "12 Forge Street",
+            latitudeMicro = 51_507_400,
+            longitudeMicro = -127_800,
+            equipmentTags = "squat rack\nplates",
+            userNotes = "closes at 22:00",
+            createdAt = STARTED_AT,
+        ),
+        GymRow(
+            id = 2,
+            name = "Park Pull-ups",
+            address = "",
+            equipmentTags = "",
+            createdAt = STARTED_AT,
         ),
     )
 

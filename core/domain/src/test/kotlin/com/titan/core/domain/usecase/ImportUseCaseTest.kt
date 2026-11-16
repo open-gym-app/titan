@@ -265,12 +265,12 @@ class ImportUseCaseTest {
     @Test
     fun `a document from a newer version is refused, and nothing is touched`() =
         runTest {
-            val newer = text(sampleDocument()).replace("\"schema_version\":1", "\"schema_version\":2")
+            val newer = text(sampleDocument()).replace("\"schema_version\":2", "\"schema_version\":3")
 
             val emissions = importer().invoke(newer.asSource()).toList()
 
             assertEquals(
-                ImportProgress.Failed(ImportError.UnsupportedSchemaVersion(found = 2, supported = 1)),
+                ImportProgress.Failed(ImportError.UnsupportedSchemaVersion(found = 3, supported = 2)),
                 emissions.last(),
             )
             assertUntouched()

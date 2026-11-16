@@ -5,8 +5,8 @@ package com.titan.core.domain.backup.model
  *
  * Both fields are rows rather than tables or bytes, and both are known before the first row is
  * written: the exporter counts every table up front so a 50,000-set history draws a bar that
- * fills evenly instead of one that sits at 5/19 for the length of the workout history. Counting
- * costs nineteen `COUNT(*)`s over indexed tables — cheap next to reading the rows themselves,
+ * fills evenly instead of one that sits at 5/20 for the length of the workout history. Counting
+ * costs twenty `COUNT(*)`s over indexed tables — cheap next to reading the rows themselves,
  * and the alternative is an indeterminate spinner on the one operation a user will not
  * interrupt.
  *

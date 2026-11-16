@@ -5,6 +5,7 @@ import com.titan.core.domain.backup.model.BodyMeasurementRow
 import com.titan.core.domain.backup.model.CollectedItemRow
 import com.titan.core.domain.backup.model.ExerciseRow
 import com.titan.core.domain.backup.model.ExportDocument
+import com.titan.core.domain.backup.model.GymRow
 import com.titan.core.domain.backup.model.ImportError
 import com.titan.core.domain.backup.model.MuscleGroupRow
 import com.titan.core.domain.backup.model.PersonalRecordRow
@@ -219,6 +220,19 @@ class BackupValidatorRangeTest {
             BackupTable.COLLECTED_ITEM to { d, id ->
                 d.copy(collectedItem = d.collectedItem + CollectedItemRow(id, "steel_shaker", "range", acquiredAt = 0))
             },
+            BackupTable.GYM to { d, id ->
+                d.copy(
+                    gym = d.gym + GymRow(
+                        id,
+                        name = "Range",
+                        address = "1 Range Road",
+                        latitudeMicro = 0,
+                        longitudeMicro = 0,
+                        equipmentTags = "",
+                        createdAt = 0,
+                    ),
+                )
+            },
         )
 
         /** Every timestamp column, as `table.column` and a way to write one value into it. */
@@ -301,6 +315,11 @@ class BackupValidatorRangeTest {
             "collected_item.acquired_at" to { d, v ->
                 d.copy(
                     collectedItem = d.collectedItem.map { it.copy(acquiredAt = v) },
+                )
+            },
+            "gym.created_at" to { d, v ->
+                d.copy(
+                    gym = d.gym.map { it.copy(createdAt = v) },
                 )
             },
         )

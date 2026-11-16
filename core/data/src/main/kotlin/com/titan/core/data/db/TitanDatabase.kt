@@ -10,6 +10,7 @@ import com.titan.core.data.db.dao.BackupDao
 import com.titan.core.data.db.dao.BodyMeasurementDao
 import com.titan.core.data.db.dao.CollectedItemDao
 import com.titan.core.data.db.dao.ExerciseDao
+import com.titan.core.data.db.dao.GymDao
 import com.titan.core.data.db.dao.LocalDataDao
 import com.titan.core.data.db.dao.MuscleGroupDao
 import com.titan.core.data.db.dao.PersonalRecordDao
@@ -28,6 +29,7 @@ import com.titan.core.data.db.entity.CollectedItemEntity
 import com.titan.core.data.db.entity.ExerciseEntity
 import com.titan.core.data.db.entity.ExerciseMuscleGroupEntity
 import com.titan.core.data.db.entity.ExerciseTagEntity
+import com.titan.core.data.db.entity.GymEntity
 import com.titan.core.data.db.entity.MuscleGroupEntity
 import com.titan.core.data.db.entity.PersonalRecordEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
@@ -63,8 +65,9 @@ import com.titan.core.data.db.entity.WorkoutTemplateEntity
         SessionLootClaimEntity::class,
         QuestCompletionEntity::class,
         CollectedItemEntity::class,
+        GymEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class TitanDatabase : RoomDatabase() {
@@ -85,6 +88,7 @@ abstract class TitanDatabase : RoomDatabase() {
     abstract fun sessionLootClaimDao(): SessionLootClaimDao
     abstract fun questCompletionDao(): QuestCompletionDao
     abstract fun collectedItemDao(): CollectedItemDao
+    abstract fun gymDao(): GymDao
 
     /**
      * Every table, whole, for export and import — see [BackupDao] for why backup gets a DAO of
@@ -138,11 +142,35 @@ abstract class TitanDatabase : RoomDatabase() {
             }
 
         /**
+         * 1 to 2: the gym directory.
+         *
+         * One new table and nothing else — `gym` points at no other table and no other table
+         * points at it, so there is no row to carry, rebuild or re-key. The statement is the one
+         * Room generates for [GymEntity], which `DatabaseMigrationTest` holds it to: a column
+         * that differs fails the validation against `schemas/2.json`.
+         */
+        val MIGRATION_1_2: Migration = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `gym` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`address` TEXT NOT NULL, " +
+                        "`latitude_micro` INTEGER, " +
+                        "`longitude_micro` INTEGER, " +
+                        "`equipment_tags` TEXT NOT NULL, " +
+                        "`user_notes` TEXT, " +
+                        "`created_at` INTEGER NOT NULL)",
+                )
+            }
+        }
+
+        /**
          * Every version bump beyond 1 must add its `Migration` here and a matching
          * test in the migration test suite. The database is deliberately *not*
          * built with a destructive fallback: a version bump without a migration
          * here throws at startup instead of silently wiping user history.
          */
-        val MIGRATIONS: Array<Migration> = emptyArray()
+        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2)
     }
 }
