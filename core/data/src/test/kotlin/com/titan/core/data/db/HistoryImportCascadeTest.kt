@@ -405,6 +405,7 @@ private class InMemoryPhotos : ProgressPhotoRepository {
     override suspend fun add(
         source: PhotoSource,
         takenAt: Long,
+        preferImageTime: Boolean,
     ): Long {
         val id = photos.value.size + 1L
         photos.value += ProgressPhoto(id = id, takenAt = takenAt, path = "/photos/$id.jpg", createdAt = takenAt)
