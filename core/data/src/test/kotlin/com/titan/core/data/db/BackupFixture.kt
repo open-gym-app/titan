@@ -3,6 +3,7 @@ package com.titan.core.data.db
 import com.titan.core.data.db.entity.AchievementEntity
 import com.titan.core.data.db.entity.CollectedItemEntity
 import com.titan.core.data.db.entity.ExerciseTagEntity
+import com.titan.core.data.db.entity.PetEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
 import com.titan.core.data.db.entity.SessionLootClaimEntity
 import com.titan.core.data.db.entity.SessionXpClaimEntity
@@ -172,7 +173,11 @@ private suspend fun TitanDatabase.seedProgressAndSpoils() {
     dao.insertQuestCompletions(
         listOf(QuestCompletionEntity(questId = "weekly_volume", periodStart = STARTED_AT, completedAt = FINISHED_AT)),
     )
-    dao.insertCollectedItems(
+    seedPets()
+}
+
+private suspend fun TitanDatabase.seedPets() {
+    backupDao().insertCollectedItems(
         listOf(
             CollectedItemEntity(
                 id = 1,
@@ -188,6 +193,38 @@ private suspend fun TitanDatabase.seedProgressAndSpoils() {
                 source = "session_finished",
                 acquiredAt = FINISHED_AT,
             ),
+            // Two eggs, each hatched below.
+            CollectedItemEntity(
+                id = 3,
+                collectibleId = "pet_egg",
+                source = "session_finished",
+                acquiredAt = FINISHED_AT,
+            ),
+            CollectedItemEntity(
+                id = 4,
+                collectibleId = "pet_egg",
+                source = "session_finished",
+                acquiredAt = FINISHED_AT,
+            ),
+        ),
+    )
+    backupDao().insertPets(
+        listOf(
+            PetEntity(
+                id = 1,
+                speciesId = "iron_cub",
+                hatchedFromItemId = 3,
+                hatchedAt = FINISHED_AT,
+                xp = 240,
+                strength = 12,
+                endurance = 3,
+                mobility = 1,
+                nickname = "Brick",
+                isActive = true,
+            ),
+            // A species this build has never heard of: a pet from a newer version, which has to
+            // survive the round trip unchanged.
+            PetEntity(id = 2, speciesId = "from_a_newer_version", hatchedFromItemId = 4, hatchedAt = FINISHED_AT),
         ),
     )
 }

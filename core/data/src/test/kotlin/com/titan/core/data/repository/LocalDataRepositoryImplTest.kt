@@ -15,7 +15,9 @@ import com.titan.core.data.backup.AutoBackupFiles
 import com.titan.core.data.db.DefaultTemplates
 import com.titan.core.data.db.TitanDatabase
 import com.titan.core.data.db.bodyMeasurement
+import com.titan.core.data.db.entity.CollectedItemEntity
 import com.titan.core.data.db.entity.ExerciseEntity
+import com.titan.core.data.db.entity.PetEntity
 import com.titan.core.data.db.exercise
 import com.titan.core.data.db.personalRecord
 import com.titan.core.data.db.session
@@ -271,6 +273,21 @@ class LocalDataRepositoryImplTest {
 
             // Only the defaults, put back by the re-seed, as on a fresh install.
             assertEquals(DataFootprint(templates = DEFAULT_TEMPLATES), repository.observeFootprint().first())
+        }
+
+    /** `pet` restricts the egg it hatched from, so the wipe has to take the pet first. */
+    @Test
+    fun `deleteAll leaves no pet and no egg behind`() =
+        runBlocking {
+            val egg = db.collectedItemDao().insert(
+                CollectedItemEntity(collectibleId = "pet_egg", source = "session_finished", acquiredAt = 1_000),
+            )
+            db.petDao().insert(PetEntity(speciesId = "iron_cub", hatchedFromItemId = egg, hatchedAt = 2_000))
+
+            repository.deleteAll()
+
+            assertEquals(0, db.petDao().count())
+            assertTrue(db.collectedItemDao().observeRecent(limit = 10).first().isEmpty())
         }
 
     @Test
