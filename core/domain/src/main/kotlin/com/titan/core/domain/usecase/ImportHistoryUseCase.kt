@@ -86,6 +86,17 @@ import java.time.Instant
  * from the last session counted, so imported weeks older than it do not join a streak; and an
  * achievement already unlocked keeps the date it was first unlocked here.
  *
+ * ### A replay step that fails fails the import
+ *
+ * A finished workout keeps its session when a step of its cascade fails — see
+ * [SessionCompletionPipeline]'s failure contract — because each of its writes has committed by
+ * then. Inside the import's transaction nothing has, and a write that throws there ends the nested
+ * transaction it ran in without success, which leaves SQLite to roll the *whole* import back at the
+ * commit without raising anything. Reporting such a run as complete would tell the user their
+ * history was in when none of it was. So any step that fails throws out of the transaction instead,
+ * and the import reports [HistoryImportError.StorageFailure] with nothing written: a retry starts
+ * clean, which a history imported without its records could not.
+ *
  * ### One transaction, two locks — and the photos after it
  *
  * The whole history, writes and replay, is one transaction
@@ -103,8 +114,10 @@ import java.time.Instant
  * session finishes between the counters the replay reads and the rows it writes. A workout in
  * progress is left alone and finishes normally afterwards.
  *
- * Parsing and planning-in-memory happen before the locks, apart from the plan's read of the
- * device, so a large file does not hold up a backup while it is being read.
+ * Parsing happens before the locks, so a large file does not hold up a backup while it is being
+ * read. Planning cannot: it is judged against what the device holds, and that has to be read
+ * inside the transaction the plan is written in, or a write landing between the two would be one
+ * the plan never saw.
  *
  * ### Nothing escapes untyped
  *
@@ -159,8 +172,9 @@ class ImportHistoryUseCase(
             backupLock.exclusively {
                 val (plan, report) = sessionLock.withTransition {
                     historyImportRepository.atomically {
-                        val plan = ImportPlanner.plan(history, baseline())
-                        plan to write(plan)
+                        val sessions = sessionRepository.getAll().first()
+                        val plan = ImportPlanner.plan(history, baseline(sessions))
+                        plan to write(plan, sessions)
                     }
                 }
                 // After the commit, outside the transaction and the session lock but still under
@@ -179,13 +193,16 @@ class ImportHistoryUseCase(
         }
     }
 
-    /** What the device holds that the plan has to fit around, read inside the transaction. */
-    private suspend fun baseline(): ImportBaseline {
+    /**
+     * What the device holds that the plan has to fit around, read inside the transaction.
+     * [sessions] is every session on the device, read once by the caller for this and the replay.
+     */
+    private suspend fun baseline(sessions: List<WorkoutSession>): ImportBaseline {
         val templateExercises = templateRepository.getAllExercises().first().groupBy(TemplateExercise::templateId)
         return ImportBaseline(
             exercises = exerciseRepository.getAll().first(),
             muscleGroups = exerciseRepository.getMuscleGroups().first(),
-            sessionStarts = sessionRepository.getAll().first().mapTo(HashSet(), WorkoutSession::createdAt),
+            sessionStarts = sessions.mapTo(HashSet(), WorkoutSession::createdAt),
             measurementTimes = bodyMeasurementRepository.getAll().first().mapTo(HashSet()) { it.createdAt },
             templates = templateRepository.getAll().first().map { template ->
                 ExistingTemplate(
@@ -229,8 +246,13 @@ class ImportHistoryUseCase(
         return report.copy(photosImported = stored, photosFailed = failed)
     }
 
-    /** Writes [plan] and replays its workouts, answering with what landed. */
-    private suspend fun ProducerScope<HistoryImportProgress>.write(plan: ImportPlan): HistoryImportReport {
+    /**
+     * Writes [plan] and replays its workouts among [existingSessions], answering with what landed.
+     */
+    private suspend fun ProducerScope<HistoryImportProgress>.write(
+        plan: ImportPlan,
+        existingSessions: List<WorkoutSession>,
+    ): HistoryImportReport {
         val exerciseIds = plan.newExercises.map { new ->
             exerciseRepository.insert(
                 exercise = new.exercise,
@@ -259,7 +281,7 @@ class ImportHistoryUseCase(
         }
 
         val tally = ProgressionTally()
-        replay(plan.workouts, tally) { workout -> insert(workout) { it.resolvedId() } }
+        replay(plan.workouts, existingSessions, tally) { workout -> insert(workout) { it.resolvedId() } }
 
         return HistoryImportReport(
             workoutsImported = plan.workouts.size,
@@ -274,35 +296,37 @@ class ImportHistoryUseCase(
             achievementsUnlocked = tally.achievements,
             questsCompleted = tally.quests,
             collectiblesFound = tally.collectibles,
-            progressionFailures = tally.failures,
         )
     }
 
     /**
      * Writes each of [workouts] with [insert] and runs the completion pipeline over it, in
-     * finishing order — interleaved with any session already on the device that finished after
-     * the earliest of them, whose records are forgotten first. See the class doc.
+     * finishing order — interleaved with any of [existingSessions] that finished after the
+     * earliest of them, whose records are forgotten first. See the class doc.
      */
     private suspend fun ProducerScope<HistoryImportProgress>.replay(
         workouts: List<PlannedWorkout>,
+        existingSessions: List<WorkoutSession>,
         tally: ProgressionTally,
         insert: suspend (PlannedWorkout) -> Long,
     ) {
         val earliest = workouts.firstOrNull()?.finishedAt ?: return
-        val existing = sessionRepository.getAll().first().filter { session ->
+        val existing = existingSessions.filter { session ->
             !session.isInProgress && (session.completedAt ?: Long.MIN_VALUE) >= earliest
         }
         if (existing.isNotEmpty()) historyImportRepository.forgetRecordsOfSessionsFinishedFrom(earliest)
 
         val timeline = workouts.map { Replay.Imported(it) } + existing.map { Replay.Existing(it) }
         var written = 0
-        send(HistoryImportProgress.Writing(workoutsWritten = 0, workoutsTotal = workouts.size))
+        progressInTransaction(HistoryImportProgress.Writing(workoutsWritten = 0, workoutsTotal = workouts.size))
         timeline.sortedWith(compareBy(Replay::finishedAt, Replay::startedAt)).forEach { entry ->
             when (entry) {
                 is Replay.Imported -> {
                     val sessionId = insert(entry.workout)
                     tally.add(completeSession(sessionId, Instant.ofEpochMilli(entry.finishedAt)), imported = true)
-                    send(HistoryImportProgress.Writing(workoutsWritten = ++written, workoutsTotal = workouts.size))
+                    progressInTransaction(
+                        HistoryImportProgress.Writing(workoutsWritten = ++written, workoutsTotal = workouts.size),
+                    )
                 }
 
                 is Replay.Existing ->
@@ -312,6 +336,22 @@ class ImportHistoryUseCase(
                     )
             }
         }
+    }
+
+    /**
+     * Reports [progress] from inside the import's transaction without ever waiting for the
+     * collector to take it.
+     *
+     * `send` suspends while the flow's buffer is full, and a collector stops taking — a screen
+     * in the background, a slow frame — whenever it likes. Suspending here would hold SQLite's
+     * single write transaction for as long as that lasts, and every write in the app with it:
+     * a set ticked off in another session, a reminder rescheduled. So an update that does not
+     * fit is dropped instead. Nothing is lost by that: the updates count upwards, the next one
+     * that fits says more than the one it replaced, and the phase after the commit is reported
+     * with `send`, which may wait, because by then nothing is held but the backup lock.
+     */
+    private fun ProducerScope<HistoryImportProgress>.progressInTransaction(progress: HistoryImportProgress) {
+        trySend(progress)
     }
 
     /** Writes [workout] as a finished session with its exercises and sets, returning its id. */
@@ -390,6 +430,9 @@ class ImportHistoryUseCase(
      * new, and reporting them would tell the user the import set records they had already set.
      * Everything else an existing session's replay can produce *is* new — a quest the imported
      * workouts brought within reach, completed by the session that crossed it — so it counts.
+     *
+     * A run with a failed step is not added but thrown, which rolls the import back: see the class
+     * doc for why a replay cannot keep the failure contract a logged workout does.
      */
     private class ProgressionTally {
         var records = 0
@@ -397,18 +440,23 @@ class ImportHistoryUseCase(
         var achievements = 0
         var quests = 0
         var collectibles = 0
-        var failures = 0
 
         fun add(
             progression: SessionProgression,
             imported: Boolean,
         ) {
+            progression.failures.firstOrNull()?.let { failure ->
+                throw IllegalStateException(
+                    "replaying session ${progression.sessionId} failed at ${failure.step}: " +
+                        (failure.cause.message ?: failure.cause::class.java.simpleName),
+                    failure.cause,
+                )
+            }
             if (imported) records += progression.recordsBroken.size
             xp += progression.xpAwarded
             achievements += progression.achievementsUnlocked.size
             quests += progression.questsCompleted.size
             if (progression.lootDropped != null) collectibles++
-            if (!progression.isComplete) failures++
         }
     }
 }

@@ -8,10 +8,13 @@ package com.titan.core.domain.importer
  * a screen has to show. A collector that reaches the end has seen exactly one of [Complete] and
  * [Failed].
  *
- * The phases are ordered and do not repeat: [Reading], then [Writing] once per workout, then
- * [StoringPhotos] once per photo when the file has any, then a terminal. Nothing is written before
- * [Writing], and the history written during it is kept only if it all commits; the photos are
- * stored after that commit, one at a time — see [com.titan.core.domain.usecase.ImportHistoryUseCase].
+ * The phases are ordered and do not repeat: [Reading], then [Writing] as the workouts land when
+ * the file has any, then [StoringPhotos] once per photo when it has any, then a terminal. A
+ * [Writing] the collector is too slow to take is dropped rather than waited for, because it is
+ * sent from inside the import's transaction, so its counts can skip but never go back. Everything
+ * the history holds — exercises, templates and measurements, written just before the first
+ * [Writing], and the workouts during it — is kept only if it all commits; the photos are stored
+ * after that commit, one at a time — see [com.titan.core.domain.usecase.ImportHistoryUseCase].
  */
 sealed interface HistoryImportProgress {
 
@@ -67,7 +70,7 @@ sealed interface HistoryImportError {
     /** The file could not be read at all — a revoked permission, a removed card. */
     data class Unreadable(val reason: String) : HistoryImportError
 
-    /** The file was read and holds no workouts, templates or measurements. */
+    /** The file was read and holds no exercises, workouts, templates, measurements or photos. */
     data object NothingToImport : HistoryImportError
 
     /**
@@ -89,10 +92,6 @@ sealed interface HistoryImportError {
  * @property photosImported progress photos stored.
  * @property photosFailed photos whose bytes could not be read or were not an image. The history
  *   is imported regardless: photos are stored after it commits.
- * @property progressionFailures workouts whose replay could not finish one of its steps. The
- *   workout itself is imported regardless — see
- *   [com.titan.core.domain.usecase.SessionCompletionPipeline] for why a refused award never costs
- *   the workout.
  */
 data class HistoryImportReport(
     val workoutsImported: Int,
@@ -109,5 +108,4 @@ data class HistoryImportReport(
     val achievementsUnlocked: Int,
     val questsCompleted: Int,
     val collectiblesFound: Int,
-    val progressionFailures: Int,
 )

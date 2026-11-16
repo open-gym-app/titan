@@ -271,7 +271,7 @@ class FakeActiveSessionStore(
 
     override fun getTotals(): Flow<Map<Long, SessionTotals>> = unsupported()
 
-    override suspend fun countFinished(): Int = unsupported()
+    override suspend fun countFinishedBy(atMillis: Long): Int = unsupported()
 
     override suspend fun insert(session: WorkoutSession): Long = unsupported()
 

@@ -37,16 +37,17 @@ interface WorkoutSessionDao {
     fun getById(id: Long): Flow<WorkoutSessionEntity?>
 
     /**
-     * How many sessions have been closed out over the whole history.
+     * How many sessions had been closed out by [atMillis], inclusive.
      *
      * The same "finished" the analytics queries use — `is_in_progress = 0` **and** a
      * `completed_at`, the pair `FinishSessionUseCase` writes together — so this figure and the
      * per-week counts below can never disagree about which rows count. A one-shot rather than
      * a `Flow`: its caller is the post-session cascade, which needs the total including the
-     * session it has just closed out.
+     * session it has just closed out. `completed_at <= :atMillis` already excludes a NULL, so
+     * the bound is the whole of the "has a `completed_at`" half.
      */
-    @Query("SELECT COUNT(*) FROM workout_session WHERE is_in_progress = 0 AND completed_at IS NOT NULL")
-    suspend fun countFinished(): Int
+    @Query("SELECT COUNT(*) FROM workout_session WHERE is_in_progress = 0 AND completed_at <= :atMillis")
+    suspend fun countFinishedBy(atMillis: Long): Int
 
     /**
      * The session being logged — the in-progress row touched most recently — or null.

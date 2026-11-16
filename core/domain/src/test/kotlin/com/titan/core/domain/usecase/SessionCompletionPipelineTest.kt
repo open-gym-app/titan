@@ -31,6 +31,7 @@ import com.titan.core.domain.repository.PersonalRecordRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -131,6 +132,24 @@ class SessionCompletionPipelineTest {
                 listOf(Achievements.FIRST_SESSION.id, Achievements.FIRST_RECORD.id),
                 progression.achievementsUnlocked.map { it.achievement.id },
             )
+        }
+
+    @Test
+    fun `sessions that finished after this one do not count towards its achievements`() =
+        runTest {
+            // The shape an import replays: nine sessions already on file, all newer than the
+            // workout being judged. Counting every row would make that workout the tenth and
+            // date `ten_sessions` to a moment when the user had trained once.
+            repeat(Achievements.TEN_SESSIONS.threshold - 1) { day ->
+                rig.finishSession(completedAt = FINISHED_AT.plusSeconds((day + 1) * DAY_SECONDS))
+            }
+            val sessionId = rig.finishSession()
+
+            val progression = pipeline(sessionId, FINISHED_AT)
+
+            val unlocked = progression.achievementsUnlocked.map { it.achievement.id }
+            assertTrue(Achievements.FIRST_SESSION.id in unlocked)
+            assertFalse(Achievements.TEN_SESSIONS.id in unlocked)
         }
 
     @Test

@@ -162,7 +162,7 @@ import java.time.Instant
  * responsible for remembering, and a forgotten call is a workout that silently pays nothing;
  * and it gives up the lock, which is what guarantees no other session transition lands
  * between the row being closed out and the counters this reads being read. Those counters are
- * lifetime totals ([SessionRepository.countFinished],
+ * running totals ([SessionRepository.countFinishedBy],
  * [PersonalRecordRepository.count]), so a session started, finished or discarded in that
  * window would be evaluated into a snapshot that belongs to a different moment than the
  * records and streak beside it.
@@ -232,7 +232,7 @@ class SessionCompletionPipeline(
 
         val unlocks = mutableListOf<AchievementUnlock>()
         runStep(SessionProgressionStep.ACHIEVEMENTS, failures) {
-            triggerAchievements(progressAfter(streak), finishedAt, into = unlocks)
+            triggerAchievements(progressAfter(streak, finishedAt), finishedAt, into = unlocks)
         }
 
         // Not fenced by the streak the way achievements are: no quest counts streak weeks, so a
@@ -308,11 +308,17 @@ class SessionCompletionPipeline(
     }
 
     /**
-     * The three lifetime figures the catalogue is evaluated against, as of now.
+     * The three figures the catalogue is evaluated against, as of [finishedAt].
      *
      * Both counts are **derived** rather than accumulated, which is what makes this step
      * idempotent without a fence of its own: a re-run reads the same numbers, because the
      * steps before it wrote nothing the second time.
+     *
+     * The session count stops at [finishedAt] rather than taking every row, because an import
+     * replays workouts older than sessions already on file — see
+     * [SessionRepository.countFinishedBy]. The record count needs no such bound: the import
+     * forgets the records of every session it replays before replaying them, so the table holds
+     * none newer than the session being judged.
      *
      * @throws IllegalStateException if [streak] is null. The dependency is real — a snapshot
      *   with a guessed streak could only ever unlock a milestone late or not at all, but it
@@ -320,12 +326,15 @@ class SessionCompletionPipeline(
      *   this one with it, recorded as its own failure by the caller rather than silently
      *   evaluating two thirds of the catalogue.
      */
-    private suspend fun progressAfter(streak: StreakUpdate?): AchievementProgress {
+    private suspend fun progressAfter(
+        streak: StreakUpdate?,
+        finishedAt: Instant,
+    ): AchievementProgress {
         val counted = checkNotNull(streak) {
             "achievements cannot be evaluated against a streak that could not be read"
         }
         return AchievementProgress(
-            sessionsFinished = sessionRepository.countFinished(),
+            sessionsFinished = sessionRepository.countFinishedBy(finishedAt.toEpochMilli()),
             currentStreak = counted.weeks,
             recordsBroken = personalRecordRepository.count(),
         )
