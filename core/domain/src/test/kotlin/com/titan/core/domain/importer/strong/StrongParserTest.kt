@@ -51,7 +51,6 @@ class StrongParserTest {
         listOf(
             ImporterFixtures.bytes(ByteArray(0)),
             ImporterFixtures.text("hello world\nthis is a shopping list\n"),
-            ImporterFixtures.resource("hevy/hevy-workouts.csv"),
             ImporterFixtures.bytes(Random(seed = 247).nextBytes(4_096)),
             ImporterFixtures.text(
                 "Date,Workout Name,Exercise Name,Weight,Reps\n2024-03-02 18:04:11,Push,Bench,100,5\n",
@@ -59,6 +58,23 @@ class StrongParserTest {
             ImporterFixtures.text("\"Date,Workout Name,Exercise Name,Set Order\n"),
         ).forEachIndexed { index, source ->
             assertEquals("source $index", ParseResult.NotRecognised, ImporterFixtures.read(parser, source))
+        }
+    }
+
+    @Test
+    fun `no Hevy export is a Strong export`() {
+        listOf(
+            "hevy-workouts.csv",
+            "hevy-workouts-web.csv",
+            "hevy-workouts-de.csv",
+            "hevy-measurements.csv",
+            "hevy-damaged.csv",
+        ).forEach { sample ->
+            assertEquals(
+                sample,
+                ParseResult.NotRecognised,
+                ImporterFixtures.read(parser, ImporterFixtures.resource("hevy/$sample")),
+            )
         }
     }
 

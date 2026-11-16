@@ -1,0 +1,10 @@
+"title","start_time","end_time","description","exercise_title","superset_id","exercise_notes","set_index","set_type","weight_kg","reps","distance_km","duration_seconds","rpe"
+"Lost","yesterday evening","yesterday evening","","Bench Press (Barbell)",,"",0,"normal",100,5,,,
+"Lost",,,"","Bench Press (Barbell)",,"",0,"normal",100,5,,,
+"Good","2 Mar 2024, 18:04","2 Mar 2024, 19:00","","Bench Press (Barbell)",,"",0,"normal",100,5,,,
+"Good","2 Mar 2024, 18:04","2 Mar 2024, 19:00","",,,"",1,"normal",100,5,,,
+"Good","2 Mar 2024, 18:04","2 Mar 2024, 19:00","","Bench Press (Barbell)",,"",1,"normal","heavy",5,,,
+"Good","2 Mar 2024, 18:04","2 Mar 2024, 19:00","","Bench Press (Barbell)",,"",2,"normal",100,5,,,"hard"
+"Good","2 Mar 2024, 18:04","2 Mar 2024, 19:00","","Bench Press (Barbell)",,"",3
+"Good","2 Mar 2024, 18:04","2 Mar 2024, 19:00","","Bench Press (Barbell)",,"",4,"mystery",100,5,,,
+"Good","2 Mar 2024, 18:04","2 Mar 2024, 19:00","","Bench Press (Barbell)",,"",5,"normal",,,,"a while",

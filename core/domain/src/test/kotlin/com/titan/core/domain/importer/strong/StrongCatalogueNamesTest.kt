@@ -2,6 +2,7 @@ package com.titan.core.domain.importer.strong
 
 import com.titan.core.domain.importer.ExerciseMatcher
 import com.titan.core.domain.importer.ImporterFixtures
+import com.titan.core.domain.importer.SUFFIXED_CATALOGUE_NAMES
 import com.titan.core.domain.importer.SuffixedExerciseNames
 import com.titan.core.domain.model.ExerciseType
 import org.junit.Assert.assertEquals
@@ -35,6 +36,15 @@ class StrongCatalogueNamesTest {
         val keys = STRONG_CATALOGUE_NAMES.keys.map(ExerciseMatcher::normalised)
 
         assertEquals(keys.size, keys.toSet().size)
+    }
+
+    @Test
+    fun `no entry of Strong's own is a shared name, so none overrides one`() {
+        val shared = SUFFIXED_CATALOGUE_NAMES.keys.map(ExerciseMatcher::normalised).toSet()
+        val own = (STRONG_CATALOGUE_NAMES.keys - SUFFIXED_CATALOGUE_NAMES.keys).map(ExerciseMatcher::normalised)
+
+        assertTrue(own.filter { it in shared }.toString(), own.none { it in shared })
+        assertEquals(SUFFIXED_CATALOGUE_NAMES.size + own.size, STRONG_CATALOGUE_NAMES.size)
     }
 
     @Test
