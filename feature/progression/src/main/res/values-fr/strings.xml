@@ -185,7 +185,7 @@
     <string name="body_fat_label">Masse grasse</string>
     <string name="body_lean_mass_label">Masse maigre</string>
 
-    <!-- ── Health Connect, disabled until #54 ───────────────────────────────────── -->
+    <!-- ── Progress photos (#304) ───────────────────────────────────────────────── -->
 
     <string name="body_photos_heading">Photos</string>
     <string name="body_photos_label">Photos de progression</string>
@@ -207,6 +207,9 @@
     <string name="photos_close">Fermer</string>
     <string name="photos_add_failed">Impossible d’ajouter cette photo.</string>
     <string name="photos_delete_failed">Impossible de supprimer cette photo.</string>
+
+    <!-- ── Health Connect, disabled until #54 ───────────────────────────────────── -->
+
     <string name="body_health_connect_heading">Santé Connect</string>
     <string name="body_health_connect_label">Synchroniser avec Santé Connect</string>
     <string name="body_health_connect_detail">Poids et masse grasse, dans les deux sens</string>

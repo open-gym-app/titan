@@ -156,7 +156,7 @@ class ProgressPhotoRepositoryImplTest {
             saveAttributes()
         }
 
-        val takenAt = PhotoEncoder.takenAt(PhotoSource { original.inputStream() }, ZoneOffset.UTC)
+        val takenAt = PhotoEncoder.metadata(PhotoSource { original.inputStream() }, ZoneOffset.UTC).takenAt
 
         assertEquals(1_740_900_600_000L, takenAt)
         original.delete()

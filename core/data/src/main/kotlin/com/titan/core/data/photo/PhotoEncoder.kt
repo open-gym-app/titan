@@ -7,9 +7,10 @@ import android.media.ExifInterface
 import com.titan.core.domain.repository.PhotoSource
 import java.io.IOException
 import java.io.OutputStream
+import java.time.DateTimeException
 import java.time.LocalDateTime
-import java.time.OffsetDateTime
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import kotlin.math.max
@@ -51,40 +52,57 @@ internal object PhotoEncoder {
     private const val TAG_OFFSET_TIME_ORIGINAL = "OffsetTimeOriginal"
 
     /**
-     * When [source]'s image says it was taken, in epoch milliseconds, or null when it does not say
-     * or says something unreadable. The camera's local time, read in its own recorded offset when
-     * there is one and in [zone] otherwise.
+     * What [source]'s image says about itself, read in one pass over its metadata: when it was
+     * taken and which way is up. One read rather than one per tag, because a picked photo can be
+     * backed by a cloud provider, where every [PhotoSource.open] may fetch the bytes again.
      */
-    fun takenAt(
+    fun metadata(
         source: PhotoSource,
         zone: ZoneId,
-    ): Long? {
-        val exif = runCatching { source.open().use { ExifInterface(it) } }.getOrNull() ?: return null
-        val local = exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL)
-            ?: exif.getAttribute(ExifInterface.TAG_DATETIME)
-            ?: return null
-        return try {
-            val dateTime = LocalDateTime.parse(local.trim(), EXIF_DATE)
-            val offset = exif.getAttribute(TAG_OFFSET_TIME_ORIGINAL)
-            val instant = if (offset != null) {
-                OffsetDateTime.parse("${dateTime}$offset").toInstant()
-            } else {
-                dateTime.atZone(zone).toInstant()
-            }
-            instant.toEpochMilli()
-        } catch (_: DateTimeParseException) {
-            null
-        }
+    ): PhotoMetadata {
+        val exif = runCatching { source.open().use { ExifInterface(it) } }.getOrNull()
+            ?: return PhotoMetadata(takenAt = null, orientation = ExifInterface.ORIENTATION_NORMAL)
+        return PhotoMetadata(
+            takenAt = exif.takenAt(zone),
+            orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL),
+        )
     }
 
     /**
-     * Decodes [source], scales, orients and writes it to [out] as a JPEG.
+     * When the image says it was taken, in epoch milliseconds, or null when it does not say or
+     * says something unreadable. The camera's local time, read in its own recorded offset when
+     * there is one it can parse and in [zone] otherwise: a malformed offset loses the offset, not
+     * the date.
+     */
+    private fun ExifInterface.takenAt(zone: ZoneId): Long? {
+        val local = getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL)
+            ?: getAttribute(ExifInterface.TAG_DATETIME)
+            ?: return null
+        val dateTime = try {
+            LocalDateTime.parse(local.trim(), EXIF_DATE)
+        } catch (_: DateTimeParseException) {
+            return null
+        }
+        val offset = getAttribute(TAG_OFFSET_TIME_ORIGINAL)?.let {
+            try {
+                ZoneOffset.of(it.trim())
+            } catch (_: DateTimeException) {
+                null
+            }
+        }
+        return dateTime.atZone(offset ?: zone).toInstant().toEpochMilli()
+    }
+
+    /**
+     * Decodes [source], scales it, turns it the way [orientation] (from [metadata]) says is up,
+     * and writes it to [out] as a JPEG.
      *
      * @throws IOException if the bytes cannot be read or are not an image.
      */
     fun encode(
         source: PhotoSource,
         out: OutputStream,
+        orientation: Int,
     ) {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         source.open().use { BitmapFactory.decodeStream(it, null, bounds) }
@@ -97,11 +115,6 @@ internal object PhotoEncoder {
                 BitmapFactory.Options().apply { inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight) },
             )
         } ?: throw IOException("not an image")
-
-        val orientation = runCatching {
-            source.open().use { ExifInterface(it) }
-                .getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
-        }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
 
         val finished = decoded.fitted().oriented(orientation)
         try {
@@ -164,3 +177,14 @@ internal object PhotoEncoder {
     private const val HALF = 180f
     private const val THREE_QUARTERS = 270f
 }
+
+/**
+ * What an image says about itself, as [PhotoEncoder.metadata] reads it.
+ *
+ * @property takenAt when it was taken, epoch milliseconds, or null when it does not say.
+ * @property orientation its EXIF orientation tag, [ExifInterface.ORIENTATION_NORMAL] when absent.
+ */
+internal data class PhotoMetadata(
+    val takenAt: Long?,
+    val orientation: Int,
+)

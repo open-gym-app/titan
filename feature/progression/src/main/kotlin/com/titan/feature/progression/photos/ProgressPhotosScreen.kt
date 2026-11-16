@@ -1,6 +1,7 @@
 package com.titan.feature.progression.photos
 
 import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -93,11 +94,14 @@ fun ProgressPhotosRoute(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    var capture by remember { mutableStateOf<File?>(null) }
+    // Saved, not merely remembered: the camera app is in front while this waits, and the
+    // activity behind it may be recreated — a rotation, a reclaimed process — before the result
+    // comes back. Forgotten, the capture would be dropped without a word and left in the cache.
+    var capturePath by rememberSaveable { mutableStateOf<String?>(null) }
 
     val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
-        val file = capture
-        capture = null
+        val file = capturePath?.let(::File)
+        capturePath = null
         if (saved && file != null && file.length() > 0) {
             viewModel.onEvent(
                 ProgressPhotosEvent.PhotoPicked(PhotoSource { FileInputStream(file) }, cleanup = { file.delete() }),
@@ -107,7 +111,7 @@ fun ProgressPhotosRoute(
         }
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) viewModel.onEvent(ProgressPhotosEvent.PhotoPicked(context.sourceOf(uri)))
+        if (uri != null) viewModel.onEvent(ProgressPhotosEvent.PhotoPicked(context.applicationContext.sourceOf(uri)))
     }
 
     ProgressPhotosScreen(
@@ -116,10 +120,10 @@ fun ProgressPhotosRoute(
         onBack = onBack,
         onTakePhoto = {
             val (file, uri) = PhotoCapture.prepare(context)
-            capture = file
+            capturePath = file.absolutePath
             runCatching { camera.launch(uri) }.onFailure {
                 // No camera app at all — a tablet, a locked-down work profile.
-                capture = null
+                capturePath = null
                 viewModel.onEvent(ProgressPhotosEvent.PhotoUnavailable)
             }
         },
@@ -128,7 +132,11 @@ fun ProgressPhotosRoute(
     )
 }
 
-/** The picked image's bytes, opened afresh on every read, as [PhotoSource] requires. */
+/**
+ * The picked image's bytes, opened afresh on every read, as [PhotoSource] requires. Called on the
+ * application context: the source outlives the activity in the ViewModel's store, and the picker's
+ * grant belongs to the app rather than to the activity that asked.
+ */
 private fun Context.sourceOf(uri: android.net.Uri): PhotoSource =
     PhotoSource { contentResolver.openInputStream(uri) ?: throw IOException("the picked photo could not be opened") }
 
@@ -166,6 +174,9 @@ fun ProgressPhotosScreen(
         snackbarHostState.showSnackbar(messageText)
         onEvent(ProgressPhotosEvent.MessageShown)
     }
+    // Picking the other half of a comparison is a mode the banner announces, and back leaves the
+    // mode before it leaves the screen.
+    BackHandler(enabled = state.comparingFrom != null) { onEvent(ProgressPhotosEvent.CompareCancelled) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -269,6 +280,10 @@ private fun PhotoGrid(
     onEvent: (ProgressPhotosEvent) -> Unit,
     contentPadding: PaddingValues,
 ) {
+    // Remembered against the list, so a banner or a border changing does not regroup every photo.
+    val byYear = remember(state.photos) {
+        state.photos.groupBy { Instant.ofEpochMilli(it.takenAt).atZone(ZoneId.systemDefault()).year }
+    }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = TILE_MIN_WIDTH),
         modifier = Modifier
@@ -285,19 +300,18 @@ private fun PhotoGrid(
         }
         // Under a heading per year, so each tile can carry the short `24 Apr` that fits its width
         // without losing which spring it was.
-        state.photos.groupBy { Instant.ofEpochMilli(it.takenAt).atZone(ZoneId.systemDefault()).year }
-            .forEach { (year, photos) ->
-                item(key = "year-$year", span = { GridItemSpan(maxLineSpan) }) {
-                    SectionHeading(text = year.toString())
-                }
-                items(items = photos, key = ProgressPhoto::id) { photo ->
-                    PhotoTile(
-                        photo = photo,
-                        isComparisonStart = photo.id == state.comparingFrom?.id,
-                        onClick = { onEvent(ProgressPhotosEvent.PhotoTapped(photo.id)) },
-                    )
-                }
+        byYear.forEach { (year, photos) ->
+            item(key = "year-$year", span = { GridItemSpan(maxLineSpan) }) {
+                SectionHeading(text = year.toString())
             }
+            items(items = photos, key = ProgressPhoto::id) { photo ->
+                PhotoTile(
+                    photo = photo,
+                    isComparisonStart = photo.id == state.comparingFrom?.id,
+                    onClick = { onEvent(ProgressPhotosEvent.PhotoTapped(photo.id)) },
+                )
+            }
+        }
     }
 }
 

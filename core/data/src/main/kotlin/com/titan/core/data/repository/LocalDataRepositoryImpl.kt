@@ -154,7 +154,7 @@ class LocalDataRepositoryImpl @Inject constructor(
      *
      * [retryWhen] rather than [kotlinx.coroutines.flow.catch], for the reason
      * `UserPreferencesRepositoryImpl.observe` spells out at length: `catch` emits *and then
-     * completes*, so one transient `SQLITE_BUSY` from any of the six queries would pin the
+     * completes*, so one transient `SQLITE_BUSY` from any of the eight queries would pin the
      * footprint at zeroes for as long as the ViewModel lives — and zeroes are the value the
      * dialog renders as "there is nothing logged on this phone yet" to a user with two hundred
      * sessions. Emitting the zeroes and staying subscribed keeps the interface's "re-emitted as
@@ -185,7 +185,7 @@ class LocalDataRepositoryImpl @Inject constructor(
                 // Read here rather than observed, because a file's length is not something
                 // SQLite can notify on: it changes on a checkpoint and a vacuum as much as on
                 // a write. Recomputing it whenever a count changes is the closest honest
-                // approximation, and it is one `stat` against six queries that have just run.
+                // approximation, and it is one `stat` against eight queries that have just run.
                 databaseBytes = databaseBytes(),
             )
         }

@@ -56,11 +56,7 @@ class ExportSchemaTest : RoomTestBase() {
      */
     @Test
     fun `every table left out of the format is a real table, left out on purpose`() {
-        val declared = schema().getValue("database").jsonObject
-            .getValue("entities").jsonArray
-            .map { it.jsonObject.getValue("tableName").jsonPrimitive.content }
-
-        assertTrue(declared.containsAll(NOT_EXPORTED))
+        assertTrue(declaredTables().containsAll(NOT_EXPORTED))
         assertTrue(BackupTable.entries.none { it.tableName in NOT_EXPORTED })
     }
 
@@ -156,12 +152,14 @@ class ExportSchemaTest : RoomTestBase() {
         return text.toString()
     }
 
-    /** Every table the committed schema declares. */
-    private fun schemaTables(): List<String> =
+    /** Every table the committed schema declares, exported or not. */
+    private fun declaredTables(): List<String> =
         schema().getValue("database").jsonObject
             .getValue("entities").jsonArray
             .map { it.jsonObject.getValue("tableName").jsonPrimitive.content }
-            .filterNot { it in NOT_EXPORTED }
+
+    /** Every table the committed schema declares that the format carries. */
+    private fun schemaTables(): List<String> = declaredTables().filterNot { it in NOT_EXPORTED }
 
     /** Table to its column names, in the order the schema records them. */
     private fun schemaColumns(): Map<String, List<String>> =

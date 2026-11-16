@@ -47,6 +47,9 @@ class ProgressPhotoRepositoryImpl @Inject constructor(
 
     override fun getAll(): Flow<List<ProgressPhoto>> =
         dao.getAll().map { rows ->
+            // Once per emission rather than per row: `filesDir` checks the directory on disk
+            // every time it is asked, and this runs on the collector's thread.
+            val directory = directory
             rows.map { row ->
                 ProgressPhoto(
                     id = row.id,
@@ -62,12 +65,13 @@ class ProgressPhotoRepositoryImpl @Inject constructor(
         takenAt: Long,
     ): Long =
         withContext(ioDispatcher) {
-            val stamped = PhotoEncoder.takenAt(source, ZoneId.systemDefault()) ?: takenAt
+            val metadata = PhotoEncoder.metadata(source, ZoneId.systemDefault())
+            val stamped = metadata.takenAt ?: takenAt
             val name = "${UUID.randomUUID()}.jpg"
             val target = File(directory.apply { mkdirs() }, name)
             val scratch = File(directory, "$name.tmp")
             try {
-                scratch.outputStream().buffered().use { PhotoEncoder.encode(source, it) }
+                scratch.outputStream().buffered().use { PhotoEncoder.encode(source, it, metadata.orientation) }
                 if (!scratch.renameTo(target)) throw IOException("could not move the photo into place")
             } finally {
                 scratch.delete()
