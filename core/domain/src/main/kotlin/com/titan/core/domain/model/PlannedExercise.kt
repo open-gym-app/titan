@@ -18,7 +18,8 @@ interface PlannedExercise {
 
     /**
      * The catalogue exercise it plans. Read by the estimate for the exercise's type, which
-     * decides whether a set's planned duration is one the user can see, and for its rest — see
+     * decides whether a set's planned duration or its reps are the figure the user can see, and
+     * for its rest — see
      * [com.titan.core.domain.template.TemplateDuration].
      */
     val exerciseId: Long

@@ -15,7 +15,9 @@ import com.titan.core.domain.model.StreakResult
 import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.notification.ProgressionAnnouncer
 import com.titan.core.domain.random.RandomSource
+import com.titan.core.domain.repository.FakeBodyMeasurementRepository
 import com.titan.core.domain.repository.FakeInProgressSessionRepository
+import com.titan.core.domain.stats.CalorieEstimate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -24,6 +26,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.roundToInt
 
 class FinishSessionUseCaseTest {
 
@@ -231,6 +234,70 @@ class FinishSessionUseCaseTest {
         repeat(sets) { sessions.addSet(exerciseId) }
         return started.sessionId
     }
+
+    // --- estimating the calories ------------------------------------------
+
+    private fun estimator(failing: Boolean = false) =
+        EstimateSessionCaloriesUseCase(
+            sessionRepository = sessions,
+            exerciseRepository = FakeExerciseRepository(),
+            userPreferencesRepository = FakeUserPreferencesRepository(),
+            bodyMeasurementRepository = FakeBodyMeasurementRepository(failing = failing),
+        )
+
+    @Test
+    fun `finishing writes the estimated calories onto a session that has none`() =
+        runTest {
+            val sessionId = startWithSets(sets = 3)
+
+            FinishSessionUseCase(sessions, state, drafts, clock, estimateCalories = estimator())().getOrThrow()
+
+            // Three sets of ten on the shipped default rest, at the reference body mass.
+            val seconds = 3 * 30 + 2 * UserPreferences.DEFAULT_REST_DURATION.inWholeSeconds
+            val expected = CalorieEstimate.STRENGTH_MET * CalorieEstimate.REFERENCE_BODY_MASS_MG / 1_000_000 *
+                seconds / 3_600
+            assertEquals(expected.roundToInt(), sessions.getById(sessionId).first()?.calories)
+        }
+
+    @Test
+    fun `a calorie figure already on the session is the user's, and is kept`() =
+        runTest {
+            val sessionId = startWithSets()
+            RecordSessionEffortUseCase(sessions)(sessionId, calories = 640, rating = null).getOrThrow()
+
+            FinishSessionUseCase(sessions, state, drafts, clock, estimateCalories = estimator())().getOrThrow()
+
+            assertEquals(640, sessions.getById(sessionId).first()?.calories)
+        }
+
+    @Test
+    fun `an estimate that cannot be made leaves the calories empty and the session finished`() =
+        runTest {
+            val sessionId = startWithSets()
+
+            val finished = FinishSessionUseCase(
+                sessions,
+                state,
+                drafts,
+                clock,
+                estimateCalories = estimator(failing = true),
+            )().getOrThrow()
+
+            val session = sessions.getById(sessionId).first()
+            assertNull(session?.calories)
+            assertEquals(false, session?.isInProgress)
+            assertEquals(sessionId, finished.summary.sessionId)
+        }
+
+    @Test
+    fun `with no estimator the calories are left as they were`() =
+        runTest {
+            val sessionId = startWithSets()
+
+            finishSession().getOrThrow()
+
+            assertNull(sessions.getById(sessionId).first()?.calories)
+        }
 
     @Test
     fun `finishing an active session with logged sets succeeds`() =

@@ -81,6 +81,15 @@ import java.time.Instant
  * Holding a lifecycle mutex across a call into the notification system would serialise every
  * later transition behind an IPC for no gain.
  *
+ * ### The calories are estimated here
+ *
+ * A session the user has not given a calorie figure is closed out with
+ * [EstimateSessionCaloriesUseCase]'s, written in the same update that closes the row, so the
+ * recap opens on a figure the user can correct rather than on an empty field. A figure already
+ * on the row is the user's and is never replaced. The estimate is best-effort like everything
+ * after the row: a failure to read what it needs leaves the calories empty, never the workout
+ * unsaved.
+ *
  * @param completeSession the cascade, or **null** to close sessions out without one. The app
  *   always passes one — `SessionUseCaseModule` binds it non-optionally, since a workout that
  *   silently pays nothing is the failure this would otherwise hide. Null is for the tests of the
@@ -88,6 +97,8 @@ import java.time.Instant
  * @param announce what says the payoff out loud, or **null** to close sessions out silently.
  *   Null for the same reason [completeSession] is: a caller with no cascade has no progression
  *   to announce, and one that does not care to announce should not have to supply a no-op.
+ * @param estimateCalories what prices the workout in kilocalories, or **null** to leave the
+ *   calories as they are. The app always passes one; null is for the tests of the lifecycle.
  */
 class FinishSessionUseCase(
     private val sessionRepository: SessionRepository,
@@ -97,6 +108,7 @@ class FinishSessionUseCase(
     private val lock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
     private val completeSession: SessionCompletionPipeline? = null,
     private val announce: ProgressionAnnouncer? = null,
+    private val estimateCalories: EstimateSessionCaloriesUseCase? = null,
 ) {
 
     /**
@@ -163,6 +175,7 @@ class FinishSessionUseCase(
         val now = clock.nowMillis()
         sessionRepository.update(
             session.copy(
+                calories = session.calories ?: estimatedCalories(session.id, performed, now),
                 completedAt = now,
                 isInProgress = false,
                 lastActiveAt = now,
@@ -204,5 +217,21 @@ class FinishSessionUseCase(
         // workout down with a refused XP write.
         val progression = completeSession?.invoke(session.id, Instant.ofEpochMilli(now))
         return FinishedSession(state = finished, progression = progression)
+    }
+
+    /**
+     * The estimate, or null when there is no estimator or it could not be made. A failure is
+     * not a reason to leave the session open — see the class doc — but a cancellation is not a
+     * failure, and is rethrown.
+     */
+    private suspend fun estimatedCalories(
+        sessionId: Long,
+        performed: List<WorkoutSet>,
+        at: Long,
+    ): Int? {
+        val estimator = estimateCalories ?: return null
+        return runCatching { estimator(sessionId, performed, at) }
+            .onFailure { if (it is CancellationException) throw it }
+            .getOrNull()
     }
 }
