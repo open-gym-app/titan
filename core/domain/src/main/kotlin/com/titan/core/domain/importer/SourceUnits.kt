@@ -1,0 +1,119 @@
+package com.titan.core.domain.importer
+
+import com.titan.core.domain.model.MILLIGRAMS_PER_KILOGRAM
+import com.titan.core.domain.model.MILLIGRAMS_PER_POUND
+import com.titan.core.domain.model.UnitSystem
+import java.util.Locale
+import kotlin.math.roundToLong
+
+/**
+ * The unit a source wrote a weight in, and the one conversion from it to Titan's milligrams.
+ *
+ * Every app says what its weights are in a different place — a column header (`Weight (kg)`), a
+ * column of its own (`Weight Unit`), or nowhere at all, leaving the user's setting in the other
+ * app as the only answer. A parser works out which of these it has; this is what it converts
+ * with once it knows, so that every source rounds the same way and a pound is the same pound.
+ */
+enum class SourceWeightUnit(private val milligrams: Double) {
+    KILOGRAM(MILLIGRAMS_PER_KILOGRAM),
+    POUND(MILLIGRAMS_PER_POUND),
+    ;
+
+    /**
+     * [value] in milligrams, rounded to the nearest one.
+     *
+     * Rounded rather than truncated because exports write what a float made of the user's
+     * figure — `74.99999999999999` for 75 kg — and truncating that loses a milligram the user
+     * never meant to lose, which is enough to make two equal lifts compare unequal.
+     */
+    fun toMilligrams(value: Double): Long = (value * milligrams).roundToLong()
+
+    companion object {
+
+        private val LABELS = mapOf(
+            "kg" to KILOGRAM,
+            "kgs" to KILOGRAM,
+            "kilogram" to KILOGRAM,
+            "kilograms" to KILOGRAM,
+            "lb" to POUND,
+            "lbs" to POUND,
+            "pound" to POUND,
+            "pounds" to POUND,
+        )
+
+        /**
+         * The unit a figure with no unit beside it is read in: the one [unitSystem] displays.
+         * See [ImportContext.unitSystem] for why that is the best evidence there is.
+         */
+        fun of(unitSystem: UnitSystem): SourceWeightUnit =
+            when (unitSystem) {
+                UnitSystem.METRIC -> KILOGRAM
+                UnitSystem.IMPERIAL -> POUND
+            }
+
+        /**
+         * The unit [label] names — `kg`, `lbs`, `Pounds` — or null when it names none. Case,
+         * surrounding space and a trailing full stop (`lbs.`) are ignored.
+         */
+        fun parse(label: String): SourceWeightUnit? = LABELS[unitKey(label)]
+    }
+}
+
+/**
+ * The unit a source wrote a distance in, and the one conversion from it to Titan's centimetres.
+ *
+ * The weight's counterpart, for the same reasons; see [SourceWeightUnit].
+ */
+enum class SourceDistanceUnit(private val centimetres: Double) {
+    METRE(CENTIMETRES_PER_METRE),
+    KILOMETRE(CENTIMETRES_PER_KILOMETRE),
+
+    /** The international mile, 1,609.344 m exactly. */
+    MILE(CENTIMETRES_PER_MILE),
+    ;
+
+    /** [value] in centimetres, rounded to the nearest one. */
+    fun toCentimetres(value: Double): Long = (value * centimetres).roundToLong()
+
+    companion object {
+
+        private val LABELS = mapOf(
+            "m" to METRE,
+            "meter" to METRE,
+            "meters" to METRE,
+            "metre" to METRE,
+            "metres" to METRE,
+            "km" to KILOMETRE,
+            "kms" to KILOMETRE,
+            "kilometer" to KILOMETRE,
+            "kilometers" to KILOMETRE,
+            "kilometre" to KILOMETRE,
+            "kilometres" to KILOMETRE,
+            "mi" to MILE,
+            "mile" to MILE,
+            "miles" to MILE,
+        )
+
+        /**
+         * The unit a distance with no unit beside it is read in: the long distance [unitSystem]
+         * displays, kilometres or miles, because that is what a tracker asks for a run in.
+         */
+        fun of(unitSystem: UnitSystem): SourceDistanceUnit =
+            when (unitSystem) {
+                UnitSystem.METRIC -> KILOMETRE
+                UnitSystem.IMPERIAL -> MILE
+            }
+
+        /**
+         * The unit [label] names — `m`, `km`, `Miles`, `mi.` — or null when it names none. Case,
+         * surrounding space and a trailing full stop are ignored.
+         */
+        fun parse(label: String): SourceDistanceUnit? = LABELS[unitKey(label)]
+    }
+}
+
+private const val CENTIMETRES_PER_METRE = 100.0
+private const val CENTIMETRES_PER_KILOMETRE = 100_000.0
+private const val CENTIMETRES_PER_MILE = 160_934.4
+
+private fun unitKey(label: String): String = label.trim().removeSuffix(".").trim().lowercase(Locale.ROOT)
