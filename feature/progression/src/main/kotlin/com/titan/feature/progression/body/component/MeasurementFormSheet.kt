@@ -81,7 +81,7 @@ fun MeasurementFormSheet(
 }
 
 /**
- * Weight, four circumferences, body fat and a note — every one of them optional.
+ * Weight, nine circumferences, body fat and a note — every one of them optional.
  *
  * ### It holds its own text, and hands back a finished entry
  *

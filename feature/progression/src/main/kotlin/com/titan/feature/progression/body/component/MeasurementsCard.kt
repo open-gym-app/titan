@@ -47,7 +47,7 @@ import com.titan.feature.progression.body.latestReadings
  * the container tone. The one-accent rule asks that the accent mean "this is the thing", and
  * on this card it is: the regions *are* the card's subject, the way the worked muscles are on
  * the hub's map. The container tone was the obvious alternative and is worse in the light
- * scheme, where `primaryContainer` sits a shade off the card and leaves the four parts as
+ * scheme, where `primaryContainer` sits a shade off the card and leaves the measured parts as
  * hairline outlines — a mark so quiet it stops saying anything.
  *
  * The mapping is the honest one available in the drawing vocabulary: a waist is the abdominal

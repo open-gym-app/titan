@@ -22,6 +22,14 @@ import kotlinx.serialization.Serializable
  * there is no mandatory measurement here — [isEmpty] is what says an entry records nothing at
  * all, and `BodyMeasurementValidator` is what refuses one.
  *
+ * ### Nine circumferences, head to foot
+ *
+ * [chest], [waist], [arm] and [thigh] are what the body screen first asked for. [neck],
+ * [shoulders], [hips], [forearm] and [calf] are the further sites Strong, Hevy and FitNotes let a
+ * user record, so an imported history keeps every figure it arrived with rather than the subset
+ * this screen first offered. [circumferences] lists all nine, and is what the checks that treat
+ * them alike walk.
+ *
  * ### Canonical integer units, as everywhere in the schema
  *
  * | Field | Unit |
@@ -35,7 +43,7 @@ import kotlinx.serialization.Serializable
  *
  * `@Serializable` because an entry the user is *typing* is one of these before it is a row: the
  * body screen keeps the open form in its saved screen state, so a process death does not take
- * away six figures somebody has just measured.
+ * away eleven figures somebody has just measured.
  */
 @Serializable
 data class BodyMeasurement(
@@ -47,13 +55,7 @@ data class BodyMeasurement(
     /** Neck circumference in millimetres. */
     val neck: Int? = null,
 
-    /**
-     * Shoulder circumference in millimetres, taken around both shoulders at their widest.
-     *
-     * The sites from [neck] to [calf] beyond the original four are the ones Strong, Hevy and
-     * FitNotes let a user record, so an imported history keeps every figure it arrived with
-     * rather than the subset this screen first asked for.
-     */
+    /** Shoulder circumference in millimetres, taken around both shoulders at their widest. */
     val shoulders: Int? = null,
 
     /** Chest circumference in millimetres. */
@@ -131,11 +133,26 @@ data class BodyMeasurement(
      * only a note is a diary entry the body screen has nothing to plot for.
      */
     val isEmpty: Boolean
-        get() = weight == null && bodyFat == null && circumferences.all { it == null }
+        get() = weight == null && bodyFat == null && circumferences.values.all { it == null }
 
-    /** Every circumference, from the neck down, for the checks that treat them alike. */
-    val circumferences: List<Int?>
-        get() = listOf(neck, shoulders, chest, waist, hips, arm, forearm, thigh, calf)
+    /**
+     * Every circumference by its field name, from the neck down, for the checks that treat them
+     * alike — [isEmpty] and `BodyMeasurementValidator`'s bounds. Named so a validation message
+     * can say which one it refused, and so a site added here is bounded without a second list
+     * to remember.
+     */
+    val circumferences: Map<String, Int?>
+        get() = linkedMapOf(
+            "neck" to neck,
+            "shoulders" to shoulders,
+            "chest" to chest,
+            "waist" to waist,
+            "hips" to hips,
+            "arm" to arm,
+            "forearm" to forearm,
+            "thigh" to thigh,
+            "calf" to calf,
+        )
 
     companion object {
 

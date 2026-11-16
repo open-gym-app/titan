@@ -84,15 +84,7 @@ object BodyMeasurementValidator {
                     )
                 }
             }
-            circumferenceViolation("neck", neck)?.let(::add)
-            circumferenceViolation("shoulders", shoulders)?.let(::add)
-            circumferenceViolation("chest", chest)?.let(::add)
-            circumferenceViolation("waist", waist)?.let(::add)
-            circumferenceViolation("hips", hips)?.let(::add)
-            circumferenceViolation("arm", arm)?.let(::add)
-            circumferenceViolation("forearm", forearm)?.let(::add)
-            circumferenceViolation("thigh", thigh)?.let(::add)
-            circumferenceViolation("calf", calf)?.let(::add)
+            circumferences.forEach { (field, value) -> circumferenceViolation(field, value)?.let(::add) }
             bodyFat?.let { value ->
                 if (value !in BODY_FAT_MIN..BODY_FAT_MAX) {
                     add(

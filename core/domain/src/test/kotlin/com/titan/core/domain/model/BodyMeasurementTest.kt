@@ -15,18 +15,28 @@ class BodyMeasurementTest {
 
     private fun measurement(
         weight: Long? = null,
+        neck: Int? = null,
+        shoulders: Int? = null,
         chest: Int? = null,
         waist: Int? = null,
+        hips: Int? = null,
         arm: Int? = null,
+        forearm: Int? = null,
         thigh: Int? = null,
+        calf: Int? = null,
         bodyFat: Int? = null,
         notes: String? = null,
     ) = BodyMeasurement(
         weight = weight,
+        neck = neck,
+        shoulders = shoulders,
         chest = chest,
         waist = waist,
+        hips = hips,
         arm = arm,
+        forearm = forearm,
         thigh = thigh,
+        calf = calf,
         bodyFat = bodyFat,
         notes = notes,
         createdAt = 100,
@@ -79,11 +89,11 @@ class BodyMeasurementTest {
         assertFalse(measurement(arm = 385).isEmpty)
         assertFalse(measurement(thigh = 610).isEmpty)
         assertFalse(measurement(bodyFat = 155).isEmpty)
-        assertFalse(measurement().copy(neck = 390).isEmpty)
-        assertFalse(measurement().copy(shoulders = 1_210).isEmpty)
-        assertFalse(measurement().copy(hips = 980).isEmpty)
-        assertFalse(measurement().copy(forearm = 300).isEmpty)
-        assertFalse(measurement().copy(calf = 390).isEmpty)
+        assertFalse(measurement(neck = 390).isEmpty)
+        assertFalse(measurement(shoulders = 1_210).isEmpty)
+        assertFalse(measurement(hips = 980).isEmpty)
+        assertFalse(measurement(forearm = 300).isEmpty)
+        assertFalse(measurement(calf = 390).isEmpty)
     }
 
     @Test

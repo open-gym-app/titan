@@ -14,7 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import com.titan.core.domain.model.BodyMeasurement
 import com.titan.core.domain.model.ThemePreference
@@ -43,8 +42,9 @@ import com.titan.feature.progression.body.BodySite
  *
  * Every measurement is independently optional, so a row is built from the figures that are
  * there rather than from a fixed set of columns with dashes in the gaps: a weigh-in reads
- * `78.4 kg`, and a full tape session reads all six. The order is fixed — weight, the four
- * parts, body fat — so two rows are read down a column rather than matched up by unit.
+ * `78.4 kg`, and a full tape session reads all eleven. The order is fixed — weight, the nine
+ * parts head to foot, body fat — so two rows are read down a column rather than matched up by
+ * unit.
  *
  * Lean mass is deliberately absent. It is derived from two of the figures already on the line,
  * so drawing it would be the same fact stated twice on a row that has to fit a phone.
@@ -103,12 +103,13 @@ fun MeasurementHistoryRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                     )
+                    // Wrapped rather than capped: a full tape session is eleven figures, which
+                    // runs past two lines at 360dp, and an ellipsis there would hide the body
+                    // fat and the lower sites the summary exists to list.
                     Text(
                         text = summary,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
