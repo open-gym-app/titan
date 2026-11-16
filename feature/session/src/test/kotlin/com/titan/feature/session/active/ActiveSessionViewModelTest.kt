@@ -864,6 +864,20 @@ class ActiveSessionViewModelTest {
         }
 
     @Test
+    fun `a climb between two whole metres survives the sheet being opened and dismissed`() =
+        runTest {
+            // 120.09 m: what 394 ft typed on imperial stores, read back on metric.
+            val store = runStore(timedSet(id = 1L, setNumber = 1, duration = 1_800L).copy(elevationGain = 12_009L))
+            val viewModel = viewModel(store = store, catalogue = timedCatalogue(ExerciseType.ENDURANCE))
+
+            viewModel.onEvent(ActiveSessionEvent.CardioDetailsRequested(BENCH_ROW, setId = 1L))
+            assertEquals("120", viewModel.uiState.value.cardioDetails?.elevation)
+            viewModel.onEvent(ActiveSessionEvent.CardioDetailsDismissed)
+
+            assertTrue(store.updated.isEmpty())
+        }
+
+    @Test
     fun `a recorded climb is on the row it belongs to, for the line under it`() =
         runTest {
             val store = runStore(timedSet(id = 1L, setNumber = 1, duration = 1_800L).copy(steps = 8_400))

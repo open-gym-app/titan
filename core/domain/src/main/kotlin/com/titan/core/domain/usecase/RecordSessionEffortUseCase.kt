@@ -18,6 +18,10 @@ import com.titan.core.domain.validation.ValidationResult
  * workout was not measured. They are bounded by [SessionEffortValidator] first, and a refusal is
  * [SessionError.EffortRejected] with nothing written.
  *
+ * Only a figure that changes is bounded. The recap hands back the stored one alongside the one
+ * being edited, and a restore writes rows without validating them, so checking both would let an
+ * out-of-bounds calorie count from a backup refuse every star the user tapped afterwards.
+ *
  * `updatedAt` is left where it is, for the reason [RenameSessionUseCase] gives: neither figure is
  * a change to what was performed.
  */
@@ -35,7 +39,10 @@ class RecordSessionEffortUseCase(private val sessionRepository: SessionRepositor
         val session = sessionRepository.loadSession(sessionId)
             .getOrElse { return Result.failure(it) }
 
-        val verdict = SessionEffortValidator.validate(calories, rating)
+        val verdict = SessionEffortValidator.validate(
+            calories = calories.takeUnless { it == session.calories },
+            rating = rating.takeUnless { it == session.rating },
+        )
         if (verdict is ValidationResult.Invalid) return Result.failure(SessionError.EffortRejected(verdict.reason))
         if (session.calories == calories && session.rating == rating) return Result.success(Unit)
 

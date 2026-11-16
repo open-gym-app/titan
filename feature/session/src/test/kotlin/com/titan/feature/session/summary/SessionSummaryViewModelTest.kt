@@ -418,6 +418,31 @@ class SessionSummaryViewModelTest {
         }
 
     @Test
+    fun `a star tapped before the saved calories are read back cannot undo them`() =
+        runTest {
+            val store = effortStore(finishedSession().copy(calories = 400, rating = 3))
+            val viewModel = viewModel(store = store)
+            store.holdsReads = true
+
+            viewModel.onEvent(SessionSummaryEvent.CaloriesEditRequested)
+            viewModel.onEvent(SessionSummaryEvent.CaloriesChanged("520"))
+            viewModel.onEvent(SessionSummaryEvent.CaloriesSaved)
+            assertTrue(viewModel.uiState.value.isSavingEffort)
+
+            viewModel.onEvent(SessionSummaryEvent.RatingChosen(5))
+            assertEquals(520, store.stored(SESSION_ID)?.calories)
+            assertEquals(3, store.stored(SESSION_ID)?.rating)
+
+            store.releaseReads()
+            assertFalse(viewModel.uiState.value.isSavingEffort)
+            assertNull(viewModel.uiState.value.caloriesDraft)
+
+            viewModel.onEvent(SessionSummaryEvent.RatingChosen(5))
+            assertEquals(520, store.stored(SESSION_ID)?.calories)
+            assertEquals(5, store.stored(SESSION_ID)?.rating)
+        }
+
+    @Test
     fun `an effort that could not be written says so and keeps the typed calories`() =
         runTest {
             val store = effortStore().apply { writeFailure = IllegalStateException("disk full") }

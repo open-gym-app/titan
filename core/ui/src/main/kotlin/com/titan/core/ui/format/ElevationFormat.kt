@@ -69,10 +69,18 @@ fun formatElevation(centimetres: Long): String = formatElevation(centimetres, Lo
  * A typed climb back into storage: [text] read as [unitSystem]'s elevation unit, as centimetres,
  * or null when it is not a number.
  *
+ * The inverse of [formatElevationValue], so the typed value is rounded to the whole unit the
+ * field shows before it is scaled, for [parseDistanceCentimetres]'s reason: a field showing
+ * whole metres that took `120.4` literally would store 12,040 cm, show it back as `120`, and
+ * store 12,000 cm the next time the row was saved untouched.
+ *
  * Null means malformed, not out of range, as for [parseLengthMillimetres]: refusing a negative
  * climb is `SetValidator`'s job, which can say why.
  */
 fun parseElevationCentimetres(
     text: String,
     unitSystem: UnitSystem,
-): Long? = parseNumber(text)?.let { (it * unitSystem.centimetresPerElevationUnit).roundToLong() }
+): Long? =
+    parseNumber(text)
+        ?.roundToFractionDigits(0)
+        ?.let { (it * unitSystem.centimetresPerElevationUnit).roundToLong() }

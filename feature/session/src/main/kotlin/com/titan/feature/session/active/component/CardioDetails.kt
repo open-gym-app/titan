@@ -32,6 +32,8 @@ import com.titan.core.domain.model.ThemePreference
 import com.titan.core.ui.component.SetMenuAction
 import com.titan.core.ui.format.elevationSuffix
 import com.titan.core.ui.format.formatCount
+import com.titan.core.ui.format.formatElevation
+import com.titan.core.ui.format.parseElevationCentimetres
 import com.titan.core.ui.theme.LocalUnitSystem
 import com.titan.core.ui.theme.TitanTheme
 import com.titan.feature.session.R
@@ -66,6 +68,8 @@ fun cardioDetailsAction(onClick: () -> Unit): SetMenuAction =
  *
  * @param elevation as typed, in the system's elevation unit; blank for none.
  * @param steps as typed; blank for none.
+ * @param enabled whether the line opens the sheet — false while the row cannot be written to, as
+ *   the set's menu then offers no way in either.
  */
 @Composable
 fun CardioDetailsLine(
@@ -74,12 +78,13 @@ fun CardioDetailsLine(
     steps: String,
     onEdit: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
-    val unit = LocalUnitSystem.current.elevationSuffix
+    val unitSystem = LocalUnitSystem.current
     val parts = buildList {
-        elevation.takeIf(
-            String::isNotBlank,
-        )?.let { add(stringResource(R.string.set_cardio_climb, "${it.trim()} $unit")) }
+        parseElevationCentimetres(elevation, unitSystem)?.let {
+            add(stringResource(R.string.set_cardio_climb, formatElevation(it, unitSystem)))
+        }
         steps.trim().toIntOrNull()?.let { add(pluralStringResource(R.plurals.set_cardio_steps, it, formatCount(it))) }
     }
     if (parts.isEmpty()) return
@@ -88,11 +93,14 @@ fun CardioDetailsLine(
 
     TextButton(
         onClick = onEdit,
+        enabled = enabled,
         modifier = modifier.clearAndSetSemantics {
             contentDescription = text
-            onClick(label = action) {
-                onEdit()
-                true
+            if (enabled) {
+                onClick(label = action) {
+                    onEdit()
+                    true
+                }
             }
         },
     ) {

@@ -26,7 +26,10 @@ import com.titan.core.domain.repository.TemplateRepository
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -56,10 +59,29 @@ class FakeSummarySessionStore(
     private val exercises = MutableStateFlow(exercises)
     private val sets = MutableStateFlow(sets)
 
+    /** What a read already open has been told, which lags [sessions] while [holdsReads] is set. */
+    private val published = MutableStateFlow(sessions.value)
+
     /** When set, writing a session throws it — the store that cannot be written. */
     var writeFailure: Throwable? = null
 
-    override fun getById(id: Long): Flow<WorkoutSession?> = sessions.map { it[id] }
+    /**
+     * When set, a write lands but reads already open do not see it until [releaseReads]. Room
+     * re-emits an open query a moment after the write it follows, and this is that moment held
+     * open. A new read still starts from what is stored, as a fresh query does.
+     */
+    var holdsReads: Boolean = false
+
+    /** Tells every open read what has been written since [holdsReads] was set. */
+    fun releaseReads() {
+        published.value = sessions.value
+    }
+
+    override fun getById(id: Long): Flow<WorkoutSession?> =
+        flow {
+            emit(sessions.value[id])
+            emitAll(published.map { it[id] })
+        }.distinctUntilChanged()
 
     override fun getExercises(sessionId: Long): Flow<List<SessionExercise>> =
         exercises.map { stored -> stored.filter { it.sessionId == sessionId } }
@@ -76,6 +98,7 @@ class FakeSummarySessionStore(
     override suspend fun update(session: WorkoutSession) {
         writeFailure?.let { throw it }
         sessions.update { it + (session.id to session) }
+        if (!holdsReads) releaseReads()
     }
 
     /** The stored row, bypassing the Flow, for assertions about what a write left behind. */
