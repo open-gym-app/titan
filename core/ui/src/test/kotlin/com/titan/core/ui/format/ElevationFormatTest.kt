@@ -36,6 +36,16 @@ class ElevationFormatTest {
         }
 
     @Test
+    fun `a typed fraction is rounded to the whole unit the field shows`() =
+        withLocale(Locale.UK) {
+            val stored = parseElevationCentimetres("120.4", UnitSystem.METRIC)!!
+
+            assertEquals(12_000L, stored)
+            val shown = formatElevationValue(stored, UnitSystem.METRIC)
+            assertEquals(stored, parseElevationCentimetres(shown, UnitSystem.METRIC))
+        }
+
+    @Test
     fun `a whole-foot climb survives being shown, typed and shown again`() =
         withLocale(Locale.UK) {
             val stored = parseElevationCentimetres("394", UnitSystem.IMPERIAL)!!

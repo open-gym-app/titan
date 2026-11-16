@@ -178,7 +178,7 @@ fun SetTypePicker(
  * The leading cell's menu is the set's own, and it is where a row puts what it can be asked
  * without a column of its own: the climb and the steps of an endurance set are the first, and
  * they are why this exists. A field on every row for two figures most sets never carry would
- * widen a table that already fits four columns into 360dp, so they live a tap away instead.
+ * widen a table that already fits six columns into 360dp, so they live a tap away instead.
  */
 @Immutable
 data class SetMenuAction(

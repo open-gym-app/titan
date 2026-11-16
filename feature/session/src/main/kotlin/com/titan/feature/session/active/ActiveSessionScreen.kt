@@ -551,6 +551,7 @@ fun ActiveSessionScreen(
             setNumber = state.exercises
                 .firstOrNull { it.sessionExerciseId == edit.sessionExerciseId }
                 ?.sets?.indexOfFirst { it.id == edit.setId }
+                ?.takeIf { it >= 0 }
                 ?.let { it + 1 }
                 ?: 1,
             onElevationChange = { onEvent(ActiveSessionEvent.CardioElevationChanged(it)) },

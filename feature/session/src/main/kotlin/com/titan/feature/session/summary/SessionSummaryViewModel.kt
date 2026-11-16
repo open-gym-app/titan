@@ -35,6 +35,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -421,6 +422,11 @@ class SessionSummaryViewModel @Inject constructor(
     /**
      * Writes both figures through [RecordSessionEffortUseCase]. The calories field closes on
      * success only, for the note's reason: what is in it is the only copy of what was typed.
+     *
+     * The card stays inert until [loaded] carries what was written, not just until the write
+     * returns. Each write passes the figure it is not editing back from [loaded], and Room
+     * re-emits a moment after the write lands: a star tapped in that gap would send the old
+     * calories with it and quietly undo the save.
      */
     private fun writeEffort(
         calories: Int?,
@@ -432,21 +438,25 @@ class SessionSummaryViewModel @Inject constructor(
         screenState.update { it.copy(isSavingEffort = true) }
 
         viewModelScope.launch {
-            recordEffort(session.id, calories = calories, rating = rating)
-                .onSuccess {
-                    screenState.update {
-                        it.copy(isSavingEffort = false, caloriesDraft = if (closesCalories) null else it.caloriesDraft)
-                    }
+            recordEffort(session.id, calories = calories, rating = rating).onFailure { failure ->
+                if (failure is CancellationException) throw failure
+                screenState.update {
+                    it.copy(
+                        isSavingEffort = false,
+                        message = SessionSummaryMessage.EFFORT_SAVE_FAILED,
+                    )
                 }
-                .onFailure { failure ->
-                    if (failure is CancellationException) throw failure
-                    screenState.update {
-                        it.copy(
-                            isSavingEffort = false,
-                            message = SessionSummaryMessage.EFFORT_SAVE_FAILED,
-                        )
-                    }
-                }
+                return@launch
+            }
+            // A session gone from under the recap releases the card too; there is nothing left
+            // for a stale figure to overwrite.
+            loaded.first { read ->
+                val stored = read?.session ?: return@first true
+                stored.calories == calories && stored.rating == rating
+            }
+            screenState.update {
+                it.copy(isSavingEffort = false, caloriesDraft = if (closesCalories) null else it.caloriesDraft)
+            }
         }
     }
 

@@ -94,6 +94,9 @@ object CalorieEstimate {
      */
     const val REFERENCE_BODY_MASS_MG = 82_000_000L
 
+    /** The weights `BodyMeasurementValidator` would accept — see [bodyMassAt]. */
+    private val PLAUSIBLE_WEIGHT = BodyMeasurementValidator.WEIGHT_MIN_MG..BodyMeasurementValidator.WEIGHT_MAX_MG
+
     private const val MG_PER_KG = 1_000_000.0
     private const val SECONDS_PER_HOUR = 3_600.0
 
@@ -140,13 +143,9 @@ object CalorieEstimate {
         at: Long,
     ): Long =
         measurements
-            .filter { it.createdAt <= at }
-            .sortedByDescending(BodyMeasurement::createdAt)
-            .firstNotNullOfOrNull { measurement ->
-                measurement.weight?.takeIf {
-                    it in BodyMeasurementValidator.WEIGHT_MIN_MG..BodyMeasurementValidator.WEIGHT_MAX_MG
-                }
-            }
+            .filter { it.createdAt <= at && it.weight in PLAUSIBLE_WEIGHT }
+            .maxByOrNull(BodyMeasurement::createdAt)
+            ?.weight
             ?: REFERENCE_BODY_MASS_MG
 
     /** The (work, rest) METs for an exercise of [type]; see the class note. */

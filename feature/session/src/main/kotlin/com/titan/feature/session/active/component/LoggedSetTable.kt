@@ -228,7 +228,8 @@ private fun LoggedSetRow(
         onCommit = { onEvent(ActiveSessionEvent.SetEditCommitted(sessionExerciseId, set.id)) },
         // The climb and steps of a piece of cardio, a tap away rather than two more columns —
         // see `CardioDetails.kt`. Offered on endurance rows only, and only while they can be
-        // written to; the line under the row is drawn whenever one of them is recorded.
+        // written to; the line under the row is drawn whenever one of them is recorded, and is
+        // a way into the sheet on the same terms as the menu.
         menuAction = if (exerciseType == ExerciseType.ENDURANCE && enabled) {
             cardioDetailsAction { onEvent(ActiveSessionEvent.CardioDetailsRequested(sessionExerciseId, set.id)) }
         } else {
@@ -240,6 +241,7 @@ private fun LoggedSetRow(
                     setNumber = setNumber,
                     elevation = set.entry.elevation,
                     steps = set.entry.steps,
+                    enabled = enabled,
                     onEdit = { onEvent(ActiveSessionEvent.CardioDetailsRequested(sessionExerciseId, set.id)) },
                 )
             }

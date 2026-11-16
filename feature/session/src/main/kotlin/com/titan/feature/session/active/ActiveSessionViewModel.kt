@@ -616,7 +616,9 @@ class ActiveSessionViewModel @Inject constructor(
                 // `100` under a header that now says lb, and the next commit would read that
                 // `100` back as pounds and quietly write 45.4 kg over a 100 kg set.
                 setEditWritten.clear()
-                screenState.update { it.copy(setEdits = emptyMap()) }
+                // The climb-and-steps sheet types into one of those corrections, so it goes down
+                // with them rather than lingering to rise again over the next keystroke.
+                screenState.update { it.copy(setEdits = emptyMap(), cardioSet = null) }
             }
         }
         // The countdown's transitions. Only whether a rest is live goes into the screen's state —
@@ -936,6 +938,21 @@ class ActiveSessionViewModel @Inject constructor(
             text.isBlank() -> Field.absent()
             else -> Field.of(parseElevationCentimetres(text, unitSystem.value))
         }
+
+    /**
+     * The climb a correction writes: the stored one while the field still reads what that figure
+     * is shown as, the typed one otherwise.
+     *
+     * The field holds whole units, so a stored climb that falls between two — imported, or typed
+     * in the other unit system — reads back as a neighbour of itself. Writing that neighbour would
+     * round the set's climb on every commit of the row, a sheet opened and cancelled included.
+     */
+    private fun correctedElevation(
+        text: String,
+        stored: Long?,
+    ): Long? =
+        stored?.takeIf { text.trim() == formatElevationValue(it, unitSystem.value) }
+            ?: elevationField(text).value
 
     /** The steps field read as a whole count. */
     private fun stepsField(text: String): Field<Int> =
@@ -1323,6 +1340,10 @@ class ActiveSessionViewModel @Inject constructor(
     ) {
         val state = screenState.value
         if (state.isBusy || setId !in state.setEdits) return
+        // While the climb-and-steps sheet is up over this row, the draft is the sheet's: its Save
+        // or its dismissal commits it. A row left underneath — scrolled away, collapsed — must not
+        // write half-typed figures the user may yet cancel, nor drop the draft the sheet draws.
+        if (state.cardioSet?.second == setId) return
         enqueueSetEdit(sessionExerciseId, setId)
     }
 
@@ -1381,7 +1402,7 @@ class ActiveSessionViewModel @Inject constructor(
             reps = repsField(entry.reps).value,
             duration = durationField(entry.duration, units).value,
             distance = distanceField(entry.distance, units).value,
-            elevationGain = elevationField(entry.elevation).value,
+            elevationGain = correctedElevation(entry.elevation, target.stored.elevationGain),
             steps = stepsField(entry.steps).value,
             rpe = entry.rpe,
             setType = entry.setType,

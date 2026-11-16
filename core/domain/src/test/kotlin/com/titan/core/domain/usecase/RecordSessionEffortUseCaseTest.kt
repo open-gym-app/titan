@@ -83,6 +83,25 @@ class RecordSessionEffortUseCaseTest {
         }
 
     @Test
+    fun `a restored figure out of bounds does not refuse a change to the other`() =
+        runTest {
+            val id = sessions.insert(
+                WorkoutSession(
+                    completedAt = 2_000,
+                    isInProgress = false,
+                    lastActiveAt = 2_000,
+                    calories = 0,
+                    createdAt = 1_000,
+                    updatedAt = 2_000,
+                ),
+            )
+
+            recordEffort(id, calories = 0, rating = 5).getOrThrow()
+
+            assertEquals(5, stored(id)?.rating)
+        }
+
+    @Test
     fun `a session that no longer exists is reported as such`() =
         runTest {
             assertTrue(recordEffort(99, calories = 1, rating = 1).exceptionOrNull() is SessionError.SessionNotFound)

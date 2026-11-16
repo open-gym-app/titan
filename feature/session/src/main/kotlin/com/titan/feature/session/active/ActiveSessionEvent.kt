@@ -149,7 +149,7 @@ sealed interface ActiveSessionEvent {
      * The set's menu asked for its climb and steps: raise `CardioDetailsSheet` over that set.
      *
      * A sheet rather than two more columns, because most sets never carry either figure and the
-     * row already fits four columns into a phone's width — see `SetMenuAction`.
+     * row already fits six columns into a phone's width — see `SetMenuAction`.
      */
     data class CardioDetailsRequested(
         val sessionExerciseId: Long,
