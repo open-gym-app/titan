@@ -59,4 +59,24 @@ class SourceUnitsTest {
         assertEquals(SourceDistanceUnit.KILOMETRE, SourceDistanceUnit.of(UnitSystem.METRIC))
         assertEquals(SourceDistanceUnit.MILE, SourceDistanceUnit.of(UnitSystem.IMPERIAL))
     }
+
+    @Test
+    fun `a circumference converts to millimetres, rounded to the nearest`() {
+        assertEquals(812L, SourceLengthUnit.MILLIMETRE.toMillimetres(812.4))
+        assertEquals(815L, SourceLengthUnit.CENTIMETRE.toMillimetres(81.5))
+        // 32.5 in is 825.5 mm, which rounds up.
+        assertEquals(826L, SourceLengthUnit.INCH.toMillimetres(32.5))
+    }
+
+    @Test
+    fun `a length unit reads from the labels exports write, and never from a distance's`() {
+        assertEquals(SourceLengthUnit.CENTIMETRE, SourceLengthUnit.parse("CM"))
+        assertEquals(SourceLengthUnit.CENTIMETRE, SourceLengthUnit.parse("Centimetres"))
+        assertEquals(SourceLengthUnit.INCH, SourceLengthUnit.parse(" in. "))
+        assertEquals(SourceLengthUnit.INCH, SourceLengthUnit.parse("inches"))
+        assertEquals(SourceLengthUnit.MILLIMETRE, SourceLengthUnit.parse("mm"))
+        assertNull(SourceLengthUnit.parse("m"))
+        assertNull(SourceLengthUnit.parse("km"))
+        assertNull(SourceLengthUnit.parse(""))
+    }
 }

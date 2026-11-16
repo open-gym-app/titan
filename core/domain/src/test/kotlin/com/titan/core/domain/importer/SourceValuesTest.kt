@@ -131,4 +131,18 @@ class SourceValuesTest {
     fun `a year too far out to count in milliseconds is null rather than an overflow`() {
         assertNull(SourceValues.localTimestamp("+999999999-12-31 23:59:59", ZoneOffset.UTC))
     }
+
+    // ------------------------------------------------------------------ note
+
+    @Test
+    fun `a note's escaped and quoted line breaks all become LF, and the note is trimmed`() {
+        assertEquals("Pause the first rep\nElbows tucked", SourceValues.note("Pause the first rep\\nElbows tucked"))
+        assertEquals("one\ntwo\nthree", SourceValues.note(" one\r\ntwo\rthree\\n"))
+        assertEquals("Slept badly", SourceValues.note("Slept badly"))
+    }
+
+    @Test
+    fun `a blank note is no note`() {
+        listOf(null, "", "   ", "\\n", "\r\n").forEach { text -> assertNull(text, SourceValues.note(text)) }
+    }
 }

@@ -194,4 +194,17 @@ class CsvReaderTest {
         assertNull(header.qualified("Workout"))
         assertNull(CsvHeader(listOf("Weight Unit")).qualified("Weight"))
     }
+
+    @Test
+    fun `a suffixed lookup finds every snake_case column with the name before the underscore`() {
+        val header = CsvHeader(listOf("weight_kg", "reps", " Weight_LBS ", "weighted", "weight_", "distance_km"))
+
+        assertEquals(
+            listOf(QualifiedColumn("weight_kg", "kg"), QualifiedColumn("Weight_LBS", "LBS")),
+            header.suffixed("weight"),
+        )
+        assertEquals(listOf(QualifiedColumn("distance_km", "km")), header.suffixed(" Distance "))
+        assertTrue(header.suffixed("reps").isEmpty())
+        assertTrue(header.suffixed("we").isEmpty())
+    }
 }
