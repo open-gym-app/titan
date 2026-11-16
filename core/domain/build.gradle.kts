@@ -58,6 +58,17 @@ tasks.test {
     inputs.file(seedCatalogue).withPathSensitivity(PathSensitivity.NONE)
 }
 
+// Kotlin compiles an interface's default arguments twice: into the interface, where Kotlin
+// callers reach them, and into a `DefaultImpls` class kept only for Java code compiled against
+// older Kotlin. This codebase has no such caller, so those copies can never run, and counting
+// them held `ProgressPhotoRepository`'s one defaulted parameter against the repository package's
+// floor. The interface's own copy is still measured.
+tasks.withType<JacocoReportBase>().configureEach {
+    classDirectories.setFrom(
+        sourceSets.main.get().output.classesDirs.asFileTree.matching { exclude("**/*\$DefaultImpls.class") },
+    )
+}
+
 tasks.jacocoTestReport {
     dependsOn(tasks.test)
     reports {
