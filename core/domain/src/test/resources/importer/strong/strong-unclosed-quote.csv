@@ -1,0 +1,4 @@
+Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE
+2024-05-01 18:00:00,"Good",45m,"Bench Press (Barbell)",1,100.0,5.0,0,0.0,"","",
+2024-05-01 18:00:00,"Good",45m,"Bench Press (Barbell)",2,100.0,5.0,0,0.0,"the note never closes,,
+2024-05-03 18:00:00,Next,45m,Squat (Barbell),1,100.0,5.0,0,0.0,,,

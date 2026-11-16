@@ -43,10 +43,19 @@ private val generatedHeavyPackages = listOf(
     "com.titan.core.domain.backup.model",
 )
 
+// The seeded catalogue, which the import parsers' tests resolve their exercise mapping tables
+// against (see `ImporterFixtures.catalogue`). It is generated into `:core:data`, but this module
+// cannot depend on that one, so the tests read the file itself, by its path from this module's
+// directory — the directory tests run in. Declared as an input so that regenerating the seed
+// reruns them rather than leaving a stale pass up to date.
+private val seedCatalogue = file("../data/src/main/assets/seed/exercises.sql")
+
 tasks.test {
     // So a plain `./gradlew test` leaves a readable report behind, rather than only the
     // raw exec data and only for whoever thought to ask for the report task by name.
     finalizedBy(tasks.jacocoTestReport)
+
+    inputs.file(seedCatalogue).withPathSensitivity(PathSensitivity.NONE)
 }
 
 tasks.jacocoTestReport {
