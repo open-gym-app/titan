@@ -268,6 +268,15 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun `a pet naming an egg the document does not hold is refused`() {
+        val document = sampleDocument().let {
+            it.copy(pet = it.pet.map { pet -> if (pet.id == 2L) pet.copy(hatchedFromItemId = 99) else pet })
+        }
+
+        assertNamesEdge(document, "pet.hatched_from_item_id")
+    }
+
+    @Test
     fun `a second user progress row is refused`() {
         val document = sampleDocument().let {
             it.copy(userProgress = it.userProgress + it.userProgress.first().copy(totalXp = 9))
@@ -509,6 +518,25 @@ class BackupValidatorUniquenessTest {
         }
 
         assertNamesClash(document, "session_xp_claim holds two rows with the same session_id")
+    }
+
+    /** An egg hatches once: the unique index would refuse the second pet, after the wipe. */
+    @Test
+    fun `two pets hatched from one egg are refused`() {
+        val document = sampleDocument().let {
+            it.copy(pet = it.pet.map { pet -> pet.copy(hatchedFromItemId = 3) })
+        }
+
+        assertNamesClash(document, "pet holds two rows with the same hatched_from_item_id")
+    }
+
+    @Test
+    fun `two pets with one id are refused`() {
+        val document = sampleDocument().let {
+            it.copy(pet = it.pet.map { pet -> pet.copy(id = 1) })
+        }
+
+        assertNamesClash(document, "pet holds two rows with the same id")
     }
 
     /** The inventory is a bag: two rows naming one collectible are two things the user holds. */

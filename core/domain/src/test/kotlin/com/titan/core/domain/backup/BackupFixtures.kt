@@ -9,6 +9,7 @@ import com.titan.core.domain.backup.model.ExerciseTagRow
 import com.titan.core.domain.backup.model.ExportDocument
 import com.titan.core.domain.backup.model.MuscleGroupRow
 import com.titan.core.domain.backup.model.PersonalRecordRow
+import com.titan.core.domain.backup.model.PetRow
 import com.titan.core.domain.backup.model.PlateStockPayload
 import com.titan.core.domain.backup.model.PreferencesPayload
 import com.titan.core.domain.backup.model.QuestCompletionRow
@@ -93,21 +94,58 @@ fun sampleDocument(
         questCompletion = listOf(
             QuestCompletionRow(questId = "weekly_volume", periodStart = STARTED_AT, completedAt = FINISHED_AT),
         ),
-        collectedItem = listOf(
-            CollectedItemRow(
-                id = 1,
-                collectibleId = "steel_shaker",
-                source = "session_finished",
-                acquiredAt = FINISHED_AT,
-            ),
-            // The same collectible again: the inventory is a bag, not a set, and an import must
-            // not collapse these into one row.
-            CollectedItemRow(
-                id = 2,
-                collectibleId = "steel_shaker",
-                source = "session_finished",
-                acquiredAt = FINISHED_AT,
-            ),
+        collectedItem = sampleCollectedItems(),
+        pet = samplePets(),
+    )
+
+private fun sampleCollectedItems() =
+    listOf(
+        CollectedItemRow(
+            id = 1,
+            collectibleId = "steel_shaker",
+            source = "session_finished",
+            acquiredAt = FINISHED_AT,
+        ),
+        // The same collectible again: the inventory is a bag, not a set, and an import must
+        // not collapse these into one row.
+        CollectedItemRow(
+            id = 2,
+            collectibleId = "steel_shaker",
+            source = "session_finished",
+            acquiredAt = FINISHED_AT,
+        ),
+        // Two eggs, each hatched below.
+        CollectedItemRow(id = 3, collectibleId = "pet_egg", source = "session_finished", acquiredAt = FINISHED_AT),
+        CollectedItemRow(id = 4, collectibleId = "pet_egg", source = "session_finished", acquiredAt = FINISHED_AT),
+    )
+
+private fun samplePets() =
+    listOf(
+        PetRow(
+            id = 1,
+            speciesId = "iron_cub",
+            hatchedFromItemId = 3,
+            hatchedAt = FINISHED_AT,
+            xp = 240,
+            strength = 12,
+            endurance = 3,
+            mobility = 1,
+            nickname = "Brick",
+            isActive = true,
+        ),
+        // A species this build has never heard of: a pet from a newer version, which a
+        // restore must carry through unchanged.
+        PetRow(
+            id = 2,
+            speciesId = "from_a_newer_version",
+            hatchedFromItemId = 4,
+            hatchedAt = FINISHED_AT,
+            xp = 0,
+            strength = 0,
+            endurance = 0,
+            mobility = 0,
+            nickname = null,
+            isActive = false,
         ),
     )
 

@@ -12,6 +12,7 @@ import com.titan.core.domain.backup.model.ExportDocument
 import com.titan.core.domain.backup.model.ImportError
 import com.titan.core.domain.backup.model.MuscleGroupRow
 import com.titan.core.domain.backup.model.PersonalRecordRow
+import com.titan.core.domain.backup.model.PetRow
 import com.titan.core.domain.backup.model.PreferencesPayload
 import com.titan.core.domain.backup.model.QuestCompletionRow
 import com.titan.core.domain.backup.model.SessionExerciseRow
@@ -133,6 +134,7 @@ object ExportFormat {
             is AchievementRow -> json.encodeToString(AchievementRow.serializer(), row)
             is QuestCompletionRow -> json.encodeToString(QuestCompletionRow.serializer(), row)
             is CollectedItemRow -> json.encodeToString(CollectedItemRow.serializer(), row)
+            is PetRow -> json.encodeToString(PetRow.serializer(), row)
         }
 
     /**
@@ -207,7 +209,10 @@ object ExportFormat {
             val capped = ImportSource { CappedStream(source.open(), maxBytes) }
             when (val version = capped.readVersion()) {
                 null -> Decoded.Refused(ImportError.MalformedJson("no `$VERSION_KEY` in the document"))
-                ExportDocument.SCHEMA_VERSION -> accept(capped.readDocument())
+
+                ExportDocument.SCHEMA_VERSION, in SchemaUpgrade.READABLE_OLDER_VERSIONS ->
+                    accept(capped.readDocument(), written = version)
+
                 else -> unsupported(version)
             }
         } catch (failure: DocumentTooLargeException) {
@@ -225,10 +230,19 @@ object ExportFormat {
             Decoded.Refused(ImportError.IoFailure(failure.message.orEmpty()))
         }
 
-    /** [document] if the second pass read the version the first one did, else the refusal. */
-    private fun accept(document: ExportDocument): Decoded =
-        if (document.schemaVersion == ExportDocument.SCHEMA_VERSION) {
-            Decoded.Success(WeeklyStreakUpgrade.apply(document))
+    /**
+     * Takes the second pass's document, provided it still says the version the first pass read.
+     *
+     * [written] is that first answer: this build's own version, or an older one
+     * [SchemaUpgrade] can carry forward. A document that says anything else on the second read
+     * changed between the two passes and is refused for what it says now.
+     */
+    private fun accept(
+        document: ExportDocument,
+        written: Int,
+    ): Decoded =
+        if (document.schemaVersion == written) {
+            Decoded.Success(WeeklyStreakUpgrade.apply(SchemaUpgrade.toCurrent(document)))
         } else {
             unsupported(document.schemaVersion)
         }

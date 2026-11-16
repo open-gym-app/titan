@@ -12,6 +12,7 @@ import com.titan.core.data.mapper.WorkoutSetMapper
 import com.titan.core.data.repository.BackupRepositoryImpl
 import com.titan.core.data.repository.ExerciseRepositoryImpl
 import com.titan.core.data.repository.GamificationRepositoryImpl
+import com.titan.core.data.repository.PetRepositoryImpl
 import com.titan.core.data.repository.ProgressionRepositoryImpl
 import com.titan.core.data.repository.SessionRepositoryImpl
 import com.titan.core.data.repository.SessionStateRepositoryImpl
@@ -25,6 +26,7 @@ import com.titan.core.domain.backup.model.WorkoutSessionRow
 import com.titan.core.domain.backup.model.WorkoutSetRow
 import com.titan.core.domain.gamification.StreakCalculator
 import com.titan.core.domain.gamification.XpCalculator
+import com.titan.core.domain.model.PetStats
 import com.titan.core.domain.model.PlannedSet
 import com.titan.core.domain.model.TemplateExercise
 import com.titan.core.domain.model.UserPreferences
@@ -314,6 +316,63 @@ class HostileBackupTest : RoomTestBase() {
             assertComplete(progress)
             assertEquals(XpCalculator.MAX_TOTAL_XP, db.userProgressDao().getOnce()!!.totalXp)
             assertProgressReadsAndMoves()
+        }
+
+    // ─── pet out of range: a Pet its own constructor would refuse ───────────────────────────────
+
+    @Test
+    fun `a restored pet with values nothing writes is repaired on its way in`() =
+        runBlocking {
+            val progress = restore { document ->
+                document.copy(
+                    pet = document.pet.map {
+                        if (it.id == 1L) {
+                            it.copy(xp = -5, strength = -1, endurance = Int.MAX_VALUE, nickname = "x".repeat(10_000))
+                        } else {
+                            it.copy(xp = Long.MAX_VALUE, nickname = "  Tank ")
+                        }
+                    },
+                )
+            }
+
+            assertComplete(progress)
+            val rows = db.backupDao().readPets(limit = 10, offset = 0)
+            assertEquals(listOf(0L, XpCalculator.MAX_TOTAL_XP), rows.map { it.xp })
+            assertEquals(listOf(0, 0), rows.map { it.strength })
+            assertEquals(PetStats.MAX, rows.first().endurance)
+            assertEquals(listOf(null, "Tank"), rows.map { it.nickname })
+
+            val pets = PetRepositoryImpl(db.petDao()).observeAll().first()
+            assertEquals(listOf(1L, 2L), pets.map { it.id })
+        }
+
+    @Test
+    fun `a restored pet numbered below one is refused and changes nothing`() =
+        runBlocking {
+            db.seedEveryTable()
+            val before = db.dumpEverything()
+
+            val progress = restoreOver { document ->
+                document.copy(pet = document.pet.map { if (it.id == 2L) it.copy(id = 0) else it })
+            }
+
+            assertRefused(progress, "pet.id 0 is outside the accepted range")
+            assertEquals(before, db.dumpEverything())
+        }
+
+    @Test
+    fun `a restore naming one egg from two pets is refused before anything is cleared`() =
+        runBlocking {
+            db.seedEveryTable()
+            val before = db.dumpEverything()
+
+            val progress = restoreOver { document ->
+                document.copy(pet = document.pet.map { it.copy(hatchedFromItemId = 3) })
+            }
+
+            assertRefused(progress, "pet holds two rows with the same hatched_from_item_id")
+            assertEquals(before, db.dumpEverything())
+            assertEquals(0, drafts.clearCount)
         }
 
     @Test

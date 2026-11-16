@@ -13,6 +13,7 @@ import com.titan.core.data.db.dao.ExerciseDao
 import com.titan.core.data.db.dao.LocalDataDao
 import com.titan.core.data.db.dao.MuscleGroupDao
 import com.titan.core.data.db.dao.PersonalRecordDao
+import com.titan.core.data.db.dao.PetDao
 import com.titan.core.data.db.dao.QuestCompletionDao
 import com.titan.core.data.db.dao.SessionExerciseDao
 import com.titan.core.data.db.dao.SessionLootClaimDao
@@ -30,6 +31,7 @@ import com.titan.core.data.db.entity.ExerciseMuscleGroupEntity
 import com.titan.core.data.db.entity.ExerciseTagEntity
 import com.titan.core.data.db.entity.MuscleGroupEntity
 import com.titan.core.data.db.entity.PersonalRecordEntity
+import com.titan.core.data.db.entity.PetEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
 import com.titan.core.data.db.entity.SessionExerciseEntity
 import com.titan.core.data.db.entity.SessionLootClaimEntity
@@ -63,8 +65,9 @@ import com.titan.core.data.db.entity.WorkoutTemplateEntity
         SessionLootClaimEntity::class,
         QuestCompletionEntity::class,
         CollectedItemEntity::class,
+        PetEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class TitanDatabase : RoomDatabase() {
@@ -85,6 +88,7 @@ abstract class TitanDatabase : RoomDatabase() {
     abstract fun sessionLootClaimDao(): SessionLootClaimDao
     abstract fun questCompletionDao(): QuestCompletionDao
     abstract fun collectedItemDao(): CollectedItemDao
+    abstract fun petDao(): PetDao
 
     /**
      * Every table, whole, for export and import — see [BackupDao] for why backup gets a DAO of
@@ -138,11 +142,45 @@ abstract class TitanDatabase : RoomDatabase() {
             }
 
         /**
+         * Version 2: the Titans milestone's tables, added once for the whole milestone.
+         *
+         * Additive only — no existing table is touched, so every row a version 1 install holds
+         * is where it was afterwards. The statements are the ones Room generates for the
+         * entities (`schemas/2.json`), which `DatabaseMigrationTest` holds this to.
+         */
+        val MIGRATION_1_2: Migration = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `pet` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `species_id` TEXT NOT NULL,
+                        `hatched_from_item_id` INTEGER NOT NULL,
+                        `hatched_at` INTEGER NOT NULL,
+                        `xp` INTEGER NOT NULL,
+                        `strength` INTEGER NOT NULL,
+                        `endurance` INTEGER NOT NULL,
+                        `mobility` INTEGER NOT NULL,
+                        `nickname` TEXT,
+                        `is_active` INTEGER NOT NULL,
+                        FOREIGN KEY(`hatched_from_item_id`) REFERENCES `collected_item`(`id`)
+                            ON UPDATE NO ACTION ON DELETE RESTRICT
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_pet_hatched_from_item_id` " +
+                        "ON `pet` (`hatched_from_item_id`)",
+                )
+            }
+        }
+
+        /**
          * Every version bump beyond 1 must add its `Migration` here and a matching
          * test in the migration test suite. The database is deliberately *not*
          * built with a destructive fallback: a version bump without a migration
          * here throws at startup instead of silently wiping user history.
          */
-        val MIGRATIONS: Array<Migration> = emptyArray()
+        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2)
     }
 }

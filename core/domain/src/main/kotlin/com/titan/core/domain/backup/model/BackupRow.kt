@@ -321,3 +321,25 @@ data class CollectedItemRow(
     @SerialName("source") val source: String,
     @SerialName("acquired_at") val acquiredAt: Long,
 ) : BackupRow
+
+/**
+ * A row of `pet`: one hatched titan.
+ *
+ * [speciesId] is not validated against this build, for `achievement`'s reason: a species this
+ * build does not know is a pet from a newer version, and it must survive the round trip.
+ * [hatchedFromItemId] must resolve to a `collected_item` in the same document, and no two pets
+ * may name the same one — an egg hatches once.
+ */
+@Serializable
+data class PetRow(
+    @SerialName("id") val id: Long,
+    @SerialName("species_id") val speciesId: String,
+    @SerialName("hatched_from_item_id") val hatchedFromItemId: Long,
+    @SerialName("hatched_at") val hatchedAt: Long,
+    @SerialName("xp") val xp: Long,
+    @SerialName("strength") val strength: Int,
+    @SerialName("endurance") val endurance: Int,
+    @SerialName("mobility") val mobility: Int,
+    @SerialName("nickname") val nickname: String?,
+    @SerialName("is_active") val isActive: Boolean,
+) : BackupRow

@@ -68,6 +68,7 @@ data class ExportDocument(
     @SerialName("achievement") val achievement: List<AchievementRow> = emptyList(),
     @SerialName("quest_completion") val questCompletion: List<QuestCompletionRow> = emptyList(),
     @SerialName("collected_item") val collectedItem: List<CollectedItemRow> = emptyList(),
+    @SerialName("pet") val pet: List<PetRow> = emptyList(),
 ) {
 
     /**
@@ -99,6 +100,7 @@ data class ExportDocument(
             BackupTable.ACHIEVEMENT -> achievement
             BackupTable.QUEST_COMPLETION -> questCompletion
             BackupTable.COLLECTED_ITEM -> collectedItem
+            BackupTable.PET -> pet
         }
 
     /** How many rows the whole document holds, across every table. What a progress bar divides by. */
@@ -116,7 +118,10 @@ data class ExportDocument(
          * docs/export-schema.md's version-history table and, if older files are to keep
          * restoring, an up-converter listed there; until one is written, a reader refuses
          * every version but its own, older ones included.
+         *
+         * Version 2 added the `pet` table. A version 1 file still restores, through
+         * [com.titan.core.domain.backup.SchemaUpgrade].
          */
-        const val SCHEMA_VERSION: Int = 1
+        const val SCHEMA_VERSION: Int = 2
     }
 }
