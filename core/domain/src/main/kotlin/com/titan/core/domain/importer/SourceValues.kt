@@ -1,7 +1,9 @@
 package com.titan.core.domain.importer
 
 import java.time.DateTimeException
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -33,6 +35,10 @@ object SourceValues {
             "(?:(\\d{1,9})\\s*(?:minutes|minute|mins|min|m))?\\s*" +
             "(?:(\\d{1,9})\\s*(?:seconds|second|secs|sec|s))?",
         RegexOption.IGNORE_CASE,
+    )
+
+    private val YEAR_FIRST_DATE = Regex(
+        "(?<year>\\d{4})(?<separator>[-/])(?<month>\\d{1,2})\\k<separator>(?<day>\\d{1,2})",
     )
 
     private val OFFSET_DATE_TIME = TemporalQuery(OffsetDateTime::from)
@@ -149,6 +155,41 @@ object SourceValues {
             null
         } catch (_: ArithmeticException) {
             // A year so far out its milliseconds overflow a Long: not a date anybody trained on.
+            null
+        }
+    }
+
+    /**
+     * [text], a calendar date with no time of day, as the instant a workout logged on it is taken
+     * to have started: noon on that day in [zone], in epoch milliseconds. The year comes first,
+     * `2024-03-02` or `2024/03/02`; anything else is null, including a day-first or month-first
+     * date, because `03/02/2024` is two different days and the file does not say which.
+     *
+     * Some apps record the day of a workout and not its time, and a workout needs a start. It has
+     * to be the same instant every time the file is read, or importing the file again would write
+     * every workout twice, so it cannot depend on when the import runs. Noon is the time chosen
+     * because it keeps the workout on its day wherever the day is counted: the history shows it
+     * in [zone], and the streak, the weekly volume and the quests cut their weeks in UTC, where
+     * noon in any zone within twelve hours of UTC is still the same date. Midnight would put a
+     * Monday workout east of Greenwich into the week before. No zone changes its clocks at noon
+     * either, so the time is never skipped or repeated.
+     *
+     * The cost is a workout dated today and imported in the morning: it starts in the future,
+     * which [ImportPlanner] refuses and counts, and an import run again after noon adds it.
+     */
+    fun localDateAtNoon(
+        text: String?,
+        zone: ZoneId,
+    ): Long? {
+        val parts = YEAR_FIRST_DATE.matchEntire(text?.trim().orEmpty())?.groups ?: return null
+        fun part(name: String): Int = checkNotNull(parts[name]).value.toInt()
+        return try {
+            LocalDate.of(part("year"), part("month"), part("day"))
+                .atTime(LocalTime.NOON)
+                .atZone(zone)
+                .toInstant()
+                .toEpochMilli()
+        } catch (_: DateTimeException) {
             null
         }
     }

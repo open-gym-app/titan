@@ -289,9 +289,17 @@ class CsvHeader(columns: List<String>) {
      * next. Looking the column up by what precedes the parenthesis finds it either way, and the
      * qualifier is what says which unit the figures are in.
      */
-    fun qualified(name: String): QualifiedColumn? {
+    fun qualified(name: String): QualifiedColumn? = qualifiedColumns(name).firstOrNull()
+
+    /**
+     * Every column [qualified] would accept for [name], in header order.
+     *
+     * For the exports that carry one figure in two columns, a unit in each — `Weight (kg)` beside
+     * `Weight (lbs)` — and fill whichever the row was logged in, so the parser has to look at both.
+     */
+    fun qualifiedColumns(name: String): List<QualifiedColumn> {
         val wanted = name.key()
-        return columns.firstNotNullOfOrNull { column ->
+        return columns.mapNotNull { column ->
             val parts = QUALIFIED.matchEntire(column)
             when {
                 column.key() == wanted -> QualifiedColumn(column, qualifier = null)
@@ -324,6 +332,29 @@ class CsvHeader(columns: List<String>) {
         }
     }
 
+    /**
+     * [record] with the fields it has beyond the header's put back into the column called
+     * [column], joined with [delimiter]; [record] itself when it is no longer than the header or
+     * the header has no such column.
+     *
+     * Some exporters write free text without quoting it, so a comma in an exercise's name splits
+     * the name across two fields and pushes every later field one column right. When only one
+     * column can hold free text, the surplus fields belong to it, and rejoining them reads the
+     * row as it was written rather than losing it to the columns after the name.
+     */
+    fun rejoined(
+        record: List<String>,
+        column: String,
+        delimiter: Char,
+    ): List<String> {
+        val surplus = record.size - columns.size
+        val index = indexOf(column)
+        if (surplus <= 0 || index == null) return record
+        return record.subList(0, index) +
+            record.subList(index, index + surplus + 1).joinToString(delimiter.toString()) +
+            record.subList(index + surplus + 1, record.size)
+    }
+
     private fun String.key(): String = trim().lowercase(Locale.ROOT)
 
     private companion object {
@@ -333,7 +364,7 @@ class CsvHeader(columns: List<String>) {
 }
 
 /**
- * A column [CsvHeader.qualified] or [CsvHeader.suffixed] found.
+ * A column [CsvHeader.qualified], [CsvHeader.qualifiedColumns] or [CsvHeader.suffixed] found.
  *
  * @property name the column's full name, as [CsvHeader.get] reads it.
  * @property qualifier what its header held in parentheses — `kg` in `Weight (kg)` — or after the
