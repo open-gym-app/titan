@@ -176,4 +176,22 @@ class CsvReaderTest {
         assertTrue(header.containsAll(listOf("date", "exercise name")))
         assertFalse(header.containsAll(listOf("date", "set order")))
     }
+
+    @Test
+    fun `a qualified column is found by the name before its parenthesis, with what the parenthesis says`() {
+        val header = CsvHeader(listOf("Weight Unit", " Weight (lbs) ", "Distance", "Reps"))
+
+        assertEquals(QualifiedColumn("Weight (lbs)", "lbs"), header.qualified("weight"))
+        assertEquals(QualifiedColumn("Distance", qualifier = null), header.qualified("Distance"))
+        assertEquals("120", header[listOf("lbs", "120", "", "5"), header.qualified("Weight")!!.name])
+    }
+
+    @Test
+    fun `a qualified lookup takes the first column that fits and finds nothing that only starts the same`() {
+        val header = CsvHeader(listOf("Duration (sec)", "Duration", "Workout Duration"))
+
+        assertEquals(QualifiedColumn("Duration (sec)", "sec"), header.qualified("Duration"))
+        assertNull(header.qualified("Workout"))
+        assertNull(CsvHeader(listOf("Weight Unit")).qualified("Weight"))
+    }
 }
