@@ -1,0 +1,12 @@
+Date,Time,Measurement,Value,Unit,Comment
+2026-10-01,07:10:00,Bodyweight,82.4,kgs,"Morning, fasted"
+2026-10-01,07:10:00,Body Fat,18.5,%,""
+2026-10-01,07:10:00,Waist,84.0,cm,""
+2026-10-01,07:10:00,Upper Arm (Left),35.5,cm,""
+2026-10-01,07:10:00,Upper Arm (Right),36.0,cm,""
+2026-10-01,07:12:30,Neck,38.0,cm,""
+2026-10-08,07:05:00,Bodyweight,181.0,lbs,""
+2026-10-08,07:05:00,Calf (Left),15.0,in,""
+2026-10-08,07:05:00,Calf (Right),14.75,in,""
+2026-10-08,07:05:00,Biceps Flexed,40.0,cm,""
+2026-10-15,07:00:00,Bodyweight,82.0,kgs,""
