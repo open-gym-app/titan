@@ -89,8 +89,12 @@ fingerprint goes here so anyone can compare.
 
 | Distributed by | Signed with | SHA-256 fingerprint |
 | --- | --- | --- |
-| GitHub releases (`titan-X.Y.Z.apk`) | the upload key | *not published yet* |
-| Google Play | Google's app signing key | *not published yet* |
+| GitHub releases (`titan-X.Y.Z.apk`) | the upload key | `D0:24:EE:A4:05:19:CA:66:27:6B:AB:5E:84:61:E8:08:F8:F9:6A:4C:FA:81:05:A0:7E:C5:F4:13:37:34:96:B1` |
+| Google Play | Google's app signing key | `64:AE:47:57:0B:52:5F:5A:A1:62:84:B3:02:1F:C4:03:19:8E:1E:44:7E:CF:AE:2F:91:FE:D1:8D:EF:AF:68:EE` |
+
+The upload key's fingerprint was read from the keystore and from `titan-1.0.0-rc.3.apk` on the
+`v1.0.0-rc.3` release, and the two agree. The Play one is the app signing key shown in the Play
+Console under *App integrity → App signing*, the same value as its *Digital Asset Links JSON*.
 
 The APK on the GitHub release is the one the workflow signed with the upload key. Its
 fingerprint, from a release APK or from the keystore itself (the two must agree):
