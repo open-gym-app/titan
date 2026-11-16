@@ -42,6 +42,7 @@ class DataFootprintTest {
         assertThrows(IllegalArgumentException::class.java) { DataFootprint(personalRecords = -1) }
         assertThrows(IllegalArgumentException::class.java) { DataFootprint(customExercises = -1) }
         assertThrows(IllegalArgumentException::class.java) { DataFootprint(bodyMeasurements = -1) }
+        assertThrows(IllegalArgumentException::class.java) { DataFootprint(progressPhotos = -1) }
     }
 
     @Test

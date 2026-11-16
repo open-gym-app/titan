@@ -244,7 +244,7 @@
     <string name="body_fat_label">Body fat</string>
     <string name="body_lean_mass_label">Lean mass</string>
 
-    <!-- ── Health Connect, disabled until #54 ───────────────────────────────────── -->
+    <!-- ── Progress photos (#304) ───────────────────────────────────────────────── -->
 
     <string name="body_photos_heading">Photos</string>
     <string name="body_photos_label">Progress photos</string>
@@ -266,6 +266,9 @@
     <string name="photos_close">Close</string>
     <string name="photos_add_failed">Couldn’t add that photo.</string>
     <string name="photos_delete_failed">Couldn’t delete that photo.</string>
+
+    <!-- ── Health Connect, disabled until #54 ───────────────────────────────────── -->
+
     <string name="body_health_connect_heading">Health Connect</string>
     <string name="body_health_connect_label">Sync with Health Connect</string>
     <string name="body_health_connect_detail">Weight and body fat, in and out</string>
