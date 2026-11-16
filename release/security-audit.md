@@ -6,8 +6,6 @@ changes in the same pull request. Items still open are listed at the end, each w
 
 Checked at commit `b9842deda93ae51ef0df31bf624c02f5bcc923fb` (`main`) on 2026-11-14, on the
 output of `./gradlew :app:assembleRelease :app:bundleRelease`, the same tasks `release.yml` runs.
-No `v*` tag exists yet, so there is no pipeline artifact to read. Re-run *The release artifact*
-on the first tag's APK and update the commit above.
 
 ## Threat model
 
@@ -264,7 +262,10 @@ The release job holds the upload keystore, its passwords, the Play service accou
   configuration-cache entries only, and the configuration cache is off. Revisit if it is turned
   on.
 - **Origin of the APK.** `titan-X.Y.Z.apk.sha256` proves integrity only. Origin is the signing
-  certificate, whose fingerprints belong in `RELEASE.md` → *Signing certificate*.
+  certificate, whose two fingerprints are published in `RELEASE.md` → *Signing certificate*.
+  `apksigner verify --print-certs` on `titan-1.0.0-rc.3.apk` (v2 scheme, the checksum file
+  matching) gives the upload key's, so the `KEYSTORE_BASE64` secret holds the keystore the
+  fingerprint was published from.
 
 `make release-gate-check` (`.github/scripts/release-gate-test.sh`) runs the gate against a
 throwaway repository on twenty cases (good tags, an unmerged commit, a `v*` branch carrying a
@@ -272,31 +273,32 @@ workflow named `CI`, a moved tag, a name that is both a branch and a tag, a fore
 newline injection in the path and the dispatched version, and others). CI runs it in the *Seed,
 translations and release gate* job; all twenty pass.
 
-### Repository settings, read on 2026-11-12
+### Repository settings, read on 2026-11-16
 
-Read with `gh api` GET requests and a fine-grained token without the *Administration*,
-*Secrets* or *Variables* permissions, hence the 403s.
+Read with `gh api` GET requests. The organisation variable needs an organisation admin token,
+hence the 403.
 
 | Setting | Value |
 | --- | --- |
-| Visibility | `private`, organisation-owned, `allow_forking: false` (still private on 2026-11-14) |
+| Visibility | `public`, organisation-owned |
 | Collaborators | three, all `admin` |
-| Default workflow token permissions | **Not read** (403) |
-| Rulesets (tag and branch) | **Unavailable** on this plan for a private repository, so none applies |
-| `main` branch protection | `protected: false` |
-| `release` environment | `protection_rules: []`, `deployment_branch_policy: null` (any branch), `can_admins_bypass: true` |
-| `release` environment secret names | **Not read** (403) |
+| Default workflow token permissions | `default_workflow_permissions: read`, `can_approve_pull_request_reviews: false` |
+| Rulesets | `main`: pull request required, no force push, no deletion. `v*` tags: only admins may create, update or delete |
+| `main` branch protection | `protected: true` |
+| Secret scanning, push protection | Enabled |
+| `release` environment | `branch_policy` only, with custom deployment policies `main` (branch) and `v*.*.*` (tag); no required reviewer; `can_admins_bypass: true` |
+| `release` environment secret names | `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`, `PLAY_SERVICE_ACCOUNT_JSON`, the five `release.yml` reads |
 | Org variable `CI_RUNNER` | **Not read** (403). CI run 43027325904 (2026-11-11) ran on `ubuntu-latest`. No longer used by the release jobs. |
-| Release runs so far | 26, all skipped; no `v*` tag exists, so no release job has ever run or saved a cache |
+| Release runs so far | 83: 77 skipped, 3 succeeded, 2 failed, 1 cancelled. Tags `v1.0.0-rc.2` and `v1.0.0-rc.3` are published as pre-releases |
 
-The open exposure: the `release` environment admits any workflow on any branch that names it,
-and `main` is unprotected, so anyone with write access can reach the release secrets without the
-gate. Today that is three admins. Mitigation until it is closed: no write access is granted to
-anyone else, and forking stays disabled. #300 closes it when the repository goes public.
+The `release` environment admits only `main` and `v*.*.*` tags, `main` takes changes through a
+pull request only, and only admins can create or move a `v*` tag, so a workflow on another branch
+no longer reaches the release secrets. What remains: no reviewer approves a release run, so an
+admin who pushes a tag on a merged commit releases it alone.
 
 ## Repository history
 
-Scanned on 2026-11-14 before the repository goes public, over every ref (130 commits):
+Scanned on 2026-11-14, before the repository went public, over every ref (130 commits):
 
 ```text
 $ gitleaks git --log-opts="--all" --redact .
@@ -310,15 +312,13 @@ holds placeholders only), and no hard-coded credential matching the APK patterns
 commit. The only email address in the tree is `fixture@example.invalid`.
 
 Commit metadata carries contributors' author emails, one of them a personal address on two
-commits. That becomes public with the repository; whether to rewrite it is the contributor's and
-the owner's decision, tracked in #300.
+commits. They were kept as they are (decided in #300) and are public with the repository.
 
 ## Open items
 
 | Item | Who | Issue |
 | --- | --- | --- |
-| Protect `main`, restrict the `release` environment to `main` with a required reviewer, add a `v*` tag ruleset, enable secret scanning and push protection, and read the settings marked **Not read**. All need the repository public or a paid plan. | Owner | #300 |
-| Publish the two signing-certificate fingerprints in `RELEASE.md`. | Owner (holds the keystore) | #300 |
+| Add a required reviewer to the `release` environment. | Owner | #300 |
 | Run the device checks below on a phone and record the result here. | Owner | #48 |
 | Deobfuscate a crash from the pre-launch report with the bundle's mapping. | Owner | #47 |
 
