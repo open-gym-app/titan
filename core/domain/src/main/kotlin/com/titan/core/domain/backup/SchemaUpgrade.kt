@@ -37,6 +37,7 @@ internal object SchemaUpgrade {
                 schemaVersion = ExportDocument.SCHEMA_VERSION,
                 sessionPetClaim = emptyList(),
                 pet = emptyList(),
+                petState = emptyList(),
             )
 
             else -> throw IllegalArgumentException("no up-converter from version ${document.schemaVersion}")

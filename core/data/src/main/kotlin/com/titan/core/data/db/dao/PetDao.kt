@@ -6,6 +6,9 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
 import com.titan.core.data.db.entity.PetEntity
+import com.titan.core.data.db.entity.PetStateEntity
+import com.titan.core.data.mapper.toEntity
+import com.titan.core.domain.gamification.TitanRules
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -33,7 +36,21 @@ interface PetDao {
      * active.
      */
     @Transaction
-    suspend fun hatch(pet: PetEntity): Long = insert(pet.copy(isActive = count() == 0))
+    suspend fun hatch(pet: PetEntity): Long {
+        val id = insert(pet.copy(isActive = count() == 0))
+        insertState(TitanRules.starting(pet.hatchedAt).toEntity(id))
+        return id
+    }
+
+    /** The starting state, written in the hatch's own transaction. */
+    @Insert
+    suspend fun insertState(state: PetStateEntity)
+
+    @Query("SELECT * FROM pet WHERE id = :id")
+    fun observeById(id: Long): Flow<PetEntity?>
+
+    @Query("SELECT * FROM pet WHERE id = :id")
+    suspend fun find(id: Long): PetEntity?
 
     /** The lowest flagged id, or null with no active pet. */
     @Query("SELECT MIN(id) FROM pet WHERE is_active = 1")

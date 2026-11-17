@@ -14,6 +14,7 @@ import com.titan.core.data.db.dao.LocalDataDao
 import com.titan.core.data.db.dao.MuscleGroupDao
 import com.titan.core.data.db.dao.PersonalRecordDao
 import com.titan.core.data.db.dao.PetDao
+import com.titan.core.data.db.dao.PetStateDao
 import com.titan.core.data.db.dao.QuestCompletionDao
 import com.titan.core.data.db.dao.SessionExerciseDao
 import com.titan.core.data.db.dao.SessionLootClaimDao
@@ -33,6 +34,7 @@ import com.titan.core.data.db.entity.ExerciseTagEntity
 import com.titan.core.data.db.entity.MuscleGroupEntity
 import com.titan.core.data.db.entity.PersonalRecordEntity
 import com.titan.core.data.db.entity.PetEntity
+import com.titan.core.data.db.entity.PetStateEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
 import com.titan.core.data.db.entity.SessionExerciseEntity
 import com.titan.core.data.db.entity.SessionLootClaimEntity
@@ -68,6 +70,7 @@ import com.titan.core.data.db.entity.WorkoutTemplateEntity
         QuestCompletionEntity::class,
         CollectedItemEntity::class,
         PetEntity::class,
+        PetStateEntity::class,
         SessionPetClaimEntity::class,
     ],
     version = 2,
@@ -92,6 +95,7 @@ abstract class TitanDatabase : RoomDatabase() {
     abstract fun questCompletionDao(): QuestCompletionDao
     abstract fun collectedItemDao(): CollectedItemDao
     abstract fun petDao(): PetDao
+    abstract fun petStateDao(): PetStateDao
     abstract fun sessionPetClaimDao(): SessionPetClaimDao
 
     /**
@@ -175,6 +179,23 @@ abstract class TitanDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE UNIQUE INDEX IF NOT EXISTS `index_pet_hatched_from_item_id` " +
                         "ON `pet` (`hatched_from_item_id`)",
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `pet_state` (
+                        `pet_id` INTEGER NOT NULL,
+                        `fuel` INTEGER NOT NULL,
+                        `energy` INTEGER NOT NULL,
+                        `spirit` INTEGER NOT NULL,
+                        `activity` TEXT NOT NULL,
+                        `activity_started_at` INTEGER NOT NULL,
+                        `activity_ends_at` INTEGER,
+                        `resume_activity` TEXT,
+                        `updated_at` INTEGER NOT NULL,
+                        PRIMARY KEY(`pet_id`),
+                        FOREIGN KEY(`pet_id`) REFERENCES `pet`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent(),
                 )
                 db.execSQL(
                     """

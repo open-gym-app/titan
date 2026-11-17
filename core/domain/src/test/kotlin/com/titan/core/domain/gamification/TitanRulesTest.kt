@@ -246,6 +246,42 @@ class TitanRulesTest {
         assertNull(result.state.endsAt)
     }
 
+    // ─── A stored state read back ───────────────────────────────────────────────────────
+
+    @Test
+    fun `a state from the future is pulled back to now`() {
+        val future = TitanState(TitanVitals(50, 50, 50), TitanActivity.WALK, 9_000, 9_500, null, updatedAt = 9_000)
+
+        val repaired = TitanRules.repaired(future, now = 1_000)
+
+        assertEquals(1_000L, repaired.startedAt)
+        assertEquals(1_000L, repaired.updatedAt)
+        assertEquals("an end within the activity's length of the new start is kept", 9_500L, repaired.endsAt)
+    }
+
+    @Test
+    fun `an end far past the activity's own length is held to it`() {
+        val frozen = TitanState(TitanVitals(50, 50, 50), TitanActivity.RUN, 0, Long.MAX_VALUE / 2, null, 0)
+
+        assertEquals(TitanActivity.RUN.duration!!.inWholeMilliseconds, TitanRules.repaired(frozen, now = 1_000).endsAt)
+    }
+
+    @Test
+    fun `a timed activity with no end gets one, and rest keeps none`() {
+        val noEnd = TitanState(TitanVitals(50, 50, 50), TitanActivity.TRAIN, 0, null, null, 0)
+        val resting = noEnd.copy(activity = TitanActivity.REST, endsAt = 5_000)
+
+        assertEquals(TitanActivity.TRAIN.duration!!.inWholeMilliseconds, TitanRules.repaired(noEnd, now = 1).endsAt)
+        assertNull(TitanRules.repaired(resting, now = 1).endsAt)
+    }
+
+    @Test
+    fun `a state that is already sound is left as it is`() {
+        val sound = TitanRules.starting(START)
+
+        assertEquals(sound, TitanRules.repaired(sound, now = START + HOUR))
+    }
+
     // ─── Power and storage keys ─────────────────────────────────────────────────────────
 
     @Test

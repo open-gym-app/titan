@@ -155,6 +155,8 @@ class BackupRepositoryImpl @Inject constructor(
                 BackupTable.COLLECTED_ITEM -> dao.readCollectedItems(limit, offset).map { it.toRow() }
 
                 BackupTable.PET -> dao.readPets(limit, offset).map { it.toRow() }
+
+                BackupTable.PET_STATE -> dao.readPetStates(limit, offset).map { it.toRow() }
             }
         }
 
@@ -233,6 +235,7 @@ class BackupRepositoryImpl @Inject constructor(
                 BackupTable.QUEST_COMPLETION -> dao.deleteQuestCompletions()
                 BackupTable.COLLECTED_ITEM -> dao.deleteCollectedItems()
                 BackupTable.PET -> dao.deletePets()
+                BackupTable.PET_STATE -> dao.deletePetStates()
             }
         }
     }
@@ -295,6 +298,7 @@ class BackupRepositoryImpl @Inject constructor(
             dao::insertCollectedItems,
         ) { it.toEntity() }
         into.table(BackupTable.PET, document.pet, dao::insertPets) { it.toEntity() }
+        into.table(BackupTable.PET_STATE, document.petState, dao::insertPetStates) { it.toEntity() }
     }
 
     /**

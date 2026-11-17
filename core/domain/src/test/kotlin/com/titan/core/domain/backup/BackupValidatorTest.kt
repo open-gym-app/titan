@@ -269,6 +269,15 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun `a pet state naming a pet the document does not hold is refused`() {
+        val document = sampleDocument().let {
+            it.copy(petState = it.petState.map { state -> if (state.petId == 2L) state.copy(petId = 99) else state })
+        }
+
+        assertNamesEdge(document, "pet_state.pet_id")
+    }
+
+    @Test
     fun `a pet claim naming a missing session is refused`() {
         val document = sampleDocument().let {
             it.copy(sessionPetClaim = it.sessionPetClaim + SessionPetClaimRow(sessionId = 99))
@@ -528,6 +537,15 @@ class BackupValidatorUniquenessTest {
         }
 
         assertNamesClash(document, "session_xp_claim holds two rows with the same session_id")
+    }
+
+    @Test
+    fun `two states for one pet are refused`() {
+        val document = sampleDocument().let {
+            it.copy(petState = it.petState.map { state -> state.copy(petId = 1) })
+        }
+
+        assertNamesClash(document, "pet_state holds two rows with the same pet_id")
     }
 
     @Test

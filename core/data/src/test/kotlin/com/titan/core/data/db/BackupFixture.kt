@@ -4,6 +4,7 @@ import com.titan.core.data.db.entity.AchievementEntity
 import com.titan.core.data.db.entity.CollectedItemEntity
 import com.titan.core.data.db.entity.ExerciseTagEntity
 import com.titan.core.data.db.entity.PetEntity
+import com.titan.core.data.db.entity.PetStateEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
 import com.titan.core.data.db.entity.SessionLootClaimEntity
 import com.titan.core.data.db.entity.SessionPetClaimEntity
@@ -227,6 +228,13 @@ private suspend fun TitanDatabase.seedPets() {
             // A species this build has never heard of: a pet from a newer version, which has to
             // survive the round trip unchanged.
             PetEntity(id = 2, speciesId = "from_a_newer_version", hatchedFromItemId = 4, hatchedAt = FINISHED_AT),
+        ),
+    )
+    backupDao().insertPetStates(
+        listOf(
+            PetStateEntity(1, fuel = 22, energy = 80, spirit = 55, "train", FINISHED_AT, FINISHED_AT + 900_000, null, FINISHED_AT),
+            // An activity this build has never heard of, kept as written.
+            PetStateEntity(2, fuel = 64, energy = 80, spirit = 55, "fly", FINISHED_AT, null, "train", FINISHED_AT),
         ),
     )
 }

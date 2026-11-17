@@ -351,3 +351,23 @@ data class PetRow(
     @SerialName("nickname") val nickname: String?,
     @SerialName("is_active") val isActive: Boolean,
 ) : BackupRow
+
+/**
+ * A row of `pet_state`: a pet's vitals and what it is doing, as of [updatedAt].
+ *
+ * [activity] and [resumeActivity] are not validated against this build's activities, for the
+ * reason `species_id` is not; an unknown one reads as idle. Vitals out of range are clamped on
+ * the way in and again by every reader.
+ */
+@Serializable
+data class PetStateRow(
+    @SerialName("pet_id") val petId: Long,
+    @SerialName("fuel") val fuel: Int,
+    @SerialName("energy") val energy: Int,
+    @SerialName("spirit") val spirit: Int,
+    @SerialName("activity") val activity: String,
+    @SerialName("activity_started_at") val activityStartedAt: Long,
+    @SerialName("activity_ends_at") val activityEndsAt: Long?,
+    @SerialName("resume_activity") val resumeActivity: String?,
+    @SerialName("updated_at") val updatedAt: Long,
+) : BackupRow

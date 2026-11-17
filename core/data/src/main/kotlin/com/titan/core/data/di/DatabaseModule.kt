@@ -10,6 +10,7 @@ import com.titan.core.data.db.dao.ExerciseDao
 import com.titan.core.data.db.dao.MuscleGroupDao
 import com.titan.core.data.db.dao.PersonalRecordDao
 import com.titan.core.data.db.dao.PetDao
+import com.titan.core.data.db.dao.PetStateDao
 import com.titan.core.data.db.dao.QuestCompletionDao
 import com.titan.core.data.db.dao.SessionExerciseDao
 import com.titan.core.data.db.dao.SessionLootClaimDao
@@ -121,6 +122,10 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun providePetDao(db: TitanDatabase): PetDao = db.petDao()
+
+    @Provides
+    @Singleton
+    fun providePetStateDao(db: TitanDatabase): PetStateDao = db.petStateDao()
 
     @Provides
     @Singleton

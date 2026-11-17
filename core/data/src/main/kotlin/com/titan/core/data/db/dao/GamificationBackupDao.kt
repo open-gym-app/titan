@@ -5,6 +5,7 @@ import androidx.room.Query
 import com.titan.core.data.db.entity.AchievementEntity
 import com.titan.core.data.db.entity.CollectedItemEntity
 import com.titan.core.data.db.entity.PetEntity
+import com.titan.core.data.db.entity.PetStateEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
 import com.titan.core.data.db.entity.UserProgressEntity
 
@@ -79,4 +80,16 @@ interface GamificationBackupDao {
 
     @Query("DELETE FROM pet")
     suspend fun deletePets()
+
+    @Query("SELECT * FROM pet_state ORDER BY pet_id LIMIT :limit OFFSET :offset")
+    suspend fun readPetStates(
+        limit: Int,
+        offset: Int,
+    ): List<PetStateEntity>
+
+    @Insert
+    suspend fun insertPetStates(rows: List<PetStateEntity>)
+
+    @Query("DELETE FROM pet_state")
+    suspend fun deletePetStates()
 }
