@@ -83,6 +83,7 @@ class OnboardingViewModel @Inject constructor(
             preferences = preferences,
             isFinishing = screen.isFinishing,
             isFinished = screen.isFinished,
+            finishesIntoImport = screen.finishesIntoImport,
             message = screen.message,
         )
     }.stateIn(
@@ -115,6 +116,10 @@ class OnboardingViewModel @Inject constructor(
             is OnboardingEvent.UnitSystemSelected -> answer {
                 userPreferencesRepository.setUnitSystem(event.unitSystem)
             }
+
+            // Only from the last step, where the button is: anywhere else the questions before it
+            // would be left unanswered by a tap that skipped them.
+            OnboardingEvent.ImportRequested -> if (stepState.value.step.isLast) finish(intoImport = true)
 
             OnboardingEvent.MessageShown -> stepState.update { it.copy(message = null) }
         }
@@ -198,10 +203,14 @@ class OnboardingViewModel @Inject constructor(
      *
      * Guarded against a second run while one is in flight, so a double tap on the last button
      * cannot fire two writes and two navigations.
+     *
+     * @param intoImport the finish came from the import button, so the way out is the import
+     *   from another app. Onboarding is finished either way: the import is something to do in
+     *   the app, not another question.
      */
-    private fun finish() {
+    private fun finish(intoImport: Boolean = false) {
         if (stepState.value.isFinishing) return
-        stepState.update { it.copy(isFinishing = true) }
+        stepState.update { it.copy(isFinishing = true, finishesIntoImport = intoImport) }
 
         viewModelScope.launch {
             try {
@@ -231,6 +240,8 @@ class OnboardingViewModel @Inject constructor(
         val isFinishing: Boolean = false,
         @Transient
         val isFinished: Boolean = false,
+        @Transient
+        val finishesIntoImport: Boolean = false,
         @Transient
         val message: OnboardingMessage? = null,
     )

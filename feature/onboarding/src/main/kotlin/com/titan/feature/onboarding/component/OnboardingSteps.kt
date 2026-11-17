@@ -14,6 +14,7 @@ import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -337,12 +338,23 @@ private fun <T> OptionStep(
  * here, one press of `Back` from the screen that fixes it, rather than in the middle of their
  * first set. Each is shown with the same mark it was chosen under, so the recap is recognisable
  * as the answer given rather than as a word that has to be re-read.
+ *
+ * Under the recap, the one thing worth saying before the app opens to somebody who trained
+ * somewhere else first: their history can come with them. A card rather than a second primary
+ * button, because starting to train is still what this step is for — the import is offered, and
+ * the footer's button stays the way forward.
+ *
+ * @param importEnabled whether the import button can be pressed: not while the completion flag
+ *   is being written, for the reason the footer's button is disabled then.
+ * @param onImport finish onboarding and open the import from another app.
  */
 @Composable
 internal fun ReadyStep(
     goal: TrainingGoal,
     level: FitnessLevel,
     unitSystem: UnitSystem,
+    importEnabled: Boolean,
+    onImport: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -386,6 +398,36 @@ internal fun ReadyStep(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
+
+        ImportOffer(enabled = importEnabled, onImport = onImport)
+    }
+}
+
+/** "Coming from another app?", what an import does, and the button straight to it. */
+@Composable
+private fun ImportOffer(
+    enabled: Boolean,
+    onImport: () -> Unit,
+) {
+    TitanCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(TitanTheme.spacing.card),
+            verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md),
+        ) {
+            Text(
+                text = stringResource(R.string.onboarding_ready_import_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = stringResource(R.string.onboarding_ready_import_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(onClick = onImport, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+                Text(text = stringResource(R.string.onboarding_ready_import_action))
+            }
+        }
     }
 }
 

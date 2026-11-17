@@ -36,6 +36,12 @@ sealed interface OnboardingEvent {
 
     data class UnitSystemSelected(val unitSystem: UnitSystem) : OnboardingEvent
 
+    /**
+     * The last step's "Import my history": finish onboarding exactly as [Continued] does on that
+     * step, and then open the import from another app rather than Home.
+     */
+    data object ImportRequested : OnboardingEvent
+
     /** The snackbar has been shown; drop [OnboardingUiState.message] so it cannot show twice. */
     data object MessageShown : OnboardingEvent
 }

@@ -110,6 +110,7 @@ class DeepLinkNavigationTest {
             DeepLinks.NEW_SESSION,
             DeepLinks.activeSession(SOME_SESSION_ID),
             DeepLinks.QUEST_LOG,
+            DeepLinks.HISTORY_IMPORT,
         ).forEach { link ->
             val activities = composeTestRule.activity.packageManager
                 .queryIntentActivities(viewIntent(link), 0)
@@ -136,6 +137,15 @@ class DeepLinkNavigationTest {
         openWhileRunning(DeepLinks.activeSession(seedSession()))
 
         assertOnScreen(hasContentDescription(ACTIVE_SESSION_MARKER))
+    }
+
+    @Test
+    fun `the import's notification link opens the import screen`() {
+        launch()
+
+        openWhileRunning(DeepLinks.HISTORY_IMPORT)
+
+        assertOnScreen(hasText(IMPORT_MARKER))
     }
 
     @Test
@@ -288,6 +298,7 @@ class DeepLinkNavigationTest {
         /** Each screen's own eyebrow or title — the marker that does not move with the copy. */
         const val NEW_SESSION_MARKER = "New session"
         const val HOME_MARKER = "QUICK START"
+        const val IMPORT_MARKER = "Import from another app"
 
         /**
          * How long a wait gives a screen to draw.

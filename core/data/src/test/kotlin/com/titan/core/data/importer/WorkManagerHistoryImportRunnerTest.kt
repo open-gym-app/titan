@@ -77,7 +77,11 @@ class WorkManagerHistoryImportRunnerTest {
                 HistoryImportRun.Running(request, HistoryImportProgress.Reading),
                 awaitRun<HistoryImportRun.Running>(),
             )
-            assertEquals(workManager.getWorkInfosForUniqueWork(HistoryImportWork.WORK_NAME).get().toString(), 1, imports().size)
+            assertEquals(
+                workManager.getWorkInfosForUniqueWork(HistoryImportWork.WORK_NAME).get().toString(),
+                1,
+                imports().size,
+            )
         }
 
     @Test

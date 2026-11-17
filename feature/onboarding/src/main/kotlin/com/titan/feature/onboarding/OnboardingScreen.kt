@@ -54,17 +54,23 @@ import kotlinx.coroutines.flow.filterNotNull
  *   that also drops onboarding off the back stack — see `OnboardingNavigation`. Raised once,
  *   from the state rather than from the button, so it cannot fire before the completion flag
  *   is on disk.
+ * @param onFinishedIntoImport the same, raised instead when the finish came from the last
+ *   step's "Import my history". `:app` turns it into Home with the import pushed over it, so
+ *   back from the import lands in the app rather than in onboarding.
  */
 @Composable
 fun OnboardingRoute(
     onFinished: () -> Unit,
+    onFinishedIntoImport: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: OnboardingViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(state.isFinished) {
-        if (state.isFinished) onFinished()
+        if (state.isFinished) {
+            if (state.finishesIntoImport) onFinishedIntoImport() else onFinished()
+        }
     }
 
     // Back is a step *within* the flow rather than a way out of it — the five steps are one
@@ -239,6 +245,8 @@ private fun StepBody(
             goal = state.preferences.trainingGoal,
             level = state.preferences.fitnessLevel,
             unitSystem = state.preferences.unitSystem,
+            importEnabled = !state.isFinishing,
+            onImport = { onEvent(OnboardingEvent.ImportRequested) },
             modifier = Modifier.fillMaxWidth(),
         )
     }

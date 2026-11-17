@@ -63,6 +63,7 @@ class SettingsScreenTest {
 
     /** How many times the Backup & restore row asked to navigate. */
     private var backupOpened = 0
+    private var importOpened = 0
 
     /** How many times the Open source licences row asked to navigate. */
     private var licencesOpened = 0
@@ -356,6 +357,17 @@ class SettingsScreenTest {
         composeTestRule.onNodeWithText("Backup & restore").performScrollTo().performClick()
 
         assertEquals(1, backupOpened)
+        assertEquals(emptyList<SettingsEvent>(), events)
+    }
+
+    @Test
+    fun `the import row navigates, and says it adds rather than replaces`() {
+        setContent()
+
+        composeTestRule.onNodeWithText("nothing is replaced", substring = true).performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Import from another app").performScrollTo().performClick()
+
+        assertEquals(1, importOpened)
         assertEquals(emptyList<SettingsEvent>(), events)
     }
 
@@ -770,6 +782,7 @@ class SettingsScreenTest {
                     onEvent = events::add,
                     onBack = {},
                     onOpenBackup = { backupOpened++ },
+                    onOpenImport = { importOpened++ },
                     onOpenLink = openedLinks::add,
                     onOpenNotificationSettings = { notificationSettingsOpened++ },
                     onOpenReminders = { remindersOpened++ },
