@@ -1,0 +1,17 @@
+workout_date,workout_time,workout_name,workout_duration,workout_notes,workout_calories,workout_rating,exercise,equipment,muscle,exercise_notes,superset,set_type,reps,weight,weight_unit,duration,distance,distance_unit,rpe,rest,avg_heart_rate,max_heart_rate,notes,source_app
+2026-10-05,18:00,Upper,70,Good session,450,4,Bench Press (Barbell),,chest,Pause the first rep,,warmup,10,40,kg,,,,,90,,,,Some App
+2026-10-05,18:00,Upper,70,Good session,450,4,Bench Press (Barbell),,,Pause the first rep,,,5,82.5,kg,,,,8,180,,,,Some App
+2026-10-05,18:00,Upper,70,Good session,450,4,bench press (barbell),,,,,failure,3,82.5kg,lb,,,,10,,,,Spotter helped,Some App
+2026-10-05,18:00,Upper,70,Good session,450,4,Chest-Supported Row,dumbbell,Middle Back,,1,,12,30,kg,,,,,,,,,Some App
+2026-10-05,18:00,Upper,70,Good session,450,4,Face Pull,cable,shoulders,,1,,15,20,kg,,,,,,,,,Some App
+2026-10-05,18:00,Upper,70,Good session,450,4,Chest-Supported Row,dumbbell,,,1.0,,12,30,kg,,,,,,,,,Some App
+2026-10-05,18:00,Upper,70,Good session,450,4,Face Pull,cable,,,1,,15,20,kg,,,,,120,,,,Some App
+2026-10-05,18:00,Upper,70,Good session,450,4,Assisted Pull-Up,,,,,,8,30,kg,,,,,,,,,Some App
+2026-10-05,18:00,Upper,70,Good session,450,4,Push-Up,,,,,,20,0,,,,,,,,,,Some App
+2026-10-05,18:00,Upper,70,Good session,450,4,Bench Press (Barbell),,,,,drop,8,60,kg,,,,,,,,,Some App
+2026-10-07T07:00:00+02:00,,Run,0:35:00,,380,,Running,,,,,,,,,31:30,5.2,km,,,152,171,Negative split,Some App
+2026-10-07T07:00:00+02:00,,Run,0:35:00,,380,,Running,,,,,interval,,,,85,400,m,,,174,181,,Some App
+2026-10-09,,Legs,,Knee felt fine,,,Barbell Squat,,,,,,5,140,kg,,,,,,,,,Some App
+2026-10-09,,Legs,,Short on time,,,Plank,,,,,,,,,60,,,,,,,,Some App
+2026-10-09,,Legs,,,,,Hip Thrust (Barbell),,,,,,,,,,,,,,,,,Some App
+2026-10-09,18:30,Evening,,,,,Leg Press,machine,,,,,10,200,kg,,,,,2 min,,,,Some App
