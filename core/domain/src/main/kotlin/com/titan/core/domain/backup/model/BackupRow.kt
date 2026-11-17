@@ -328,6 +328,7 @@ data class CollectedItemRow(
     @SerialName("collectible_id") val collectibleId: String,
     @SerialName("source") val source: String,
     @SerialName("acquired_at") val acquiredAt: Long,
+    @SerialName("session_id") val sessionId: Long? = null,
 ) : BackupRow
 
 /**

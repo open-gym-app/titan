@@ -17,16 +17,23 @@ import org.junit.Assert.assertTrue
  */
 internal fun versionOneFixture(): MigrationFixture {
     var before: Map<String, List<List<String?>>> = emptyMap()
+    var columns: Map<String, List<String>> = emptyMap()
     return MigrationFixture(
         seed = { db ->
             SEED_STATEMENTS.forEach(db::execSQL)
-            before = db.userTables().associateWith { db.dump(it) }
+            columns = db.userTables().associateWith { db.columnsOf(it) }
+            before = columns.mapValues { (table, names) -> db.dump(table, names) }
         },
         assertPreserved = { db ->
             assertTrue("the fixture seeded nothing", before.values.any { it.isNotEmpty() })
             before.forEach { (table, rows) ->
-                assertEquals("$table changed across the upgrade", rows, db.dump(table))
+                assertEquals("$table changed across the upgrade", rows, db.dump(table, columns.getValue(table)))
             }
+            // The one column a version 1 table gained, null on every row it already held.
+            assertEquals(
+                listOf(listOf<String?>(null), listOf<String?>(null)),
+                db.dump("collected_item", listOf("session_id")),
+            )
 
             // The new table is there, empty, and holds its two rules: an egg that exists, once.
             assertEquals(emptyList<List<String?>>(), db.dump("pet"))
@@ -89,9 +96,18 @@ private fun SupportSQLiteDatabase.userTables(): List<String> =
             "AND name NOT LIKE 'sqlite_%' AND name NOT IN ('android_metadata', 'room_master_table') ORDER BY name",
     ).use { cursor -> buildList { while (cursor.moveToNext()) add(cursor.getString(0)) } }
 
-/** Every row of [table], in rowid order, each as its column values in declaration order. */
-private fun SupportSQLiteDatabase.dump(table: String): List<List<String?>> =
-    query("SELECT * FROM `$table` ORDER BY rowid").use { cursor ->
+/** The columns [table] has, in declaration order. */
+private fun SupportSQLiteDatabase.columnsOf(table: String): List<String> =
+    query("PRAGMA table_info(`$table`)").use { cursor ->
+        buildList { while (cursor.moveToNext()) add(cursor.getString(cursor.getColumnIndexOrThrow("name"))) }
+    }
+
+/** Every row of [table], in rowid order, each as the values of [columns] (all of them by default). */
+private fun SupportSQLiteDatabase.dump(
+    table: String,
+    columns: List<String>? = null,
+): List<List<String?>> =
+    query("SELECT ${columns?.joinToString { "`$it`" } ?: "*"} FROM `$table` ORDER BY rowid").use { cursor ->
         buildList {
             while (cursor.moveToNext()) {
                 add((0 until cursor.columnCount).map { if (cursor.isNull(it)) null else cursor.getString(it) })

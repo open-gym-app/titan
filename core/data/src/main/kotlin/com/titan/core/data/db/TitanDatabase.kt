@@ -180,6 +180,15 @@ abstract class TitanDatabase : RoomDatabase() {
                     "CREATE UNIQUE INDEX IF NOT EXISTS `index_pet_hatched_from_item_id` " +
                         "ON `pet` (`hatched_from_item_id`)",
                 )
+                // The one change to a version 1 table, and an additive one: a nullable column, so
+                // every drop already held reads back with no session.
+                db.execSQL(
+                    "ALTER TABLE `collected_item` ADD COLUMN `session_id` INTEGER " +
+                        "REFERENCES `workout_session`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_collected_item_session_id` ON `collected_item` (`session_id`)",
+                )
                 db.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS `pet_state` (

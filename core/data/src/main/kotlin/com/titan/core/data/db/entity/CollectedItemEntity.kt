@@ -2,6 +2,7 @@ package com.titan.core.data.db.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
@@ -50,9 +51,18 @@ import androidx.room.PrimaryKey
  */
 @Entity(
     tableName = "collected_item",
+    foreignKeys = [
+        ForeignKey(
+            entity = WorkoutSessionEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["session_id"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
+    ],
     // observeRecent() orders by acquired_at DESC and takes the newest few; index it so that
-    // read is not a full scan plus a sort over an ever-growing table.
-    indices = [Index("acquired_at")],
+    // read is not a full scan plus a sort over an ever-growing table. session_id is indexed
+    // because it is a foreign key: a session's delete looks its drops up by it.
+    indices = [Index("acquired_at"), Index("session_id")],
 )
 data class CollectedItemEntity(
     @PrimaryKey(autoGenerate = true)
@@ -63,4 +73,11 @@ data class CollectedItemEntity(
     val source: String,
     @ColumnInfo(name = "acquired_at")
     val acquiredAt: Long,
+    /**
+     * The session whose finish dropped this, so a screen can say "from Push Day, Nov 12". Null for
+     * a drop from before the column existed, and for one whose session was deleted since: the
+     * drop happened, so deleting the session keeps it (`SET NULL`).
+     */
+    @ColumnInfo(name = "session_id")
+    val sessionId: Long? = null,
 )

@@ -54,6 +54,8 @@ package com.titan.core.domain.model
  *   recap treats all three the same, because none of them is a drop to show. The catalogue
  *   value rather than the stored row: the rarity a celebration styles on is what the roll
  *   decided, and nothing is read back to learn it.
+ * @property foodDropped the food the session paid, in the order drawn — empty with no titan to
+ *   feed, on a re-run, and when the loot step failed (see [failures]).
  * @property pet what the session did to the active pet, or **null** — which covers four
  *   answers: no active pet, a session with no paid set, a re-run whose claim was already spent,
  *   and a pet step that threw (see [failures]). None of them is a gain to show. The figures were
@@ -68,6 +70,7 @@ data class SessionProgression(
     val achievementsUnlocked: List<AchievementUnlock> = emptyList(),
     val questsCompleted: List<QuestCompletion> = emptyList(),
     val lootDropped: Collectible? = null,
+    val foodDropped: List<Collectible> = emptyList(),
     val pet: PetGrowth? = null,
     val failures: List<SessionProgressionFailure> = emptyList(),
 ) {

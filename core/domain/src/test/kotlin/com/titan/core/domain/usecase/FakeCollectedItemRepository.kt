@@ -49,6 +49,7 @@ class FakeCollectedItemRepository : CollectedItemRepository {
         collectibleId: String,
         source: String,
         acquiredAt: Instant,
+        sessionId: Long?,
     ) {
         failNext?.let {
             failNext = null

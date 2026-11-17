@@ -67,7 +67,19 @@ fun QuestCompletionRow.toEntity(): QuestCompletionEntity =
     QuestCompletionEntity(questId = questId, periodStart = periodStart, completedAt = completedAt)
 
 fun CollectedItemEntity.toRow(): CollectedItemRow =
-    CollectedItemRow(id = id, collectibleId = collectibleId, source = source, acquiredAt = acquiredAt)
+    CollectedItemRow(
+        id = id,
+        collectibleId = collectibleId,
+        source = source,
+        acquiredAt = acquiredAt,
+        sessionId = sessionId,
+    )
 
 fun CollectedItemRow.toEntity(): CollectedItemEntity =
-    CollectedItemEntity(id = id, collectibleId = collectibleId, source = source, acquiredAt = acquiredAt)
+    CollectedItemEntity(
+        id = id,
+        collectibleId = collectibleId,
+        source = source,
+        acquiredAt = acquiredAt,
+        sessionId = sessionId,
+    )

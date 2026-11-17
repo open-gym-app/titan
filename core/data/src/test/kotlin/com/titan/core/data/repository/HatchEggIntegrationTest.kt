@@ -145,7 +145,7 @@ class HatchEggIntegrationTest : RoomTestBase() {
         collectibleId: String,
         at: Long = NOW - 1,
     ): Long {
-        inventory.recordDrop(collectibleId, "session_finished", Instant.ofEpochMilli(at))
+        inventory.recordDrop(collectibleId, "session_finished", Instant.ofEpochMilli(at), sessionId = null)
         return inventory.observeRecent(limit = 100).first().maxOf { it.id }
     }
 

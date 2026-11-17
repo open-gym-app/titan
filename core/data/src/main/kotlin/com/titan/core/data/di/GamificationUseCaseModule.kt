@@ -116,11 +116,15 @@ object GamificationUseCaseModule {
         dropTable: DropTableEvaluator,
         collectedItemRepository: CollectedItemRepository,
         gamificationRepository: GamificationRepository,
+        petRepository: PetRepository,
+        sessionRepository: SessionRepository,
     ): LootRollUseCase =
         LootRollUseCase(
             dropTable = dropTable,
             collectedItemRepository = collectedItemRepository,
             gamificationRepository = gamificationRepository,
+            petRepository = petRepository,
+            sessionRepository = sessionRepository,
         )
 
     @Provides

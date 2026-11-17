@@ -4,7 +4,6 @@ import com.titan.core.domain.gamification.SessionXp
 import com.titan.core.domain.gamification.StreakCalculator
 import com.titan.core.domain.model.AchievementProgress
 import com.titan.core.domain.model.AchievementUnlock
-import com.titan.core.domain.model.Collectible
 import com.titan.core.domain.model.PersonalRecord
 import com.titan.core.domain.model.PetGrowth
 import com.titan.core.domain.model.QuestCompletion
@@ -258,8 +257,8 @@ class SessionCompletionPipeline(
         // owns: at most one row is written, so there is no partial write for a throw to lose.
         // Null therefore covers three answers — the table paid nothing, the session had already
         // been rolled for, or the step failed — and `failures` is where the third is stated.
-        val loot: Collectible? = runStep(SessionProgressionStep.LOOT, failures) {
-            rollLoot(sessionId, finishedAt)
+        val loot: LootRoll? = runStep(SessionProgressionStep.LOOT, failures) {
+            rollLoot.roll(sessionId, finishedAt)
         }
 
         val petGrowth: PetGrowth? = runStep(SessionProgressionStep.PET, failures) {
@@ -278,7 +277,8 @@ class SessionCompletionPipeline(
             streak = streak,
             achievementsUnlocked = unlocks,
             questsCompleted = quests,
-            lootDropped = loot,
+            lootDropped = loot?.drop,
+            foodDropped = loot?.food.orEmpty(),
             pet = petGrowth,
             failures = failures,
         )

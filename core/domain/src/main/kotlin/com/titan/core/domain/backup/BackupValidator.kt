@@ -225,6 +225,7 @@ object BackupValidator {
             ?: references(XP_CLAIM_TO_SESSION, sessions, document.sessionXpClaim.map { it.sessionId })
             ?: references(LOOT_CLAIM_TO_SESSION, sessions, document.sessionLootClaim.map { it.sessionId })
             ?: references(PET_CLAIM_TO_SESSION, sessions, document.sessionPetClaim.map { it.sessionId })
+            ?: references(COLLECTED_ITEM_TO_SESSION, sessions, document.collectedItem.map { it.sessionId })
             ?: petConstraints(document)
     }
 
@@ -539,6 +540,8 @@ object BackupValidator {
         ForeignKey(BackupTable.SESSION_LOOT_CLAIM, "session_id", BackupTable.WORKOUT_SESSION)
     private val PET_CLAIM_TO_SESSION =
         ForeignKey(BackupTable.SESSION_PET_CLAIM, "session_id", BackupTable.WORKOUT_SESSION)
+    private val COLLECTED_ITEM_TO_SESSION =
+        ForeignKey(BackupTable.COLLECTED_ITEM, "session_id", BackupTable.WORKOUT_SESSION)
     private val PET_STATE_TO_PET =
         ForeignKey(BackupTable.PET_STATE, "pet_id", BackupTable.PET)
     private val PET_TO_COLLECTED_ITEM =

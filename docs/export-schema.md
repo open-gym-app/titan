@@ -307,7 +307,7 @@ every other one.**
 | `schema_version` | Shipped in | Changes |
 | --- | --- | --- |
 | 1 | the 1.0.0 release candidates | Initial format: 19 tables, plus `preferences` |
-| 2 | unreleased | The Titans milestone: adds `pet`, `pet_state` and `session_pet_claim`. **Reads version 1** through `SchemaUpgrade`: the new arrays are empty, and anything a version 1 file claims under a key its version never had is dropped |
+| 2 | unreleased | The Titans milestone: adds `pet`, `pet_state` and `session_pet_claim`, and the nullable `collected_item.session_id`, which a version 1 file restores as `null`. **Reads version 1** through `SchemaUpgrade`: the new arrays are empty, and anything a version 1 file claims under a key its version never had is dropped |
 
 Version 1 has been amended once in place, while unreleased, in a way the rule below would
 otherwise call a bump: the streak moved from sessions to weeks, `user_progress` gained
