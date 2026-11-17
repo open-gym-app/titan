@@ -100,6 +100,12 @@ object SourceValues {
     }
 
     /**
+     * Whether [text] is there and is not a number [decimal] reads: a cell that was filled in with
+     * something else, as opposed to one left blank.
+     */
+    fun isUnreadableDecimal(text: String?): Boolean = text != null && decimal(text) == null
+
+    /**
      * [text] as an elapsed time, in whole seconds.
      *
      * Three spellings, because sources use all three: a bare number of seconds (`4419`,
@@ -170,9 +176,11 @@ object SourceValues {
      * every workout twice, so it cannot depend on when the import runs. Noon is the time chosen
      * because it keeps the workout on its day wherever the day is counted: the history shows it
      * in [zone], and the streak, the weekly volume and the quests cut their weeks in UTC, where
-     * noon in any zone within twelve hours of UTC is still the same date. Midnight would put a
-     * Monday workout east of Greenwich into the week before. No zone changes its clocks at noon
-     * either, so the time is never skipped or repeated.
+     * noon in any zone from eleven hours behind UTC to twelve ahead is still the same date.
+     * Midnight would put a Monday workout east of Greenwich into the week before. The zones
+     * further east than that — New Zealand's summer time, Tonga, Samoa, Kiribati's Line Islands —
+     * are the exception no single time of day avoids: noon there is the day before in UTC. No
+     * zone changes its clocks at noon either, so the time is never skipped or repeated.
      *
      * The cost is a workout dated today and imported in the morning: it starts in the future,
      * which [ImportPlanner] refuses and counts, and an import run again after noon adds it.

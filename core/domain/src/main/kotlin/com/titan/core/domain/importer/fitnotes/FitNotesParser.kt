@@ -10,6 +10,7 @@ import com.titan.core.domain.importer.ImportedSet
 import com.titan.core.domain.importer.ImportedWorkout
 import com.titan.core.domain.importer.ImportedWorkoutExercise
 import com.titan.core.domain.importer.ParseResult
+import com.titan.core.domain.importer.RecordReading
 import com.titan.core.domain.importer.SourceDistanceUnit
 import com.titan.core.domain.importer.SourceLengthUnit
 import com.titan.core.domain.importer.SourceValues
@@ -17,8 +18,8 @@ import com.titan.core.domain.importer.SourceWeightUnit
 import com.titan.core.domain.importer.SuffixedExerciseNames
 import com.titan.core.domain.importer.csv.CsvHeader
 import com.titan.core.domain.importer.csv.CsvReader
-import com.titan.core.domain.importer.csv.MalformedCsvException
 import com.titan.core.domain.importer.csv.QualifiedColumn
+import com.titan.core.domain.importer.readAll
 import com.titan.core.domain.model.BodyMeasurement
 import com.titan.core.domain.model.ExerciseType
 import java.util.Locale
@@ -57,7 +58,9 @@ import kotlin.math.roundToLong
  * The exporter quotes the comment, always, and nothing else: an exercise called "Curl, EZ Bar"
  * arrives as two fields and pushes the rest of the row one column right. Such a row is read with
  * its surplus fields put back into `Exercise` (see [CsvHeader.rejoined]); a category with a comma
- * in it is rarer than such a name, and is read as part of the name.
+ * in it is rarer than such a name, and is read as part of the name. FitNotes for iOS does not
+ * quote its notes either, so there a comma in the note is put back first, and in the name only
+ * when that leaves a figure on the row unreadable.
  *
  * ### What becomes what
  *
@@ -116,45 +119,14 @@ class FitNotesParser : HistoryParser {
     ): ParseResult =
         source.open().use { stream ->
             val reader = CsvReader.open(stream)
-            val reading = readHeader(reader)?.let { header ->
+            // A file that is not CSV at all, such as the backup's database, has no header.
+            val reading = reader.readHeader()?.let { header ->
                 WorkoutLayout.of(header, reader.delimiter, context)?.let(::WorkoutReading)
                     ?: MeasurementLayout.of(header, reader.delimiter, context)?.let(::MeasurementReading)
             }
-            if (reading == null) {
-                ParseResult.NotRecognised
-            } else {
-                try {
-                    reader.records().forEach(reading::read)
-                    reading.result()
-                } catch (failure: MalformedCsvException) {
-                    ParseResult.Malformed(failure.message.orEmpty())
-                }
-            }
-        }
-
-    /**
-     * The first record as a header, or null when there is none — including when it is not CSV
-     * at all, such as the backup's database file, which is a file that is not an export rather
-     * than a broken one.
-     */
-    private fun readHeader(reader: CsvReader): CsvHeader? =
-        try {
-            reader.readRecord()?.let(::CsvHeader)
-        } catch (_: MalformedCsvException) {
-            null
+            reading?.readAll(reader) ?: ParseResult.NotRecognised
         }
 }
-
-/** One pass over an export's rows. */
-private interface FitNotesReading {
-
-    fun read(record: List<String>)
-
-    fun result(): ParseResult
-}
-
-/** Whether [text] is there and is not a number. */
-private fun unreadable(text: String?): Boolean = text != null && SourceValues.decimal(text) == null
 
 // ---------------------------------------------------------------------------------- workouts
 
@@ -165,14 +137,37 @@ private class WorkoutLayout(
     val context: ImportContext,
     private val weights: List<QualifiedColumn>,
     val notesColumn: String?,
+    private val unquotedColumns: List<String>,
 ) {
     operator fun get(
         record: List<String>,
         column: String?,
     ): String? = column?.let { header[record, it] }
 
-    /** [record] with a name the exporter split at a comma put back together. */
-    fun rejoined(record: List<String>): List<String> = header.rejoined(record, EXERCISE, delimiter)
+    /**
+     * [record] with free text the exporter split at a comma put back together: the first of
+     * [unquotedColumns] that, given the surplus fields, leaves every figure on the row readable,
+     * else `Exercise`. A row no longer than the header is [record] itself.
+     *
+     * FitNotes on Android quotes its comment, so only a name can be split. FitNotes for iOS
+     * leaves its notes unquoted as well, and a comma is far more common in a note than in a
+     * name, so the note is tried first there; a name with a comma in it does not survive that
+     * reading, because its later half lands in `Category` and the category in a weight column.
+     */
+    fun rejoined(record: List<String>): List<String> {
+        if (record.size <= header.columns.size) return record
+        return unquotedColumns.asSequence()
+            .map { header.rejoined(record, it, delimiter) }
+            .firstOrNull(::readable)
+            ?: header.rejoined(record, EXERCISE, delimiter)
+    }
+
+    /** Whether every figure on [row] is blank or reads, as it does when each sits in its column. */
+    private fun readable(row: List<String>): Boolean =
+        weights.none { SourceValues.isUnreadableDecimal(header[row, it.name]) } &&
+            listOf(REPS, DISTANCE).none { SourceValues.isUnreadableDecimal(header[row, it]) } &&
+            header[row, DISTANCE_UNIT].let { it == null || SourceDistanceUnit.parse(it) != null } &&
+            header[row, TIME].let { it == null || SourceValues.elapsedSeconds(it) != null }
 
     /** [record]'s weight, from the first weight column it filled, and that column. */
     fun weight(record: List<String>): Pair<String, QualifiedColumn>? =
@@ -209,19 +204,22 @@ private class WorkoutLayout(
         ): WorkoutLayout? {
             val weights = header.qualifiedColumns(WEIGHT)
             if (!header.containsAll(SIGNATURE) || weights.isEmpty()) return null
+            val notesColumn = listOf(COMMENT, NOTES).firstOrNull(header::contains)
             return WorkoutLayout(
                 header,
                 delimiter,
                 context,
                 weights,
-                listOf(COMMENT, NOTES).firstOrNull(header::contains),
+                notesColumn,
+                // FitNotes for iOS, the one layout with `Kind`, does not quote its notes.
+                unquotedColumns = listOfNotNull(notesColumn.takeIf { KIND in header }, EXERCISE),
             )
         }
     }
 }
 
 /** One pass over a workout export's rows, building the workouts as it goes. */
-private class WorkoutReading(private val layout: WorkoutLayout) : FitNotesReading {
+private class WorkoutReading(private val layout: WorkoutLayout) : RecordReading {
 
     private val names = SuffixedExerciseNames(FITNOTES_CATALOGUE_NAMES)
     private val exercises = LinkedHashMap<String, ExerciseEvidence>()
@@ -233,10 +231,13 @@ private class WorkoutReading(private val layout: WorkoutLayout) : FitNotesReadin
         val row = layout.rejoined(record)
         val startedAt = SourceValues.localDateAtNoon(layout[row, DATE], layout.context.zone) ?: return
         val exerciseName = layout[row, EXERCISE] ?: return
+        val repsText = layout[row, REPS]
+        val reps = SourceValues.decimal(repsText)
 
-        exercises.getOrPut(exerciseName) { ExerciseEvidence() }.observe(layout, row)
+        val evidence = exercises.getOrPut(exerciseName) { ExerciseEvidence(exerciseName) }
+        evidence.observe(layout, row, reps)
         workouts.getOrPut(startedAt) { WorkoutDraft(startedAt) }
-            .sets(exerciseName) += set(row, SuffixedExerciseNames.isAssisted(exerciseName))
+            .sets(exerciseName) += set(row, repsText, reps, evidence.isAssisted)
     }
 
     override fun result(): ParseResult {
@@ -248,15 +249,18 @@ private class WorkoutReading(private val layout: WorkoutLayout) : FitNotesReadin
     }
 
     /**
-     * The set [row] describes, or one with nothing recorded when a figure in it is not a number or
-     * a unit is not one: the planner refuses that and counts it, where dropping the row here would
-     * lose it without a word.
+     * The set [row] describes, its [reps] read from [repsText] already, or one with nothing
+     * recorded when a figure in it is not a number or a unit is not one: the planner refuses that
+     * and counts it, where dropping the row here would lose it without a word. An [assisted]
+     * exercise's weight is never read, so it cannot cost the set either.
      */
     private fun set(
         row: List<String>,
+        repsText: String?,
+        reps: Double?,
         assisted: Boolean,
     ): ImportedSet {
-        val weight = layout.weight(row)
+        val weight = layout.weight(row).takeUnless { assisted }
         val milligrams = weight?.let { (text, column) ->
             layout.weightUnit(row, column)?.let { unit -> SourceValues.decimal(text)?.let(unit::toMilligrams) }
         }
@@ -264,16 +268,15 @@ private class WorkoutReading(private val layout: WorkoutLayout) : FitNotesReadin
         val centimetres = distance?.let { text ->
             layout.distanceUnit(row)?.let { unit -> SourceValues.decimal(text)?.let(unit::toCentimetres) }
         }
-        val reps = layout[row, REPS]
         val time = layout[row, TIME]
         val seconds = SourceValues.elapsedSeconds(time)
         val unreadable = (weight != null && milligrams == null) || (distance != null && centimetres == null) ||
-            unreadable(reps) || (time != null && seconds == null)
+            (repsText != null && reps == null) || (time != null && seconds == null)
         if (unreadable) return ImportedSet()
 
         return ImportedSet(
-            reps = SourceValues.decimal(reps)?.roundToInt(),
-            weight = milligrams?.takeUnless { assisted },
+            reps = reps?.roundToInt(),
+            weight = milligrams,
             duration = seconds,
             distance = centimetres,
             notes = SourceValues.note(layout[row, layout.notesColumn]),
@@ -282,21 +285,28 @@ private class WorkoutReading(private val layout: WorkoutLayout) : FitNotesReadin
 }
 
 /**
- * What the rows naming one exercise say about it, across the whole file: the category it is filed
- * under, and which of the columns its type fills.
+ * What the rows naming the exercise called [name] say about it, across the whole file: the
+ * category it is filed under, and which of the columns its type fills.
  */
-private class ExerciseEvidence {
+private class ExerciseEvidence(name: String) {
+
+    /** Whether the name says the weight is assistance, worked out once rather than per set. */
+    val isAssisted: Boolean = SuffixedExerciseNames.isAssisted(name)
 
     private var category: String? = null
     private var countsReps = false
     private var tracksDistance = false
 
+    /** Takes in [row], whose `Reps` read as [reps]. */
     fun observe(
         layout: WorkoutLayout,
         row: List<String>,
+        reps: Double?,
     ) {
         category = category ?: layout[row, CATEGORY]
-        countsReps = countsReps || layout[row, REPS] != null
+        // A zero counts no reps, as the planner reads it: a timed row with `0` in Reps is not a set
+        // of reps.
+        countsReps = countsReps || (reps != null && reps > 0)
         tracksDistance = tracksDistance || layout[row, DISTANCE] != null || layout[row, DISTANCE_UNIT] != null ||
             layout[row, KIND]?.lowercase(Locale.ROOT)?.contains(KIND_DISTANCE) == true
     }
@@ -372,7 +382,7 @@ private enum class Site {
 }
 
 /** One pass over a body tracker export's rows. */
-private class MeasurementReading(private val layout: MeasurementLayout) : FitNotesReading {
+private class MeasurementReading(private val layout: MeasurementLayout) : RecordReading {
 
     private val entries = LinkedHashMap<Long, MeasurementDraft>()
     private val unreadableEntries = mutableListOf<BodyMeasurement>()
