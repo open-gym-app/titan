@@ -96,6 +96,9 @@ enum class BackupTable(val tableName: String) {
     /** Needs `pet`. One row per pet: its vitals and current activity. */
     PET_STATE("pet_state"),
 
+    /** Needs `pet`. What each pet is wearing, one piece per slot. */
+    PET_LOADOUT("pet_loadout"),
+
     /** Needs `collected_item` and `pet`. One row per food drop eaten. */
     PET_FEED("pet_feed"),
 

@@ -464,7 +464,15 @@ class BackupRoundTripTest : RoomTestBase() {
         const val APP_VERSION = "1.0-debug"
 
         /** The tables version 2 added, which a version 1 file has no key for. */
-        val VERSION_TWO_TABLES = setOf("pet", "pet_state", "pet_feed", "food_seen", "pet_unlock", "session_pet_claim")
+        val VERSION_TWO_TABLES = setOf(
+            "pet",
+            "pet_state",
+            "pet_loadout",
+            "pet_feed",
+            "food_seen",
+            "pet_unlock",
+            "session_pet_claim",
+        )
         val json = Json {
             encodeDefaults = true
             explicitNulls = true

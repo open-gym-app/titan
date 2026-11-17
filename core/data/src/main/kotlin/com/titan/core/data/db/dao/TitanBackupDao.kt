@@ -5,6 +5,7 @@ import androidx.room.Query
 import com.titan.core.data.db.entity.FoodSeenEntity
 import com.titan.core.data.db.entity.PetEntity
 import com.titan.core.data.db.entity.PetFeedEntity
+import com.titan.core.data.db.entity.PetLoadoutEntity
 import com.titan.core.data.db.entity.PetStateEntity
 import com.titan.core.data.db.entity.PetUnlockEntity
 
@@ -73,4 +74,16 @@ interface TitanBackupDao {
 
     @Query("DELETE FROM pet_unlock")
     suspend fun deletePetUnlocks()
+
+    @Query("SELECT * FROM pet_loadout ORDER BY pet_id, slot LIMIT :limit OFFSET :offset")
+    suspend fun readPetLoadouts(
+        limit: Int,
+        offset: Int,
+    ): List<PetLoadoutEntity>
+
+    @Insert
+    suspend fun insertPetLoadouts(rows: List<PetLoadoutEntity>)
+
+    @Query("DELETE FROM pet_loadout")
+    suspend fun deletePetLoadouts()
 }

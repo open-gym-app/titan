@@ -11,6 +11,7 @@ import com.titan.core.domain.backup.model.FoodSeenRow
 import com.titan.core.domain.backup.model.MuscleGroupRow
 import com.titan.core.domain.backup.model.PersonalRecordRow
 import com.titan.core.domain.backup.model.PetFeedRow
+import com.titan.core.domain.backup.model.PetLoadoutRow
 import com.titan.core.domain.backup.model.PetRow
 import com.titan.core.domain.backup.model.PetStateRow
 import com.titan.core.domain.backup.model.PetUnlockRow
@@ -102,6 +103,8 @@ fun sampleDocument(
         ),
         collectedItem = sampleCollectedItems(),
         pet = samplePets(),
+        // A headband on the first pet, and on the second a piece and a slot this build does not know.
+        petLoadout = listOf(PetLoadoutRow(1, "head", "headband"), PetLoadoutRow(2, "tail", "a_newer_gear")),
         petFeed = listOf(PetFeedRow(collectedItemId = 5, petId = 1, fedAt = FINISHED_AT)),
         foodSeen = listOf(FoodSeenRow(collectibleId = "steak", seenUpTo = 5)),
         // One this build knows and one it does not: both are kept.

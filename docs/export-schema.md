@@ -47,6 +47,7 @@ here that is not a change to those tests is a change nobody made.
   "collected_item":        [ … ],
   "pet":                   [ … ],
   "pet_state":             [ … ],
+  "pet_loadout":           [ … ],
   "pet_feed":              [ … ],
   "food_seen":             [ … ],
   "pet_unlock":            [ … ]
@@ -310,7 +311,7 @@ every other one.**
 | `schema_version` | Shipped in | Changes |
 | --- | --- | --- |
 | 1 | the 1.0.0 release candidates | Initial format: 19 tables, plus `preferences` |
-| 2 | unreleased | The Titans milestone: adds `pet`, `pet_state`, `pet_feed`, `food_seen`, `pet_unlock` and `session_pet_claim`, and the nullable `collected_item.session_id`, which a version 1 file restores as `null`. **Reads version 1** through `SchemaUpgrade`: the new arrays are empty, and anything a version 1 file claims under a key its version never had is dropped |
+| 2 | unreleased | The Titans milestone: adds `pet`, `pet_state`, `pet_loadout`, `pet_feed`, `food_seen`, `pet_unlock` and `session_pet_claim`, and the nullable `collected_item.session_id`, which a version 1 file restores as `null`. **Reads version 1** through `SchemaUpgrade`: the new arrays are empty, and anything a version 1 file claims under a key its version never had is dropped |
 
 Version 1 has been amended once in place, while unreleased, in a way the rule below would
 otherwise call a bump: the streak moved from sessions to weeks, `user_progress` gained
@@ -394,7 +395,7 @@ names the file in the provider's words, stripped of control and direction-overri
 
 ```sh
 jq empty export.json                                    # it parses
-jq 'keys_unsorted' export.json                          # the envelope, then the 25 tables
+jq 'keys_unsorted' export.json                          # the envelope, then the 26 tables
 jq '.workout_set | length' export.json                  # how many sets it carries
 jq '.schema_version' export.json                        # which reader will accept it
 jq '.workout_set[0] | keys_unsorted' export.json         # a row's columns, in the table's order

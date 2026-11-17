@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 2,
-    "identityHash": "550d7bdfcf3de75616ea3d68aed5b198",
+    "identityHash": "767fb9fc3b7df1078bf58577021157d0",
     "entities": [
       {
         "tableName": "exercise",
@@ -1629,6 +1629,50 @@
         ]
       },
       {
+        "tableName": "pet_loadout",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`pet_id` INTEGER NOT NULL, `slot` TEXT NOT NULL, `gear` TEXT NOT NULL, PRIMARY KEY(`pet_id`, `slot`), FOREIGN KEY(`pet_id`) REFERENCES `pet`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "petId",
+            "columnName": "pet_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "slot",
+            "columnName": "slot",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "gear",
+            "columnName": "gear",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "pet_id",
+            "slot"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "pet",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "pet_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
         "tableName": "pet_feed",
         "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`collected_item_id` INTEGER NOT NULL, `pet_id` INTEGER, `fed_at` INTEGER NOT NULL, PRIMARY KEY(`collected_item_id`), FOREIGN KEY(`collected_item_id`) REFERENCES `collected_item`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`pet_id`) REFERENCES `pet`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
         "fields": [
@@ -1774,7 +1818,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '550d7bdfcf3de75616ea3d68aed5b198')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '767fb9fc3b7df1078bf58577021157d0')"
     ]
   }
 }
