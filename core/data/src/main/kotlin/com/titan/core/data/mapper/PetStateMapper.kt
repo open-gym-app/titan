@@ -2,10 +2,12 @@ package com.titan.core.data.mapper
 
 import com.titan.core.data.db.entity.FoodSeenEntity
 import com.titan.core.data.db.entity.PetFeedEntity
+import com.titan.core.data.db.entity.PetLoadoutEntity
 import com.titan.core.data.db.entity.PetStateEntity
 import com.titan.core.data.db.entity.PetUnlockEntity
 import com.titan.core.domain.backup.model.FoodSeenRow
 import com.titan.core.domain.backup.model.PetFeedRow
+import com.titan.core.domain.backup.model.PetLoadoutRow
 import com.titan.core.domain.backup.model.PetStateRow
 import com.titan.core.domain.backup.model.PetUnlockRow
 import com.titan.core.domain.model.TitanActivity
@@ -79,3 +81,7 @@ fun FoodSeenRow.toEntity(): FoodSeenEntity = FoodSeenEntity(collectibleId = coll
 fun PetUnlockEntity.toRow(): PetUnlockRow = PetUnlockRow(key = key, unlockedAt = unlockedAt)
 
 fun PetUnlockRow.toEntity(): PetUnlockEntity = PetUnlockEntity(key = key, unlockedAt = unlockedAt)
+
+fun PetLoadoutEntity.toRow(): PetLoadoutRow = PetLoadoutRow(petId = petId, slot = slot, gear = gear)
+
+fun PetLoadoutRow.toEntity(): PetLoadoutEntity = PetLoadoutEntity(petId = petId, slot = slot, gear = gear)

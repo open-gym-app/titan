@@ -50,10 +50,10 @@ class UnlocksTest {
     }
 
     @Test
-    fun `only earned places that are not owned from hatch are stored`() {
+    fun `only earned places and gear that are not owned from hatch are stored`() {
         assertEquals(emptySet<String>(), Unlocks.earned(progress()))
         assertEquals(
-            setOf("sauna", "trail", "dojo", "summit"),
+            setOf("sauna", "trail", "dojo", "summit", "chalk", "cap", "cape", "scarf", "medal"),
             Unlocks.earned(progress(streak = 12, distance = Long.MAX_VALUE, spars = 10, level = 120)),
         )
     }

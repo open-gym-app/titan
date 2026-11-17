@@ -401,3 +401,14 @@ data class PetUnlockRow(
     @SerialName("key") val key: String,
     @SerialName("unlocked_at") val unlockedAt: Long,
 ) : BackupRow
+
+/**
+ * A row of `pet_loadout`: one piece of gear worn by one pet, keyed by the pet and the slot.
+ * Neither [slot] nor [gear] is validated against this build, for `species_id`'s reason.
+ */
+@Serializable
+data class PetLoadoutRow(
+    @SerialName("pet_id") val petId: Long,
+    @SerialName("slot") val slot: String,
+    @SerialName("gear") val gear: String,
+) : BackupRow

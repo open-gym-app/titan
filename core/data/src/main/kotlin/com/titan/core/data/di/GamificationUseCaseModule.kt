@@ -4,6 +4,7 @@ import com.titan.core.domain.gamification.DropTableEvaluator
 import com.titan.core.domain.repository.CollectedItemRepository
 import com.titan.core.domain.repository.ExerciseRepository
 import com.titan.core.domain.repository.GamificationRepository
+import com.titan.core.domain.repository.LoadoutRepository
 import com.titan.core.domain.repository.PantryRepository
 import com.titan.core.domain.repository.PersonalRecordRepository
 import com.titan.core.domain.repository.PetRepository
@@ -27,6 +28,7 @@ import com.titan.core.domain.usecase.PrDetectionUseCase
 import com.titan.core.domain.usecase.QuestCompletionUseCase
 import com.titan.core.domain.usecase.QuestProgressUseCase
 import com.titan.core.domain.usecase.SessionCompletionPipeline
+import com.titan.core.domain.usecase.WearGearUseCase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -213,4 +215,11 @@ object GamificationUseCaseModule {
             sparTally = sparTally,
             unlockRepository = unlockRepository,
         )
+
+    @Provides
+    fun provideWearGearUseCase(
+        petRepository: PetRepository,
+        unlockRepository: UnlockRepository,
+        loadoutRepository: LoadoutRepository,
+    ): WearGearUseCase = WearGearUseCase(petRepository, unlockRepository, loadoutRepository)
 }
