@@ -309,6 +309,15 @@ class BackupValidatorRangeTest {
                     collectedItem = d.collectedItem.map { it.copy(acquiredAt = v) },
                 )
             },
+            "pet_state.activity_started_at" to { d, v ->
+                d.copy(petState = d.petState.map { it.copy(activityStartedAt = v) })
+            },
+            "pet_state.activity_ends_at" to { d, v ->
+                d.copy(petState = d.petState.map { it.copy(activityEndsAt = v) })
+            },
+            "pet_state.updated_at" to { d, v ->
+                d.copy(petState = d.petState.map { it.copy(updatedAt = v) })
+            },
             "pet.hatched_at" to { d, v ->
                 d.copy(
                     pet = d.pet.map { it.copy(hatchedAt = v) },

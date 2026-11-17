@@ -123,4 +123,18 @@ sealed interface ChooseActivityResult {
 
     /** Not something the user starts from "What next": a spar has its own screen, and eating is a feed. */
     data object NotChoosable : ChooseActivityResult
+
+    /** There is no such pet. */
+    data object NotFound : ChooseActivityResult
 }
+
+/**
+ * What a write to the titan's state decided.
+ *
+ * @property state what to store, or null to store nothing.
+ * @property result what to hand back to the caller.
+ */
+data class TitanChange<R>(
+    val state: TitanState?,
+    val result: R,
+)

@@ -45,7 +45,8 @@ here that is not a change to those tests is a change nobody made.
   "achievement":           [ … ],
   "quest_completion":      [ … ],
   "collected_item":        [ … ],
-  "pet":                   [ … ]
+  "pet":                   [ … ],
+  "pet_state":             [ … ]
 }
 ```
 
@@ -240,7 +241,7 @@ holds one, and `BackupValidatorRangeTest` pins each range at both of its edges.
 | Columns | Accepted | What a value outside it did |
 | --- | --- | --- |
 | `id` of every table whose id is a rowid: `muscle_group`, `tag`, `exercise`, `workout_template`, `template_exercise`, `template_set`, `workout_session`, `session_exercise`, `workout_set`, `personal_record`, `body_measurement`, `collected_item`, `pet` | `1` to `9007199254740992` (2^53) | Zero is rewritten to a fresh id on insert and strands every reference to it. An in-progress session numbered below one is one the workout draft refuses to be built around. An id near `Long.MAX_VALUE` leaves `AUTOINCREMENT` nothing to assign, so every later insert fails with `SQLITE_FULL`, and the counter survives a restore's wipe; only "Delete all data" resets it. 2^53 is also the largest integer a reader that parses JSON numbers as doubles, `jq` among them, reads exactly. Every foreign key must resolve to one of these ids, so it is in range too |
-| `workout_session.completed_at`, `.last_active_at`, `.created_at`, `.updated_at`; `session_exercise.created_at`, `.updated_at`; `workout_set.completed_at`, `.created_at`, `.updated_at`; `personal_record.achieved_at`; `body_measurement.created_at`, `.updated_at`; `user_progress.last_counted_at`, `.protection_consumed_at`; `achievement.unlocked_at`; `quest_completion.period_start`, `.completed_at`; `collected_item.acquired_at`; `pet.hatched_at` | `0` to `253402300799999`, the epoch to the last millisecond of 9999, UTC | A session dated before 1970 opened the all-time chart on its day, and the chart allocated a bucket for every week since: at −10^17 ms that is millions of them. `0` stays accepted because it is the placeholder `completed_at` of a planned set |
+| `workout_session.completed_at`, `.last_active_at`, `.created_at`, `.updated_at`; `session_exercise.created_at`, `.updated_at`; `workout_set.completed_at`, `.created_at`, `.updated_at`; `personal_record.achieved_at`; `body_measurement.created_at`, `.updated_at`; `user_progress.last_counted_at`, `.protection_consumed_at`; `achievement.unlocked_at`; `quest_completion.period_start`, `.completed_at`; `collected_item.acquired_at`; `pet.hatched_at`; `pet_state.activity_started_at`, `.activity_ends_at`, `.updated_at` | `0` to `253402300799999`, the epoch to the last millisecond of 9999, UTC | A session dated before 1970 opened the all-time chart on its day, and the chart allocated a bucket for every week since: at −10^17 ms that is millions of them. `0` stays accepted because it is the placeholder `completed_at` of a planned set |
 | `workout_set.set_number`, `template_set.set_number` | `1` and up | Sets are numbered from 1; a set numbered 0 is one no screen can show as "set 0 of 3" |
 | `workout_set.rpe` | `null`, or `10` to `100` | The scale is RPE 1 to 10 in tenths, and it does not move |
 | `workout_session.is_in_progress` | `1` on at most one row | The app holds one session in progress at a time and an export only ever carries the one it had. A second restored one stayed open for good: resume picks one, and the other is never finished or counted |
@@ -248,7 +249,7 @@ holds one, and `BackupValidatorRangeTest` pins each range at both of its edges.
 
 ### What is repaired rather than refused
 
-Three kinds of value are brought back into range on the way in, because refusing the whole file
+Four kinds of value are brought back into range on the way in, because refusing the whole file
 over them would trade a training history for a figure the app can recompute:
 
 - **`user_progress`**, which the XP header, the quest log, the streak step and every XP award
@@ -264,6 +265,9 @@ over them would trade a training history for a figure the app can recompute:
   that fails the naming rule (blank, over 24 characters, or holding a control character) becomes
   `null`; one with surrounding whitespace is trimmed. `PetMapper.repaired` does it, and every
   reader applies it again.
+- **`pet_state`**: `fuel`, `energy` and `spirit` are clamped into `0` to `100`. An `activity` or
+  `resume_activity` this build does not know is kept as written and read as idle; a moment in
+  the future is pulled back to now by the reader, which is the one that knows what now is.
 - **The settings**, per the next section: a `default_rest_duration_seconds` past one day, and a
   `bar_weight_milligrams` or `custom_increment_milligrams` past ten tonnes, read back as the
   default.
@@ -303,7 +307,7 @@ every other one.**
 | `schema_version` | Shipped in | Changes |
 | --- | --- | --- |
 | 1 | the 1.0.0 release candidates | Initial format: 19 tables, plus `preferences` |
-| 2 | unreleased | The Titans milestone: adds `pet` and `session_pet_claim`. **Reads version 1** through `SchemaUpgrade`: the new arrays are empty, and anything a version 1 file claims under a key its version never had is dropped |
+| 2 | unreleased | The Titans milestone: adds `pet`, `pet_state` and `session_pet_claim`. **Reads version 1** through `SchemaUpgrade`: the new arrays are empty, and anything a version 1 file claims under a key its version never had is dropped |
 
 Version 1 has been amended once in place, while unreleased, in a way the rule below would
 otherwise call a bump: the streak moved from sessions to weeks, `user_progress` gained
@@ -387,7 +391,7 @@ names the file in the provider's words, stripped of control and direction-overri
 
 ```sh
 jq empty export.json                                    # it parses
-jq 'keys_unsorted' export.json                          # the envelope, then the 21 tables
+jq 'keys_unsorted' export.json                          # the envelope, then the 22 tables
 jq '.workout_set | length' export.json                  # how many sets it carries
 jq '.schema_version' export.json                        # which reader will accept it
 jq '.workout_set[0] | keys_unsorted' export.json         # a row's columns, in the table's order

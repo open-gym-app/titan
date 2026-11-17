@@ -59,6 +59,33 @@ object TitanRules {
     fun starting(now: Long): TitanState = start(TitanVitals.START, TitanActivity.IDLE, at = now, resume = null)
 
     /**
+     * [state] as read from storage, made safe to advance at [now].
+     *
+     * The reader's half of #256's rule. A moment in the future — a clock that was ahead, a
+     * hand-edited file — is pulled back to [now], and an activity cannot be due to end later than
+     * its own duration after it began, so a hostile `ends_at` cannot freeze the titan for years.
+     */
+    fun repaired(
+        state: TitanState,
+        now: Long,
+    ): TitanState {
+        val startedAt = state.startedAt.coerceAtMost(now)
+        val longest = state.activity.duration?.inWholeMilliseconds
+        return state.copy(
+            startedAt = startedAt,
+            endsAt = if (longest == null) {
+                null
+            } else {
+                (state.endsAt ?: (startedAt + longest)).coerceIn(
+                    startedAt,
+                    startedAt + longest,
+                )
+            },
+            updatedAt = state.updatedAt.coerceIn(startedAt, now),
+        )
+    }
+
+    /**
      * The single vital to raise an alert for: the **lowest**, and only if it is low.
      *
      * Ties resolve in [TitanVital]'s declaration order — fuel, then energy, then spirit — which
