@@ -2,9 +2,18 @@ package com.titan.core.data.db
 
 import androidx.paging.PagingConfig
 import androidx.paging.testing.TestPager
+import com.titan.core.domain.importer.HistoryImportProgress
+import com.titan.core.domain.importer.ImportedExercise
+import com.titan.core.domain.importer.ImportedHistory
+import com.titan.core.domain.importer.ImportedSet
+import com.titan.core.domain.importer.ImportedWorkout
+import com.titan.core.domain.importer.ImportedWorkoutExercise
+import com.titan.core.domain.time.Clock
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 import kotlin.time.measureTime
@@ -70,6 +79,8 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
         /** What [CALIBRATION_SQL] measures on the machine the budgets above describe. */
         const val CALIBRATION_REFERENCE_MS = 25.0
 
+        const val DAY_MILLIS = 86_400_000L
+
         /**
          * How many times a query may try to come in under its budget. The calibration follows
          * sustained load; a spike that lands on the query alone is what the other attempts are
@@ -78,6 +89,25 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
         const val MAX_ATTEMPTS = 3
 
         const val PAGE_SIZE = 20
+
+        /**
+         * A month's volume, which the quest board asks for after every replayed workout of an
+         * import. It runs from the sessions in range and reaches their sets by foreign key, so
+         * it measures under a millisecond at [STRESS_SCALE]; started from the `is_completed`
+         * index instead it measures ~40 ms there, which is what this holds it away from.
+         */
+        const val PERIOD_VOLUME_BUDGET_MS = 8L
+
+        /** How many workouts the import benchmark replays on top of the stress history. */
+        const val IMPORTED_WORKOUTS = 1_000
+
+        /**
+         * What replaying one workout costs on the reference machine, with the stress history
+         * already on the device. It measures ~8 ms with the period queries as they are, and
+         * ~32 ms when one of them scans every set, so the budget sits between the two. A
+         * coarse backstop: the query-level budgets above name the query that regressed.
+         */
+        const val IMPORT_BUDGET_MS_PER_WORKOUT = 15L
 
         /**
          * An exclusive end day past the last session [spec] seeds, for the range
@@ -219,6 +249,11 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
                 db.exerciseDao().getAllMuscleGroupLinks().first()
             }
 
+            // The quest board's month of volume, once per replayed workout during an import.
+            assertUnder("getVolumeIn over a one-month range", PERIOD_VOLUME_BUDGET_MS) {
+                db.workoutSetDao().getVolumeIn(0, WorkoutHistoryFixture.sessionEpochDay(30)).first()
+            }
+
             // The session recap's records and the session list's badges. The first is bounded by
             // one session's sets; the second joins every record to its session, so like the
             // headline it grows with `personal_record`.
@@ -228,6 +263,45 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
             assertUnder("observeSessionIdsWithRecords", STRESS_BUDGET_MS) {
                 db.personalRecordDao().observeSessionIdsWithRecords().first()
             }
+        }
+
+    @Test
+    fun `importing onto a large history costs about what it costs onto an empty one`(): Unit =
+        runBlocking {
+            seedHistory(STRESS_SCALE)
+            val firstDay = WorkoutHistoryFixture.sessionEpochDay(STRESS_SCALE.sessionCount) + 1
+            val bench = ImportedExercise(name = "bench press")
+            val history = ImportedHistory(
+                workouts = List(IMPORTED_WORKOUTS) { index ->
+                    ImportedWorkout(
+                        startedAt = (firstDay + index) * DAY_MILLIS,
+                        durationSeconds = 3_600,
+                        exercises = listOf(
+                            ImportedWorkoutExercise(
+                                bench,
+                                List(10) { set -> ImportedSet(reps = 5, weight = 100_000_000L + set) },
+                            ),
+                        ),
+                    )
+                },
+            )
+            val stack = HistoryImportStack(
+                db,
+                InMemoryUserPreferencesRepository(),
+                Clock { (firstDay + 2 * IMPORTED_WORKOUTS) * DAY_MILLIS },
+            )
+            warmUp()
+
+            val allowedMs = (IMPORT_BUDGET_MS_PER_WORKOUT * IMPORTED_WORKOUTS * machineSlowdown()).toLong()
+            val progress: List<HistoryImportProgress>
+            val elapsedMs = measureTime { progress = stack.importHistory(history).toList() }.inWholeMilliseconds
+            println(
+                "[benchmark] import of $IMPORTED_WORKOUTS workouts: ${elapsedMs}ms (budget ${allowedMs}ms on this machine now)",
+            )
+
+            // Guards the guard: a refused or duplicate-skipped import would be fast and prove nothing.
+            assertEquals(IMPORTED_WORKOUTS, (progress.last() as HistoryImportProgress.Complete).report.workoutsImported)
+            assertTrue("the import took ${elapsedMs}ms against ${allowedMs}ms", elapsedMs < allowedMs)
         }
 
     /**

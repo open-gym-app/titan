@@ -384,6 +384,14 @@ interface WorkoutSetDao {
      * no `GROUP BY`: one row back instead of one per week, and no summing in Kotlin of an
      * answer SQLite can state.
      *
+     * The `+` in `+ws.is_completed` is load-bearing. It stops SQLite using the `is_completed`
+     * index for that term: with no statistics the planner prefers it to `session_exercise_id`
+     * and walks every completed set on the device to find a month's worth, which is 20 ms at
+     * 50,000 sets and grows with the history. Without it the query starts from the sessions in
+     * range and reaches their sets through the foreign-key indexes, in under a millisecond. The
+     * quest board runs it once per replayed workout during an import, so the difference is
+     * the import's growth; `LargeHistoryBenchmarkTest` holds it.
+     *
      * A period with no lifting in it moved zero rather than an absent amount, and `TOTAL` says
      * so on its own: over no rows it is `0.0`, where `SUM` would be `NULL`. `getTrainingMillis`
      * answers zero for an empty period for the same reason.
@@ -394,7 +402,7 @@ interface WorkoutSetDao {
         FROM workout_set ws
         INNER JOIN session_exercise se ON ws.session_exercise_id = se.id
         INNER JOIN workout_session s ON s.id = se.session_id
-        WHERE ws.is_completed = 1
+        WHERE +ws.is_completed = 1
             AND s.is_in_progress = 0
             AND s.completed_at IS NOT NULL
             AND s.completed_at >= :startEpochDay * 86400000
