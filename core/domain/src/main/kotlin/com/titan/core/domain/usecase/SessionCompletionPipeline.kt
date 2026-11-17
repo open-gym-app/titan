@@ -263,7 +263,7 @@ class SessionCompletionPipeline(
         }
 
         val petGrowth: PetGrowth? = runStep(SessionProgressionStep.PET, failures) {
-            growPet(sessionId)
+            growPet(sessionId, finishedAt)
         }
 
         val unlocked = runStep(SessionProgressionStep.UNLOCKS, failures) {

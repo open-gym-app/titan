@@ -7,6 +7,7 @@ import com.titan.core.data.db.dao.PetDao
 import com.titan.core.data.db.dao.PetStateDao
 import com.titan.core.data.db.dao.PetUnlockDao
 import com.titan.core.data.db.dao.SessionPetClaimDao
+import com.titan.core.data.db.dao.SparDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -41,4 +42,8 @@ object TitanDaoModule {
     @Provides
     @Singleton
     fun provideLoadoutDao(db: TitanDatabase): LoadoutDao = db.loadoutDao()
+
+    @Provides
+    @Singleton
+    fun provideSparDao(db: TitanDatabase): SparDao = db.sparDao()
 }

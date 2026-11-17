@@ -1,11 +1,12 @@
 package com.titan.core.data.di
 
+import com.titan.core.data.repository.SparRepositoryImpl
 import com.titan.core.data.repository.UnlockRepositoryImpl
+import com.titan.core.domain.repository.SparRepository
 import com.titan.core.domain.repository.SparTally
 import com.titan.core.domain.repository.UnlockRepository
 import dagger.Binds
 import dagger.Module
-import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
@@ -18,10 +19,11 @@ abstract class UnlockModule {
     @Singleton
     abstract fun bindUnlockRepository(impl: UnlockRepositoryImpl): UnlockRepository
 
-    companion object {
+    @Binds
+    @Singleton
+    abstract fun bindSparRepository(impl: SparRepositoryImpl): SparRepository
 
-        /** No spar has been fought yet: the spar (#292) is what counts them. */
-        @Provides
-        fun provideSparTally(): SparTally = SparTally { 0 }
-    }
+    /** Spars won are counted by the bouts the spar records. */
+    @Binds
+    abstract fun bindSparTally(impl: SparRepositoryImpl): SparTally
 }

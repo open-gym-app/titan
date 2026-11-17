@@ -72,6 +72,8 @@ data class ExportDocument(
     @SerialName("pet") val pet: List<PetRow> = emptyList(),
     @SerialName("pet_state") val petState: List<PetStateRow> = emptyList(),
     @SerialName("pet_loadout") val petLoadout: List<PetLoadoutRow> = emptyList(),
+    @SerialName("pet_power_snapshot") val petPowerSnapshot: List<PetPowerSnapshotRow> = emptyList(),
+    @SerialName("pet_spar") val petSpar: List<PetSparRow> = emptyList(),
     @SerialName("pet_feed") val petFeed: List<PetFeedRow> = emptyList(),
     @SerialName("food_seen") val foodSeen: List<FoodSeenRow> = emptyList(),
     @SerialName("pet_unlock") val petUnlock: List<PetUnlockRow> = emptyList(),
@@ -110,6 +112,8 @@ data class ExportDocument(
             BackupTable.PET -> pet
             BackupTable.PET_STATE -> petState
             BackupTable.PET_LOADOUT -> petLoadout
+            BackupTable.PET_POWER_SNAPSHOT -> petPowerSnapshot
+            BackupTable.PET_SPAR -> petSpar
             BackupTable.PET_FEED -> petFeed
             BackupTable.FOOD_SEEN -> foodSeen
             BackupTable.PET_UNLOCK -> petUnlock
@@ -131,7 +135,8 @@ data class ExportDocument(
          * restoring, an up-converter listed there; until one is written, a reader refuses
          * every version but its own, older ones included.
          *
-         * Version 2 added the Titans milestone's tables: `pet`, `pet_state`, `pet_loadout`, `pet_feed`,
+         * Version 2 added the Titans milestone's tables: `pet`, `pet_state`, `pet_loadout`,
+         * `pet_power_snapshot`, `pet_spar`, `pet_feed`,
          * `food_seen`, `pet_unlock` and `session_pet_claim`. A version 1 file still restores, through
          * [com.titan.core.domain.backup.SchemaUpgrade].
          */

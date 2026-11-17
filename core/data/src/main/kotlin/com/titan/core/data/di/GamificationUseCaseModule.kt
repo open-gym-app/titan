@@ -11,6 +11,7 @@ import com.titan.core.domain.repository.PetRepository
 import com.titan.core.domain.repository.ProgressionRepository
 import com.titan.core.domain.repository.QuestRepository
 import com.titan.core.domain.repository.SessionRepository
+import com.titan.core.domain.repository.SparRepository
 import com.titan.core.domain.repository.SparTally
 import com.titan.core.domain.repository.TitanStateRepository
 import com.titan.core.domain.repository.UnlockRepository
@@ -28,6 +29,7 @@ import com.titan.core.domain.usecase.PrDetectionUseCase
 import com.titan.core.domain.usecase.QuestCompletionUseCase
 import com.titan.core.domain.usecase.QuestProgressUseCase
 import com.titan.core.domain.usecase.SessionCompletionPipeline
+import com.titan.core.domain.usecase.SparUseCase
 import com.titan.core.domain.usecase.WearGearUseCase
 import dagger.Module
 import dagger.Provides
@@ -222,4 +224,23 @@ object GamificationUseCaseModule {
         unlockRepository: UnlockRepository,
         loadoutRepository: LoadoutRepository,
     ): WearGearUseCase = WearGearUseCase(petRepository, unlockRepository, loadoutRepository)
+
+    /** On the real random source, and the graph's clock so a pinned "now" picks the same rivals. */
+    @Provides
+    fun provideSparUseCase(
+        petRepository: PetRepository,
+        sparRepository: SparRepository,
+        titanStateRepository: TitanStateRepository,
+        unlockRepository: UnlockRepository,
+        evaluateUnlocks: EvaluateUnlocksUseCase,
+        clock: Clock,
+    ): SparUseCase =
+        SparUseCase(
+            petRepository = petRepository,
+            sparRepository = sparRepository,
+            titanStateRepository = titanStateRepository,
+            unlockRepository = unlockRepository,
+            evaluateUnlocks = evaluateUnlocks,
+            clock = clock,
+        )
 }
