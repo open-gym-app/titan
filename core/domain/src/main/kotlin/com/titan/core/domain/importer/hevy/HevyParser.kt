@@ -10,6 +10,7 @@ import com.titan.core.domain.importer.ImportedSet
 import com.titan.core.domain.importer.ImportedWorkout
 import com.titan.core.domain.importer.ImportedWorkoutExercise
 import com.titan.core.domain.importer.ParseResult
+import com.titan.core.domain.importer.RecordReading
 import com.titan.core.domain.importer.SourceDistanceUnit
 import com.titan.core.domain.importer.SourceLengthUnit
 import com.titan.core.domain.importer.SourceValues
@@ -17,7 +18,7 @@ import com.titan.core.domain.importer.SourceWeightUnit
 import com.titan.core.domain.importer.SuffixedExerciseNames
 import com.titan.core.domain.importer.csv.CsvHeader
 import com.titan.core.domain.importer.csv.CsvReader
-import com.titan.core.domain.importer.csv.MalformedCsvException
+import com.titan.core.domain.importer.readAll
 import com.titan.core.domain.model.BodyMeasurement
 import com.titan.core.domain.model.SetType
 import java.util.Locale
@@ -110,25 +111,8 @@ class HevyParser : HistoryParser {
                 WorkoutLayout.of(header)?.let { WorkoutReading(it, context) }
                     ?: MeasurementLayout.of(header)?.let { MeasurementReading(it, context) }
             }
-            if (reading == null) {
-                ParseResult.NotRecognised
-            } else {
-                try {
-                    reader.records().forEach(reading::read)
-                    reading.result()
-                } catch (failure: MalformedCsvException) {
-                    ParseResult.Malformed(failure.message.orEmpty())
-                }
-            }
+            reading?.readAll(reader) ?: ParseResult.NotRecognised
         }
-}
-
-/** One pass over an export's rows. */
-private interface HevyReading {
-
-    fun read(record: List<String>)
-
-    fun result(): ParseResult
 }
 
 /** A column whose name says the unit of the figures in it, and that unit. */
@@ -166,9 +150,6 @@ private fun milligrams(figure: Pair<String, SourceWeightUnit>): Long? =
 /** A distance figure and its unit, in centimetres; null when the figure is not a number. */
 private fun centimetres(figure: Pair<String, SourceDistanceUnit>): Long? =
     SourceValues.decimal(figure.first)?.let(figure.second::toCentimetres)
-
-/** Whether [text] is there and is not a number. */
-private fun unreadable(text: String?): Boolean = text != null && SourceValues.decimal(text) == null
 
 // ---------------------------------------------------------------------------------- workouts
 
@@ -210,7 +191,7 @@ private class WorkoutLayout(
 private class WorkoutReading(
     private val layout: WorkoutLayout,
     private val context: ImportContext,
-) : HevyReading {
+) : RecordReading {
 
     private val names = SuffixedExerciseNames(HEVY_CATALOGUE_NAMES)
     private val exercises = HashMap<String, ImportedExercise>()
@@ -441,7 +422,7 @@ private enum class Site(vararg val columns: String) {
 private class MeasurementReading(
     private val layout: MeasurementLayout,
     private val context: ImportContext,
-) : HevyReading {
+) : RecordReading {
 
     private val measurements = mutableListOf<BodyMeasurement>()
     private var rows = 0
@@ -460,7 +441,8 @@ private class MeasurementReading(
             figures.isEmpty() -> return
 
             // The planner refuses an entry that records nothing, and counts it.
-            figures.any(::unreadable) -> measurements += BodyMeasurement(createdAt = takenAt, updatedAt = takenAt)
+            figures.any(SourceValues::isUnreadableDecimal) ->
+                measurements += BodyMeasurement(createdAt = takenAt, updatedAt = takenAt)
 
             else -> measurements += measurement(takenAt, weight, bodyFat, sites)
         }

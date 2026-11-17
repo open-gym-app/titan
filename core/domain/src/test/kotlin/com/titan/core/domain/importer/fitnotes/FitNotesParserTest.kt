@@ -235,6 +235,18 @@ class FitNotesParserTest {
     }
 
     @Test
+    fun `a split name on a row with a bad figure is still put back together, and its set counted`() {
+        val csv = header +
+            "2026-10-05,Curl, EZ Bar,Biceps,heavy,kgs,10,,,,\"\"\n" +
+            "2026-10-05,Run, Easy,Cardio,,,,5.0,leagues,0:30:00,\"\"\n" +
+            "2026-10-05,Row, Easy,Cardio,,,,5.0,km,a while,\"\"\n"
+
+        val workout = parsedText(csv).workouts.single()
+        assertEquals(listOf("Curl, EZ Bar", "Run, Easy", "Row, Easy"), workout.names())
+        assertTrue(workout.exercises.all { it.sets == listOf(ImportedSet()) })
+    }
+
+    @Test
     fun `the rows of one day are one workout wherever they are, whichever separator the date has`() {
         val csv = header +
             "2026-10-05,Deadlift,Back,140.0,kgs,3,,,,\"\"\n" +
@@ -340,8 +352,44 @@ class FitNotesParserTest {
     }
 
     @Test
+    fun `an iOS note split at its unquoted comma is put back together, and so is a name`() {
+        val csv = "Date,Exercise,Category,Weight (kg),Weight (lbs),Reps,Distance,Distance Unit,Time,Notes,Kind\n" +
+            "2026-09-01,Bench Press,Chest,80,,5,,,,Paused, slow,wr\n" +
+            "2026-09-01,Bench Press,Chest,80,,5,,,,5, then a drop,wr\n" +
+            "2026-09-01,Treadmill Walk,Cardio,,,,1.5,mi,25:00,Easy, flat,dt\n" +
+            "2026-09-01,Curl, EZ Bar,Biceps,30,,10,,,,,wr\n"
+
+        val workout = parsedText(csv).workouts.single()
+        assertEquals(listOf("Bench Press", "Treadmill Walk", "Curl, EZ Bar"), workout.names())
+        assertEquals(
+            listOf(
+                ImportedSet(reps = 5, weight = 80_000_000, notes = "Paused, slow"),
+                ImportedSet(reps = 5, weight = 80_000_000, notes = "5, then a drop"),
+            ),
+            workout.line(0).sets,
+        )
+        val walk = ImportedSet(duration = 1_500, distance = 241_402, notes = "Easy, flat")
+        assertEquals(listOf(walk), workout.line(1).sets)
+        assertEquals(listOf(ImportedSet(reps = 10, weight = 30_000_000)), workout.line(2).sets)
+    }
+
+    @Test
+    fun `a zero in Reps counts no reps, so a timed cardio row is still endurance`() {
+        val csv = header + "2026-10-07,Jump Rope,Cardio,0.0,kgs,0,,,0:10:00,\"\"\n"
+
+        assertEquals(ExerciseType.ENDURANCE, parsedText(csv).workouts.single().line(0).exercise.type)
+    }
+
+    @Test
     fun `an assisted exercise keeps its reps and drops the assistance`() {
         val csv = header + "2026-10-05,Pull Up (Assisted),Back,25.0,kgs,8,,,,\"\"\n"
+
+        assertEquals(listOf(ImportedSet(reps = 8)), parsedText(csv).workouts.single().line(0).sets)
+    }
+
+    @Test
+    fun `an assisted exercise's assistance is never read, so one that does not read costs nothing`() {
+        val csv = header + "2026-10-05,Pull Up (Assisted),Back,a band,stone,8,,,,\"\"\n"
 
         assertEquals(listOf(ImportedSet(reps = 8)), parsedText(csv).workouts.single().line(0).sets)
     }
