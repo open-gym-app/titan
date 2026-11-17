@@ -1,0 +1,3 @@
+Date (yyyy/mm/dd);Workout;Workout Name;Program Name;Body Weight (KG);Exercise;Sets×Reps;Sets×Time;Top Set (Reps×KG);e1RM (KG);Reps;Volume (KG);Workout Volume (KG);Duration (hours);Start Time (h:mm);End Time (h:mm);Notes;Set 1 (Reps);Set 1 (KG);Set 2 (Reps);Set 2 (KG);Set 3 (Reps);Set 3 (KG)
+2026/10/12;7;"Workout A";"Stronglifts 5×5";80,5;"Squat";3×5;;5×62,5;72,9;15;937,5;1462,5;1,25;18:30;19:45;"";5;62,5;5;62,5;5;62,5
+2026/10/12;7;"Workout A";"Stronglifts 5×5";80,5;"Bench Press";3×5;;5×42,5;49,6;15;525;1462,5;1,25;18:30;19:45;"";5;42,5;5;35;4;35
