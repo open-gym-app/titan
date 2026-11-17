@@ -474,7 +474,7 @@
     <string name="import_try_again">Intentar de nuevo</string>
     <string name="import_choose_another_app">Elegir otra app</string>
     <string name="import_interrupted_title">La importación no terminó</string>
-    <string name="import_interrupted_body">Titan se cerró mientras importaba desde %1$s, así que no se importó nada. Puedes volver a hacerlo con el mismo archivo.</string>
+    <string name="import_interrupted_body">Titan se cerró mientras importaba desde %1$s, antes de terminar. Lo que no se había guardado quedó fuera; volver a hacerlo con el mismo archivo es seguro y solo añade lo que falta.</string>
     <string name="import_run_again">Volver a importar</string>
     <string name="import_not_now">Ahora no</string>
     <string name="import_stopped_title">Importación detenida</string>

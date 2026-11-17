@@ -251,7 +251,7 @@ date something at midnight, put `00:00` in `workout_time` or give the date its o
 | A set whose reps, weight, duration or distance is not a number, or whose unit is not one Titan reads | The set is skipped and counted in the import's report |
 | An RPE, a heart rate, a rest, calories or a rating that is not a number | Left out; the set or workout is kept |
 | A set Titan does not allow, such as a thousand-tonne squat | The set is skipped and counted, as for any import |
-| An RPE outside 1 to 10, a rating outside 1 to 5 | Left out; the set or workout is kept |
+| An RPE outside 1 to 10, a heart rate outside 1 to 300, a rest longer than a day, a rating outside 1 to 5 | Left out; the set or workout is kept |
 | No row with a date and an exercise that read | The file is refused |
 | A quote that is never closed | The file is refused, naming the line |
 

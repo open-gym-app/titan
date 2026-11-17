@@ -247,6 +247,37 @@ class ImportPlannerTest {
     }
 
     @Test
+    fun `a rest or a heart rate past the validator's ceiling is left out and the set is kept`() {
+        val set = plan(
+            ImportedHistory(
+                workouts = listOf(
+                    workout(
+                        exercises = arrayOf(
+                            line(
+                                importedBench,
+                                ImportedSet(
+                                    reps = 8,
+                                    restAfter = SetValidator.REST_MAX_SECONDS + 1,
+                                    heartRateAvg = 1_450,
+                                    heartRateMax = SetValidator.HEART_RATE_MAX_BPM,
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ).let { plan ->
+            assertEquals(0, plan.skipped.invalidSets)
+            plan.workouts.single().exercises.single().sets.single()
+        }
+
+        assertEquals(8, set.reps)
+        assertNull(set.restAfter)
+        assertNull(set.heartRateAvg)
+        assertEquals(SetValidator.HEART_RATE_MAX_BPM, set.heartRateMax)
+    }
+
+    @Test
     fun `a zero weight is a bodyweight set on a lift and no weight at all on a run`() {
         val exercises = plan(
             ImportedHistory(

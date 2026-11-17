@@ -214,10 +214,10 @@ internal object HistoryImportWork {
     /**
      * What [info] — the import's work, or null when there is none — means to the screen.
      *
-     * @param runsHere whether an import worker is running in this process right now. WorkManager
-     *   writes `RUNNING` before the worker starts and nothing rewrites it when the process dies,
-     *   so a `RUNNING` record that has already published a phase, with no worker here to have
-     *   published it, belongs to a process that is gone: its transaction went with it. That is
+     * @param runsHere whether [info]'s work started in this process. WorkManager writes
+     *   `RUNNING` before the worker starts and nothing rewrites it when the process dies, so a
+     *   `RUNNING` record that has already published a phase, with no worker here to have
+     *   published it, belongs to a process that is gone, and its import went with it. That is
      *   reported as [HistoryImportRun.Interrupted] at once, rather than as a bar frozen at
      *   whatever it last said until WorkManager gets round to re-running the work — which the
      *   worker then turns into the same answer.

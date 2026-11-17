@@ -147,7 +147,16 @@ class ImportViewModel @Inject constructor(
     }
 
     private fun start(request: HistoryImportRequest) {
-        screenState.update { it.copy(chosenSource = request.source, cancelledDuring = null, startFailed = false) }
+        // `confirmingCancel` too: a question left up when the last import ended under it must not
+        // pop up again over this one.
+        screenState.update {
+            it.copy(
+                chosenSource = request.source,
+                confirmingCancel = false,
+                cancelledDuring = null,
+                startFailed = false,
+            )
+        }
         viewModelScope.launch {
             // Broad: enqueueing is a platform call whose failures this build cannot enumerate,
             // and every one of them means the same to the user — the import did not start, and
@@ -173,7 +182,9 @@ class ImportViewModel @Inject constructor(
 
     /** Forgets how the last import ended and shows [thenShow]'s guide, or the list of apps. */
     private fun dismiss(thenShow: HistoryImportSource?) {
-        screenState.update { it.copy(chosenSource = thenShow, cancelledDuring = null, startFailed = false) }
+        screenState.update {
+            it.copy(chosenSource = thenShow, confirmingCancel = false, cancelledDuring = null, startFailed = false)
+        }
         viewModelScope.launch {
             runCatching { runner.dismiss() }.onFailure { if (it is CancellationException) throw it }
         }

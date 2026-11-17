@@ -70,7 +70,7 @@ sealed interface ImportStage {
 
     /**
      * The system stopped the last import before it finished — the app was closed part way.
-     * Nothing was written, and [request] can be run again as it was.
+     * What it had not saved was left out, and [request] can be run again as it was.
      */
     data class Interrupted(val request: HistoryImportRequest) : ImportStage
 

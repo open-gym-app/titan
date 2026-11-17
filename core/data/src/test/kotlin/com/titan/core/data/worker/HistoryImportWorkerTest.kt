@@ -18,17 +18,22 @@ import com.titan.core.data.db.HistoryImportStack
 import com.titan.core.data.db.InMemoryUserPreferencesRepository
 import com.titan.core.data.db.RoomTestBase
 import com.titan.core.data.importer.HistoryImportNotifications
+import com.titan.core.data.importer.HistoryImportWatchers
 import com.titan.core.data.importer.HistoryImportWork
-import com.titan.core.data.notification.AppForegroundState
 import com.titan.core.domain.importer.HistoryImportError
 import com.titan.core.domain.importer.HistoryImportProgress
 import com.titan.core.domain.importer.HistoryImportRequest
 import com.titan.core.domain.importer.HistoryImportSource
 import com.titan.core.domain.importer.HistoryParsers
 import com.titan.core.domain.time.Clock
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -54,7 +59,7 @@ class HistoryImportWorkerTest : RoomTestBase() {
     private val preferences = InMemoryUserPreferencesRepository()
     private val stack by lazy { HistoryImportStack(db, preferences, Clock { NOW }) }
     private val published = mutableListOf<HistoryImportProgress>()
-    private var inForeground = false
+    private val watchers = HistoryImportWatchers()
     private lateinit var documents: ImportDocumentsProvider
 
     @Before
@@ -68,6 +73,12 @@ class HistoryImportWorkerTest : RoomTestBase() {
             ImportDocumentsProvider::class.java,
             ImportDocumentsProvider.AUTHORITY,
         )
+    }
+
+    /** Closes the test WorkManager's database, which every `setUp` opens afresh. */
+    @After
+    fun closeWorkManager() {
+        WorkManagerTestInitHelper.closeWorkDatabase()
     }
 
     @Test
@@ -133,7 +144,7 @@ class HistoryImportWorkerTest : RoomTestBase() {
         }
 
     @Test
-    fun `an import that ends with the app in the background says so in a notification`() =
+    fun `an import that ends with nobody watching it says so in a notification`() =
         runBlocking {
             run(HistoryImportRequest(HistoryImportSource.STRONG, serve(STRONG_EXPORT)))
 
@@ -143,11 +154,17 @@ class HistoryImportWorkerTest : RoomTestBase() {
         }
 
     @Test
-    fun `an import that ends on screen leaves the screen to say it`() =
+    fun `an import that ends with its screen open leaves the screen to say it`() =
         runBlocking {
-            inForeground = true
-
-            run(HistoryImportRequest(HistoryImportSource.STRONG, serve(STRONG_EXPORT)))
+            // The screen's collection of the runner's flow, which is what the count is of.
+            val screen = launch(start = CoroutineStart.UNDISPATCHED) {
+                watchers.counting(MutableSharedFlow<Unit>()).collect()
+            }
+            try {
+                run(HistoryImportRequest(HistoryImportSource.STRONG, serve(STRONG_EXPORT)))
+            } finally {
+                screen.cancel()
+            }
 
             assertEquals(0, shadowOf(notificationManager()).allNotifications.size)
         }
@@ -197,9 +214,7 @@ class HistoryImportWorkerTest : RoomTestBase() {
                 parsers = HistoryParsers.SUPPORTED,
                 userPreferencesRepository = preferences,
                 notifications = HistoryImportNotifications(appContext),
-                foregroundState = object : AppForegroundState {
-                    override suspend fun isInForeground(): Boolean = inForeground
-                },
+                watchers = watchers,
                 // Unconfined, as in `BackupWorkerTest`: the work is blocking, and handing it the
                 // IO pool would only have the test wait on another thread.
                 ioDispatcher = Dispatchers.Unconfined,
