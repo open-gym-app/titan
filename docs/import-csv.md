@@ -212,6 +212,7 @@ centimetres, or pounds, miles and inches.
 | --- | --- |
 | `2026-11-02` | 2 November 2026, at noon (see [Workouts](#workouts)) |
 | `2026-11-02 18:30`, `2026-11-02T18:30:00` | 18:30 on that day, in your phone's time zone |
+| `2026-11-02 00:00`, `2026-11-02T00:00:00` | as `2026-11-02`: midnight is how a spreadsheet writes a day with no time |
 | `2026-11-02T18:30:00+01:00`, `2026-11-02T17:30:00Z` | that moment, wherever it was |
 | `2026/11/02` | as `2026-11-02` |
 
@@ -222,7 +223,10 @@ and `11/25/2026` only month first. A file whose dates never settle it, or settle
 has those dates unread. Write ISO dates to be sure.
 
 Times are 24-hour (`18:30`, `18:30:00`) or 12-hour (`6:30 PM`). A `workout_time` or
-`measurement_time` is used instead of any time in the date column.
+`measurement_time` is used instead of any time in the date column. Exactly midnight in the date
+column is read as no time, so a file saved again by a spreadsheet imports as it did before; to
+date something at midnight, put `00:00` in `workout_time` or give the date its offset
+(`2026-11-02T00:00:00+01:00`).
 
 ## What is not in the format
 

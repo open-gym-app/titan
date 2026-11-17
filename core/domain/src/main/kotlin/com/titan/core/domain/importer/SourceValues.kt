@@ -155,7 +155,17 @@ object SourceValues {
      * Whether [text] is there and is not a number [decimal] reads: a cell that was filled in with
      * something else, as opposed to one left blank.
      */
-    fun isUnreadableDecimal(text: String?): Boolean = text != null && decimal(text) == null
+    fun isUnreadableDecimal(text: String?): Boolean = isUnread(text, decimal(text))
+
+    /**
+     * Whether a cell held [cell] — its text, or what a parser made of the text first — and it did
+     * not read as a [value]: a figure that was filled in with something else, as opposed to one
+     * left blank. A set with one is passed on with nothing recorded, for the planner to count.
+     */
+    fun isUnread(
+        cell: Any?,
+        value: Any?,
+    ): Boolean = cell != null && value == null
 
     /**
      * [text] as an elapsed time, in whole seconds.

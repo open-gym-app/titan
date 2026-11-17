@@ -5,9 +5,9 @@ import com.titan.core.domain.importer.DayMonthOrder
 import com.titan.core.domain.importer.HistoryParser
 import com.titan.core.domain.importer.ImportContext
 import com.titan.core.domain.importer.ParseResult
-import com.titan.core.domain.importer.RecordReading
 import com.titan.core.domain.importer.SourceValues
 import com.titan.core.domain.importer.SuffixedExerciseNames
+import com.titan.core.domain.importer.WholeFile
 import com.titan.core.domain.importer.csv.CsvHeader
 import com.titan.core.domain.importer.csv.CsvReader
 import com.titan.core.domain.importer.readAll
@@ -117,24 +117,9 @@ class StrongLiftsParser : HistoryParser {
             when {
                 layout == null -> ParseResult.NotRecognised
                 problem != null -> ParseResult.Malformed(problem)
-                else -> WholeFile(layout).readAll(reader)
+                else -> WholeFile(layout::read).readAll(reader)
             }
         }
-
-    /**
-     * Holds every record until the last, then hands them to [layout] at once: a year-last date
-     * is read in the order the whole file proves, so no row can be read before every date has
-     * been seen.
-     */
-    private class WholeFile(private val layout: StrongLiftsLayout) : RecordReading {
-        private val records = mutableListOf<List<String>>()
-
-        override fun read(record: List<String>) {
-            records += record
-        }
-
-        override fun result(): ParseResult = layout.read(records)
-    }
 }
 
 /** One of the two layouts a StrongLifts export comes in, as its header describes it. */

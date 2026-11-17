@@ -99,6 +99,22 @@ internal interface RecordReading {
 }
 
 /**
+ * A [RecordReading] that holds every record until the last, then hands them all to [read] at
+ * once, for a format whose rows cannot be read before the whole file has been seen: a year-last
+ * date is read in the order the file's own dates prove, so no row can be read before every date
+ * has been.
+ */
+internal class WholeFile(private val read: (List<List<String>>) -> ParseResult) : RecordReading {
+    private val records = mutableListOf<List<String>>()
+
+    override fun read(record: List<String>) {
+        records += record
+    }
+
+    override fun result(): ParseResult = read(records)
+}
+
+/**
  * Feeds every record [reader] has left to [this] and answers its [RecordReading.result], or
  * [ParseResult.Malformed] naming the line when the CSV breaks in a way no row can be recovered
  * from.
