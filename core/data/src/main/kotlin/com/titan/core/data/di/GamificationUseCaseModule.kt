@@ -2,6 +2,7 @@ package com.titan.core.data.di
 
 import com.titan.core.domain.gamification.DropTableEvaluator
 import com.titan.core.domain.repository.CollectedItemRepository
+import com.titan.core.domain.repository.ExerciseRepository
 import com.titan.core.domain.repository.GamificationRepository
 import com.titan.core.domain.repository.PersonalRecordRepository
 import com.titan.core.domain.repository.PetRepository
@@ -12,6 +13,7 @@ import com.titan.core.domain.repository.UserPreferencesRepository
 import com.titan.core.domain.time.Clock
 import com.titan.core.domain.usecase.AchievementTriggerUseCase
 import com.titan.core.domain.usecase.AwardXpUseCase
+import com.titan.core.domain.usecase.GrowPetUseCase
 import com.titan.core.domain.usecase.HatchEggUseCase
 import com.titan.core.domain.usecase.LootRollUseCase
 import com.titan.core.domain.usecase.PrDetectionUseCase
@@ -126,6 +128,7 @@ object GamificationUseCaseModule {
         triggerAchievements: AchievementTriggerUseCase,
         completeQuests: QuestCompletionUseCase,
         rollLoot: LootRollUseCase,
+        growPet: GrowPetUseCase,
         sessionRepository: SessionRepository,
         personalRecordRepository: PersonalRecordRepository,
         gamificationRepository: GamificationRepository,
@@ -137,10 +140,25 @@ object GamificationUseCaseModule {
             triggerAchievements = triggerAchievements,
             completeQuests = completeQuests,
             rollLoot = rollLoot,
+            growPet = growPet,
             sessionRepository = sessionRepository,
             personalRecordRepository = personalRecordRepository,
             gamificationRepository = gamificationRepository,
             userPreferencesRepository = userPreferencesRepository,
+        )
+
+    @Provides
+    fun provideGrowPetUseCase(
+        sessionRepository: SessionRepository,
+        exerciseRepository: ExerciseRepository,
+        petRepository: PetRepository,
+        gamificationRepository: GamificationRepository,
+    ): GrowPetUseCase =
+        GrowPetUseCase(
+            sessionRepository = sessionRepository,
+            exerciseRepository = exerciseRepository,
+            petRepository = petRepository,
+            gamificationRepository = gamificationRepository,
         )
 
     /**

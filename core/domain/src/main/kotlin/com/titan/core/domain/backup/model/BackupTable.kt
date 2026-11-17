@@ -72,6 +72,9 @@ enum class BackupTable(val tableName: String) {
     /** Needs `workout_session`. The same fence over the drop-table roll. */
     SESSION_LOOT_CLAIM("session_loot_claim"),
 
+    /** Needs `workout_session`. The same fence again, over the active pet's growth. */
+    SESSION_PET_CLAIM("session_pet_claim"),
+
     /** Points at nothing. Exactly one row, or none at all. */
     USER_PROGRESS("user_progress"),
 

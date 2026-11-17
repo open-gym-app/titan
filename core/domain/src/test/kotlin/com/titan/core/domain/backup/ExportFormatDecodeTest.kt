@@ -388,7 +388,7 @@ class ExportFormatDecodeTest {
 
     @Test
     fun `a version 1 document restores as this version, with the tables it never had empty`() {
-        val versionOne = sampleDocument().copy(pet = emptyList())
+        val versionOne = sampleDocument().copy(sessionPetClaim = emptyList(), pet = emptyList())
 
         val decoded = ExportFormat.decode(source(documentAtVersion(1, versionOne)))
 
@@ -400,7 +400,10 @@ class ExportFormatDecodeTest {
         // A version 1 writer never wrote a `pet` key, so one found there was put there by hand.
         val decoded = ExportFormat.decode(source(documentAtVersion(1, sampleDocument())))
 
-        assertEquals(ExportFormat.Decoded.Success(sampleDocument().copy(pet = emptyList())), decoded)
+        assertEquals(
+            ExportFormat.Decoded.Success(sampleDocument().copy(sessionPetClaim = emptyList(), pet = emptyList())),
+            decoded,
+        )
     }
 
     private fun assertMalformed(decoded: ExportFormat.Decoded): ImportError.MalformedJson {

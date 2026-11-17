@@ -286,7 +286,7 @@ class BackupRoundTripTest : RoomTestBase() {
         }
 
     /**
-     * A file written before the Titans milestone: version 1, and no `pet` key at all. Everything
+     * A file written before the Titans milestone: version 1, and none of the keys version 2 added. Everything
      * it held comes back, and the tables its version never had are empty.
      */
     @Test
@@ -295,7 +295,9 @@ class BackupRoundTripTest : RoomTestBase() {
             db.seedEveryTable()
             val before = db.dumpEverything()
             val current = Json.parseToJsonElement(exportToText()).jsonObject
-            val versionOne = JsonObject(current.filterKeys { it != "pet" } + ("schema_version" to JsonPrimitive(1)))
+            val versionOne = JsonObject(
+                current.filterKeys { it !in VERSION_TWO_TABLES } + ("schema_version" to JsonPrimitive(1)),
+            )
 
             wipeEverything()
             val progress = import(source(versionOne.toString())).toList()
@@ -304,10 +306,11 @@ class BackupRoundTripTest : RoomTestBase() {
                 "expected the restore to complete, was ${progress.last()}",
                 progress.last() is ImportProgress.Complete,
             )
-            BackupTable.entries.filter { it != BackupTable.PET }.forEach { table ->
+            BackupTable.entries.filter { it.tableName !in VERSION_TWO_TABLES }.forEach { table ->
                 assertEquals("${table.tableName} did not restore", before.getValue(table), db.dumpTable(table))
             }
             assertTrue(db.dumpTable(BackupTable.PET).isEmpty())
+            assertTrue(db.dumpTable(BackupTable.SESSION_PET_CLAIM).isEmpty())
         }
 
     /**
@@ -459,6 +462,9 @@ class BackupRoundTripTest : RoomTestBase() {
     private companion object {
         const val EXPORTED_AT = 1_788_686_970_491L
         const val APP_VERSION = "1.0-debug"
+
+        /** The tables version 2 added, which a version 1 file has no key for. */
+        val VERSION_TWO_TABLES = setOf("pet", "session_pet_claim")
         val json = Json {
             encodeDefaults = true
             explicitNulls = true

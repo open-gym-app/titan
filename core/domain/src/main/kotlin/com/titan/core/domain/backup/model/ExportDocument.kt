@@ -64,6 +64,7 @@ data class ExportDocument(
     @SerialName("body_measurement") val bodyMeasurement: List<BodyMeasurementRow> = emptyList(),
     @SerialName("session_xp_claim") val sessionXpClaim: List<SessionXpClaimRow> = emptyList(),
     @SerialName("session_loot_claim") val sessionLootClaim: List<SessionLootClaimRow> = emptyList(),
+    @SerialName("session_pet_claim") val sessionPetClaim: List<SessionPetClaimRow> = emptyList(),
     @SerialName("user_progress") val userProgress: List<UserProgressRow> = emptyList(),
     @SerialName("achievement") val achievement: List<AchievementRow> = emptyList(),
     @SerialName("quest_completion") val questCompletion: List<QuestCompletionRow> = emptyList(),
@@ -96,6 +97,7 @@ data class ExportDocument(
             BackupTable.BODY_MEASUREMENT -> bodyMeasurement
             BackupTable.SESSION_XP_CLAIM -> sessionXpClaim
             BackupTable.SESSION_LOOT_CLAIM -> sessionLootClaim
+            BackupTable.SESSION_PET_CLAIM -> sessionPetClaim
             BackupTable.USER_PROGRESS -> userProgress
             BackupTable.ACHIEVEMENT -> achievement
             BackupTable.QUEST_COMPLETION -> questCompletion
@@ -119,7 +121,7 @@ data class ExportDocument(
          * restoring, an up-converter listed there; until one is written, a reader refuses
          * every version but its own, older ones included.
          *
-         * Version 2 added the `pet` table. A version 1 file still restores, through
+         * Version 2 added the Titans milestone's tables: `pet` and `session_pet_claim`. A version 1 file still restores, through
          * [com.titan.core.domain.backup.SchemaUpgrade].
          */
         const val SCHEMA_VERSION: Int = 2

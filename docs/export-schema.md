@@ -40,6 +40,7 @@ here that is not a change to those tests is a change nobody made.
   "body_measurement":      [ … ],
   "session_xp_claim":      [ … ],
   "session_loot_claim":    [ … ],
+  "session_pet_claim":     [ … ],
   "user_progress":         [ … ],
   "achievement":           [ … ],
   "quest_completion":      [ … ],
@@ -114,9 +115,9 @@ are recorded here so they are not re-litigated:
   and a restore that silently rewrites somebody's PR history is a worse failure than a slightly
   larger file. This is a deliberate departure from PERSISTENCE.md's note that an export *may*
   omit it.
-- **`session_xp_claim` and `session_loot_claim` are exported.** They are what makes the
+- **`session_xp_claim`, `session_loot_claim` and `session_pet_claim` are exported.** They are what makes the
   post-session cascade idempotent. Dropping them would let every restored session be paid XP
-  again and rolled for loot again the next time anything touched it. `BackupIdempotencyTest`
+  again, rolled for loot again and grow the active pet again the next time anything touched it. `BackupIdempotencyTest`
   runs the real cascade over a restored session and asserts it awards nothing — and, as a
   control, that deleting the claim rows makes it pay twice.
 - **`preferences` is exported**, and restored **last**. A restore is meant to reproduce a
@@ -302,7 +303,7 @@ every other one.**
 | `schema_version` | Shipped in | Changes |
 | --- | --- | --- |
 | 1 | the 1.0.0 release candidates | Initial format: 19 tables, plus `preferences` |
-| 2 | unreleased | The Titans milestone: adds `pet`. **Reads version 1** through `SchemaUpgrade`: the new arrays are empty, and anything a version 1 file claims under a key its version never had is dropped |
+| 2 | unreleased | The Titans milestone: adds `pet` and `session_pet_claim`. **Reads version 1** through `SchemaUpgrade`: the new arrays are empty, and anything a version 1 file claims under a key its version never had is dropped |
 
 Version 1 has been amended once in place, while unreleased, in a way the rule below would
 otherwise call a bump: the streak moved from sessions to weeks, `user_progress` gained
@@ -386,7 +387,7 @@ names the file in the provider's words, stripped of control and direction-overri
 
 ```sh
 jq empty export.json                                    # it parses
-jq 'keys_unsorted' export.json                          # the envelope, then the 20 tables
+jq 'keys_unsorted' export.json                          # the envelope, then the 21 tables
 jq '.workout_set | length' export.json                  # how many sets it carries
 jq '.schema_version' export.json                        # which reader will accept it
 jq '.workout_set[0] | keys_unsorted' export.json         # a row's columns, in the table's order

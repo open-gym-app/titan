@@ -243,6 +243,14 @@ data class SessionXpClaimRow(@SerialName("session_id") val sessionId: Long) : Ba
 data class SessionLootClaimRow(@SerialName("session_id") val sessionId: Long) : BackupRow
 
 /**
+ * A row of `session_pet_claim`: the marker that a session has already grown the active pet.
+ * Exported for the reason the other two claims are — without it a restored session would grow
+ * the pet again the next time its cascade ran.
+ */
+@Serializable
+data class SessionPetClaimRow(@SerialName("session_id") val sessionId: Long) : BackupRow
+
+/**
  * The single row of `user_progress`, or no row at all before the first XP award.
  *
  * [id] is carried even though it can only ever be `1`: the column exists, the table's `CHECK`

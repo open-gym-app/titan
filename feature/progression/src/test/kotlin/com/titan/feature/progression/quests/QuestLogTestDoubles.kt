@@ -56,6 +56,8 @@ class FakeGamificationReads : GamificationRepository {
 
     override suspend fun claimSessionLoot(sessionId: Long): Boolean = readOnly()
 
+    override suspend fun claimSessionPet(sessionId: Long): Boolean = readOnly()
+
     override suspend fun updateStreak(advance: (state: StreakState) -> StreakUpdate): StreakUpdate = readOnly()
 }
 

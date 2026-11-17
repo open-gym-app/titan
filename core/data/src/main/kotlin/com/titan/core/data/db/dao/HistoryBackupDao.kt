@@ -4,6 +4,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import com.titan.core.data.db.entity.SessionExerciseEntity
 import com.titan.core.data.db.entity.SessionLootClaimEntity
+import com.titan.core.data.db.entity.SessionPetClaimEntity
 import com.titan.core.data.db.entity.SessionXpClaimEntity
 import com.titan.core.data.db.entity.WorkoutSessionEntity
 import com.titan.core.data.db.entity.WorkoutSetEntity
@@ -78,4 +79,16 @@ interface HistoryBackupDao {
 
     @Query("DELETE FROM session_loot_claim")
     suspend fun deleteLootClaims()
+
+    @Query("SELECT * FROM session_pet_claim ORDER BY session_id LIMIT :limit OFFSET :offset")
+    suspend fun readPetClaims(
+        limit: Int,
+        offset: Int,
+    ): List<SessionPetClaimEntity>
+
+    @Insert
+    suspend fun insertPetClaims(rows: List<SessionPetClaimEntity>)
+
+    @Query("DELETE FROM session_pet_claim")
+    suspend fun deletePetClaims()
 }

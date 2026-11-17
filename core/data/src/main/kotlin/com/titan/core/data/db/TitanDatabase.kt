@@ -17,6 +17,7 @@ import com.titan.core.data.db.dao.PetDao
 import com.titan.core.data.db.dao.QuestCompletionDao
 import com.titan.core.data.db.dao.SessionExerciseDao
 import com.titan.core.data.db.dao.SessionLootClaimDao
+import com.titan.core.data.db.dao.SessionPetClaimDao
 import com.titan.core.data.db.dao.SessionXpClaimDao
 import com.titan.core.data.db.dao.TagDao
 import com.titan.core.data.db.dao.UserProgressDao
@@ -35,6 +36,7 @@ import com.titan.core.data.db.entity.PetEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
 import com.titan.core.data.db.entity.SessionExerciseEntity
 import com.titan.core.data.db.entity.SessionLootClaimEntity
+import com.titan.core.data.db.entity.SessionPetClaimEntity
 import com.titan.core.data.db.entity.SessionXpClaimEntity
 import com.titan.core.data.db.entity.TagEntity
 import com.titan.core.data.db.entity.TemplateExerciseEntity
@@ -66,6 +68,7 @@ import com.titan.core.data.db.entity.WorkoutTemplateEntity
         QuestCompletionEntity::class,
         CollectedItemEntity::class,
         PetEntity::class,
+        SessionPetClaimEntity::class,
     ],
     version = 2,
     exportSchema = true,
@@ -89,6 +92,7 @@ abstract class TitanDatabase : RoomDatabase() {
     abstract fun questCompletionDao(): QuestCompletionDao
     abstract fun collectedItemDao(): CollectedItemDao
     abstract fun petDao(): PetDao
+    abstract fun sessionPetClaimDao(): SessionPetClaimDao
 
     /**
      * Every table, whole, for export and import — see [BackupDao] for why backup gets a DAO of
@@ -171,6 +175,16 @@ abstract class TitanDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE UNIQUE INDEX IF NOT EXISTS `index_pet_hatched_from_item_id` " +
                         "ON `pet` (`hatched_from_item_id`)",
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `session_pet_claim` (
+                        `session_id` INTEGER NOT NULL,
+                        PRIMARY KEY(`session_id`),
+                        FOREIGN KEY(`session_id`) REFERENCES `workout_session`(`id`)
+                            ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent(),
                 )
             }
         }

@@ -68,6 +68,7 @@ class GamificationPersistenceTest {
             achievementDao = achievementDao(),
             sessionXpClaimDao = sessionXpClaimDao(),
             sessionLootClaimDao = sessionLootClaimDao(),
+            sessionPetClaimDao = sessionPetClaimDao(),
         )
 
     private fun TitanDatabase.inventory() = CollectedItemRepositoryImpl(collectedItemDao())
