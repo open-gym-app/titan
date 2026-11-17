@@ -64,6 +64,20 @@ class CsvReader(
         }
     }
 
+    /**
+     * The next record as a [CsvHeader] — the header, when nothing has been read yet — or null
+     * when there is none, including when it is not CSV at all: to a parser recognising its
+     * format, that is a file that is not an export rather than a broken one.
+     *
+     * @throws java.io.IOException if [reader] fails.
+     */
+    fun readHeader(): CsvHeader? =
+        try {
+            readRecord()?.let(::CsvHeader)
+        } catch (_: MalformedCsvException) {
+            null
+        }
+
     /** Every remaining record, read lazily. */
     fun records(): Sequence<List<String>> = generateSequence { readRecord() }
 

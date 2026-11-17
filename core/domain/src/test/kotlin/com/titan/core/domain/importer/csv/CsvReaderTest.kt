@@ -142,6 +142,15 @@ class CsvReaderTest {
         assertNull(CsvReader(StringReader("")).readRecord())
     }
 
+    @Test
+    fun `readHeader is the first record as a header, and null for no records or no CSV at all`() {
+        val reader = open("Date,Reps\n2024-01-01,5\n")
+
+        assertEquals("5", reader.readHeader()?.get(reader.readRecord()!!, "reps"))
+        assertNull(open("").readHeader())
+        assertNull(open("\"never closed\nDate,Reps\n").readHeader())
+    }
+
     // ------------------------------------------------------------------ header
 
     @Test

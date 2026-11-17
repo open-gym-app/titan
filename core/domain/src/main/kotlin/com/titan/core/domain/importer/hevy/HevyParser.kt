@@ -106,7 +106,7 @@ class HevyParser : HistoryParser {
     ): ParseResult =
         source.open().use { stream ->
             val reader = CsvReader.open(stream)
-            val reading = readHeader(reader)?.let { header ->
+            val reading = reader.readHeader()?.let { header ->
                 WorkoutLayout.of(header)?.let { WorkoutReading(it, context) }
                     ?: MeasurementLayout.of(header)?.let { MeasurementReading(it, context) }
             }
@@ -120,17 +120,6 @@ class HevyParser : HistoryParser {
                     ParseResult.Malformed(failure.message.orEmpty())
                 }
             }
-        }
-
-    /**
-     * The first record as a header, or null when there is none — including when it is not CSV
-     * at all, which is a file that is not an export rather than a broken one.
-     */
-    private fun readHeader(reader: CsvReader): CsvHeader? =
-        try {
-            reader.readRecord()?.let(::CsvHeader)
-        } catch (_: MalformedCsvException) {
-            null
         }
 }
 
@@ -241,7 +230,8 @@ private class WorkoutReading(
         }
         val workout = current ?: return
 
-        val setIndex = layout[record, SET_INDEX]?.toLongOrNull()
+        // Read as a number, not an integer, for the reason supersetGroup gives: a re-saved `1.0`.
+        val setIndex = SourceValues.decimal(layout[record, SET_INDEX])?.toLong()
         val superset = layout[record, SUPERSET_ID]
         val block = workout.blocks.lastOrNull()?.takeIf { it.continues(exerciseName, superset, setIndex) }
             ?: ExerciseDraft(
@@ -252,7 +242,7 @@ private class WorkoutReading(
             ).also(workout.blocks::add)
         block.lastSetIndex = setIndex ?: block.lastSetIndex
         block.note(layout[record, EXERCISE_NOTES])
-        block.sets += set(record, isAssisted(exerciseName))
+        block.sets += set(record, block.isAssisted)
     }
 
     override fun result(): ParseResult =
@@ -280,33 +270,41 @@ private class WorkoutReading(
     /**
      * The set [record] describes, or one with nothing recorded when a figure in it is not a
      * number: the planner refuses that and counts it, where dropping the row here would lose it
-     * without a word.
+     * without a word. An [assisted] exercise's weight is never recorded, so it cannot cost the
+     * set either.
      */
     private fun set(
         record: List<String>,
         assisted: Boolean,
     ): ImportedSet {
         val type = layout[record, SET_TYPE]?.lowercase(Locale.ROOT)?.let(SET_TYPES::get) ?: SetType.NORMAL
-        val weight = layout.weight(record)
-        val reps = layout[record, REPS]
-        val distance = layout.distance(record)
-        val seconds = layout[record, DURATION_SECONDS]
-        val unreadable = unreadable(weight?.first) || unreadable(reps) || unreadable(distance?.first) ||
-            (seconds != null && SourceValues.elapsedSeconds(seconds) == null)
+        val weightFigure = layout.weight(record).takeUnless { assisted }
+        val repsText = layout[record, REPS]
+        val distanceFigure = layout.distance(record)
+        val secondsText = layout[record, DURATION_SECONDS]
+        val weight = weightFigure?.let(::milligrams)
+        val reps = SourceValues.decimal(repsText)
+        val distance = distanceFigure?.let(::centimetres)
+        val seconds = SourceValues.elapsedSeconds(secondsText)
+        val unreadable = unread(weightFigure, weight) || unread(repsText, reps) ||
+            unread(distanceFigure, distance) || unread(secondsText, seconds)
         if (unreadable) return ImportedSet(setType = type)
 
         return ImportedSet(
             setType = type,
-            reps = SourceValues.decimal(reps)?.roundToInt(),
-            weight = weight?.takeUnless { assisted }?.let(::milligrams),
-            duration = SourceValues.elapsedSeconds(seconds),
-            distance = distance?.let(::centimetres),
+            reps = reps?.roundToInt(),
+            weight = weight,
+            duration = seconds,
+            distance = distance,
             rpe = SourceValues.decimal(layout[record, RPE])?.let { (it * RPE_SCALE).roundToInt() },
         )
     }
 
-    private fun isAssisted(exerciseName: String): Boolean =
-        SuffixedExerciseNames.isAssisted(exerciseName) || ExerciseMatcher.normalised(exerciseName) in BAND_ASSISTED
+    /** Whether a cell held [figure] that did not read as a [value]. */
+    private fun unread(
+        figure: Any?,
+        value: Any?,
+    ): Boolean = figure != null && value == null
 }
 
 /** What tells one workout's rows from the next one's. */
@@ -352,6 +350,13 @@ private class ExerciseDraft(
     val sets = mutableListOf<ImportedSet>()
     var lastSetIndex: Long? = null
     private val notes = LinkedHashSet<String>()
+
+    /**
+     * Whether the exercise's weight is the assistance rather than a load — see
+     * [SuffixedExerciseNames.isAssisted] and [BAND_ASSISTED] — worked out once, not per set.
+     */
+    val isAssisted: Boolean =
+        SuffixedExerciseNames.isAssisted(name) || ExerciseMatcher.normalised(name) in BAND_ASSISTED
 
     /**
      * Whether a row naming [exerciseName] in [superset] at [setIndex] is the next set of this

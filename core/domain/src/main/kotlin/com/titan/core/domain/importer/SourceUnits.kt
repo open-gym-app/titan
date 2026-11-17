@@ -7,6 +7,8 @@ import com.titan.core.domain.model.CENTIMETRES_PER_MILE
 import com.titan.core.domain.model.CENTIMETRES_PER_YARD
 import com.titan.core.domain.model.MILLIGRAMS_PER_KILOGRAM
 import com.titan.core.domain.model.MILLIGRAMS_PER_POUND
+import com.titan.core.domain.model.MILLIMETRES_PER_CENTIMETRE
+import com.titan.core.domain.model.MILLIMETRES_PER_INCH
 import com.titan.core.domain.model.UnitSystem
 import java.util.Locale
 import kotlin.math.roundToLong
@@ -170,8 +172,5 @@ enum class SourceLengthUnit(private val millimetres: Double) {
         fun parse(label: String): SourceLengthUnit? = LABELS[unitKey(label)]
     }
 }
-
-private const val MILLIMETRES_PER_CENTIMETRE = 10.0
-private const val MILLIMETRES_PER_INCH = 25.4
 
 private fun unitKey(label: String): String = label.trim().removeSuffix(".").trim().lowercase(Locale.ROOT)
