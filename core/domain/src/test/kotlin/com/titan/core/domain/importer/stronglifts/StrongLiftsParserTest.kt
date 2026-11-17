@@ -247,6 +247,19 @@ class StrongLiftsParserTest {
     }
 
     @Test
+    fun `a day's body weight is taken at its earliest workout, whatever order the rows come in`() {
+        val history = parsedText(
+            export(
+                "2026/09/03,2,Workout B,81.5,Squat,,,,18:00,18:45,,5,60,,",
+                "2026/09/03,1,Workout A,81,Squat,,,,07:30,08:15,,5,60,,",
+            ),
+        )
+
+        assertEquals(2, history.workouts.size)
+        assertEquals(listOf(weighIn(kg(81.0), millis("2026-09-03T07:30:00Z"))), history.bodyMeasurements)
+    }
+
+    @Test
     fun `exercises are mapped to the catalogue, the program's lifts with the bar their names leave out`() {
         val history = parsed("stronglifts-export.csv")
         val byName = history.exercises.associateBy { it.name }
@@ -555,6 +568,22 @@ class StrongLiftsParserTest {
         assertEquals(Int.MAX_VALUE, overflow.sets.single().reps)
         assertEquals(Long.MAX_VALUE, overflow.sets.single().weight)
         assertEquals(Long.MAX_VALUE, workout.durationSeconds)
+    }
+
+    @Test
+    fun `a long run of spaces in a header or a body weight is read or refused without holding up the file`() {
+        val spaces = " ".repeat(60_000)
+        val newer = parsedText(
+            export(
+                "2026/09/01,1,Workout A,80${spaces}kg,Squat,,,,,,,5,60,,",
+                "2026/09/02,2,Workout B,80${spaces}1,Squat,,,,,,,5,60,,",
+                columns = "$header,Comment${spaces}x,Set 3 ($spaces",
+            ),
+        )
+        val older = parsedText("$oldHeader,Weight (${spaces}x\n15/05/17,,A,65kg,Squat,60,135,5,5,5")
+
+        assertEquals(listOf(kg(80.0), null), newer.bodyMeasurements.map(BodyMeasurement::weight))
+        assertEquals(sets(3, reps = 5, weight = kg(60.0)), older.workouts.single().exercises.single().sets)
     }
 
     // ------------------------------------------------------------------ through the planner

@@ -48,7 +48,7 @@ internal class WorkoutRows private constructor(
         if (exercises.isEmpty()) return false
 
         history.bodyWeight(startedAt, bodyWeight, bodyWeightUnit)
-        val workout = history.workout(startedAt, workoutName(header[record, WORKOUT]), durationSeconds = null)
+        val workout = history.workout(startedAt, workoutName(header[record, WORKOUT])) { null }
         workout.note(SourceValues.note(header[record, NOTE]))
         exercises.forEach { (name, sets) -> workout.line(history.exercise(name), sets, rowNote = null) }
         return true
@@ -149,7 +149,7 @@ internal class WorkoutRows private constructor(
                 for (index in start + 1 until end) {
                     val weight = WEIGHT_COLUMN.matchEntire(columns[index])
                     if (weight != null) {
-                        weights += index - start to SourceWeightUnit.parse(weight.groupValues[1])
+                        weights += index - start to SourceWeightUnit.parse(weight.groupValues[1].trim())
                     } else {
                         sets += index - start
                     }
@@ -163,7 +163,7 @@ internal class WorkoutRows private constructor(
             written?.let { if (it.startsWith(WORKOUT, ignoreCase = true)) it else "$WORKOUT $it" }
 
         private val EXERCISE_COLUMN = Regex("Exercise\\s*\\d{1,3}", RegexOption.IGNORE_CASE)
-        private val WEIGHT_COLUMN = Regex("Weight\\s*\\(\\s*([^()]*?)\\s*\\)", RegexOption.IGNORE_CASE)
+        private val WEIGHT_COLUMN = Regex("Weight\\s*\\(([^()]*)\\)", RegexOption.IGNORE_CASE)
         private val SET_COLUMN = Regex("Set\\s*\\d{1,3}", RegexOption.IGNORE_CASE)
 
         private const val DATE = "Date"

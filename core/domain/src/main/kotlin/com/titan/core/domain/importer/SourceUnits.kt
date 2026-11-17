@@ -87,8 +87,12 @@ data class WeightFigure(
 
     companion object {
 
-        /** Everything up to the first letter, and the word that starts there. */
-        private val FIGURE = Regex("([^\\p{L}]*?)\\s*(\\p{L}[\\p{L}.]*)?")
+        /**
+         * Everything up to the first letter, and the word that starts there. The space between
+         * the two stays in the first group, which [SourceValues.decimal] trims: a separate `\s*`
+         * would overlap it and make a long run of spaces in a hostile cell quadratic to reject.
+         */
+        private val FIGURE = Regex("([^\\p{L}]*)(\\p{L}[\\p{L}.]*)?")
 
         /**
          * [text] as a figure and its unit, or null when it is blank, its number does not read as

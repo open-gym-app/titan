@@ -205,6 +205,18 @@ class CsvReaderTest {
     }
 
     @Test
+    fun `a qualified lookup reads the last parenthesis, and a long run of spaces does not hold it up`() {
+        val spaces = " ".repeat(100_000)
+        val columns = listOf("Weight${spaces}x", "e1RM  (KG)", "Weight (kg) (avg)", "Reps ($spaces lbs$spaces)")
+        val header = CsvHeader(columns)
+
+        assertEquals(QualifiedColumn("e1RM  (KG)", "KG"), header.qualified("e1rm"))
+        assertEquals(QualifiedColumn("Weight (kg) (avg)", "avg"), header.qualified("Weight (kg)"))
+        assertEquals("lbs", header.qualified("Reps")?.qualifier)
+        assertNull(header.qualified("Weight"))
+    }
+
+    @Test
     fun `a suffixed lookup finds every snake_case column with the name before the underscore`() {
         val header = CsvHeader(listOf("weight_kg", "reps", " Weight_LBS ", "weighted", "weight_", "distance_km"))
 

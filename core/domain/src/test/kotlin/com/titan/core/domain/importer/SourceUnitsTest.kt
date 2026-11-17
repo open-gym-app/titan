@@ -33,6 +33,9 @@ class SourceUnitsTest {
         assertEquals(WeightFigure(142.0, SourceWeightUnit.POUND), WeightFigure.parse("142 lbs."))
         assertEquals(WeightFigure(80.5, null), WeightFigure.parse("80,5"))
         assertEquals(WeightFigure(-5.0, null), WeightFigure.parse("-5"))
+        val spaces = " ".repeat(100_000)
+        assertEquals(WeightFigure(64.5, SourceWeightUnit.KILOGRAM), WeightFigure.parse("64.5${spaces}kg"))
+        assertNull(WeightFigure.parse("1${spaces}1kg"))
         listOf(null, "", "kg", "64.5 stone", "about 80kg", "64.5kg2").forEach { text ->
             assertNull(text, WeightFigure.parse(text))
         }

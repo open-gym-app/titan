@@ -19,10 +19,10 @@ import java.util.Locale
  *
  * So rather than one pattern per language, this reads the few shapes those dates come in and
  * looks the words up: a month in [MONTHS], from any of the languages, and a word beside a
- * 12-hour time as [SourceValues.timeOfDay] reads it. A month word is never two different months in any pair of
- * languages, so nothing has to know which language a file is in, and a file in a language with
- * the same shapes and different words fails on the word, not on a guess. An ISO date, as a
- * spreadsheet re-saves one, is read by [SourceValues.localTimestamp].
+ * 12-hour time as [SourceValues.timeOfDay] reads it. A month word is never two different months
+ * in any pair of languages, so nothing has to know which language a file is in, and a file in a
+ * language with the same shapes and different words fails on the word, not on a guess. An ISO
+ * date, as a spreadsheet re-saves one, is read by [SourceValues.localTimestamp].
  *
  * A date with its year last and slashes between numbers (`03/12/2023`) is refused: Hevy never
  * writes one, and whether it is the third of December or the twelfth of March is not something

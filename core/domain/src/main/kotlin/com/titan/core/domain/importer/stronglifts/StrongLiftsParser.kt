@@ -5,11 +5,12 @@ import com.titan.core.domain.importer.DayMonthOrder
 import com.titan.core.domain.importer.HistoryParser
 import com.titan.core.domain.importer.ImportContext
 import com.titan.core.domain.importer.ParseResult
+import com.titan.core.domain.importer.RecordReading
 import com.titan.core.domain.importer.SourceValues
 import com.titan.core.domain.importer.SuffixedExerciseNames
 import com.titan.core.domain.importer.csv.CsvHeader
 import com.titan.core.domain.importer.csv.CsvReader
-import com.titan.core.domain.importer.csv.MalformedCsvException
+import com.titan.core.domain.importer.readAll
 
 /**
  * Reads the workout history StrongLifts exports: Settings › Export Data in the app, which writes
@@ -109,33 +110,31 @@ class StrongLiftsParser : HistoryParser {
     ): ParseResult =
         source.open().use { stream ->
             val reader = CsvReader.open(stream)
-            val layout = readHeader(reader)?.let { header ->
+            val layout = reader.readHeader()?.let { header ->
                 ExerciseRows.of(header, context) ?: WorkoutRows.of(header, context)
             }
             val problem = layout?.problem
             when {
                 layout == null -> ParseResult.NotRecognised
-
                 problem != null -> ParseResult.Malformed(problem)
-
-                else -> try {
-                    layout.read(reader.records().toList())
-                } catch (failure: MalformedCsvException) {
-                    ParseResult.Malformed(failure.message.orEmpty())
-                }
+                else -> WholeFile(layout).readAll(reader)
             }
         }
 
     /**
-     * The first record as a header, or null when there is none — including when it is not CSV
-     * at all, which is a file that is not an export rather than a broken one.
+     * Holds every record until the last, then hands them to [layout] at once: a year-last date
+     * is read in the order the whole file proves, so no row can be read before every date has
+     * been seen.
      */
-    private fun readHeader(reader: CsvReader): CsvHeader? =
-        try {
-            reader.readRecord()?.let(::CsvHeader)
-        } catch (_: MalformedCsvException) {
-            null
+    private class WholeFile(private val layout: StrongLiftsLayout) : RecordReading {
+        private val records = mutableListOf<List<String>>()
+
+        override fun read(record: List<String>) {
+            records += record
         }
+
+        override fun result(): ParseResult = layout.read(records)
+    }
 }
 
 /** One of the two layouts a StrongLifts export comes in, as its header describes it. */
