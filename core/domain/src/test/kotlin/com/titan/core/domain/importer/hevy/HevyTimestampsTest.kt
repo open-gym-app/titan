@@ -136,8 +136,12 @@ class HevyTimestampsTest {
             "Sep 1, 2026, 0:40 AM",
             "Sep 1, 2026, PM 5:40 PM",
             "1 Sep 2026",
-            "1 Sep 2026, 17:40:00",
             "2026/13/01 10:00",
         ).forEach { text -> assertNull(text, HevyTimestamps.parse(text, ZoneOffset.UTC)) }
+    }
+
+    @Test
+    fun `a time with seconds, which Hevy does not write, is read with them rather than refused`() {
+        assertReads("2026-09-01T17:40:30Z", "1 Sep 2026, 17:40:30")
     }
 }
