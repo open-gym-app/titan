@@ -101,6 +101,9 @@ enum class BackupTable(val tableName: String) {
 
     /** Points at nothing. What the user has seen of each food. */
     FOOD_SEEN("food_seen"),
+
+    /** Points at nothing. What the user's training has unlocked for the titan. */
+    PET_UNLOCK("pet_unlock"),
     ;
 
     companion object {

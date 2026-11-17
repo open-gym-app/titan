@@ -16,6 +16,7 @@ import com.titan.core.data.db.dao.PantryDao
 import com.titan.core.data.db.dao.PersonalRecordDao
 import com.titan.core.data.db.dao.PetDao
 import com.titan.core.data.db.dao.PetStateDao
+import com.titan.core.data.db.dao.PetUnlockDao
 import com.titan.core.data.db.dao.QuestCompletionDao
 import com.titan.core.data.db.dao.SessionExerciseDao
 import com.titan.core.data.db.dao.SessionLootClaimDao
@@ -38,6 +39,7 @@ import com.titan.core.data.db.entity.PersonalRecordEntity
 import com.titan.core.data.db.entity.PetEntity
 import com.titan.core.data.db.entity.PetFeedEntity
 import com.titan.core.data.db.entity.PetStateEntity
+import com.titan.core.data.db.entity.PetUnlockEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
 import com.titan.core.data.db.entity.SessionExerciseEntity
 import com.titan.core.data.db.entity.SessionLootClaimEntity
@@ -76,6 +78,7 @@ import com.titan.core.data.db.entity.WorkoutTemplateEntity
         PetStateEntity::class,
         PetFeedEntity::class,
         FoodSeenEntity::class,
+        PetUnlockEntity::class,
         SessionPetClaimEntity::class,
     ],
     version = 2,
@@ -104,6 +107,7 @@ abstract class TitanDatabase : RoomDatabase() {
     abstract fun petDao(): PetDao
     abstract fun petStateDao(): PetStateDao
     abstract fun pantryDao(): PantryDao
+    abstract fun petUnlockDao(): PetUnlockDao
     abstract fun sessionPetClaimDao(): SessionPetClaimDao
 
     /**
@@ -234,6 +238,8 @@ abstract class TitanDatabase : RoomDatabase() {
                                 ON UPDATE NO ACTION ON DELETE CASCADE
                         )
             """.trimIndent(),
+            "CREATE TABLE IF NOT EXISTS `pet_unlock` " +
+                "(`key` TEXT NOT NULL, `unlocked_at` INTEGER NOT NULL, PRIMARY KEY(`key`))",
         )
 
         /**

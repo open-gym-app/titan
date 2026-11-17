@@ -10,12 +10,15 @@ import com.titan.core.domain.repository.PetRepository
 import com.titan.core.domain.repository.ProgressionRepository
 import com.titan.core.domain.repository.QuestRepository
 import com.titan.core.domain.repository.SessionRepository
+import com.titan.core.domain.repository.SparTally
 import com.titan.core.domain.repository.TitanStateRepository
+import com.titan.core.domain.repository.UnlockRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
 import com.titan.core.domain.time.Clock
 import com.titan.core.domain.usecase.AchievementTriggerUseCase
 import com.titan.core.domain.usecase.AwardXpUseCase
 import com.titan.core.domain.usecase.ChooseActivityUseCase
+import com.titan.core.domain.usecase.EvaluateUnlocksUseCase
 import com.titan.core.domain.usecase.FeedUseCase
 import com.titan.core.domain.usecase.GrowPetUseCase
 import com.titan.core.domain.usecase.HatchEggUseCase
@@ -137,6 +140,7 @@ object GamificationUseCaseModule {
         completeQuests: QuestCompletionUseCase,
         rollLoot: LootRollUseCase,
         growPet: GrowPetUseCase,
+        evaluateUnlocks: EvaluateUnlocksUseCase,
         sessionRepository: SessionRepository,
         personalRecordRepository: PersonalRecordRepository,
         gamificationRepository: GamificationRepository,
@@ -149,6 +153,7 @@ object GamificationUseCaseModule {
             completeQuests = completeQuests,
             rollLoot = rollLoot,
             growPet = growPet,
+            evaluateUnlocks = evaluateUnlocks,
             sessionRepository = sessionRepository,
             personalRecordRepository = personalRecordRepository,
             gamificationRepository = gamificationRepository,
@@ -194,4 +199,18 @@ object GamificationUseCaseModule {
         pantryRepository: PantryRepository,
         titanStateRepository: TitanStateRepository,
     ): FeedUseCase = FeedUseCase(pantryRepository, titanStateRepository)
+
+    @Provides
+    fun provideEvaluateUnlocksUseCase(
+        gamificationRepository: GamificationRepository,
+        sessionRepository: SessionRepository,
+        sparTally: SparTally,
+        unlockRepository: UnlockRepository,
+    ): EvaluateUnlocksUseCase =
+        EvaluateUnlocksUseCase(
+            gamificationRepository = gamificationRepository,
+            sessionRepository = sessionRepository,
+            sparTally = sparTally,
+            unlockRepository = unlockRepository,
+        )
 }

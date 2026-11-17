@@ -692,6 +692,15 @@ class SessionCompletionPipelineTest {
             assertTrue(again.foodDropped.isEmpty())
         }
 
+    @Test
+    fun `a session that earns nothing unlocks nothing, and that is not a failure`() =
+        runTest {
+            val progression = pipeline(rig.finishSession(), FINISHED_AT)
+
+            assertTrue(progression.unlocked.isEmpty())
+            assertTrue(progression.isComplete)
+        }
+
     /** A store whose pet claim refuses [times] times, leaving every other write working. */
     private class FailingPetClaim(
         private val delegate: GamificationRepository,
@@ -836,6 +845,7 @@ class SessionCompletionPipelineTest {
         val progression = FakeProgressionRepository()
         val inventory = FakeCollectedItemRepository()
         val pets = FakePetRepository()
+        val unlocks = FakeUnlockRepository()
 
         // A goal of one, so every session that counts is a week that met its goal, and the
         // streak moves on each one. The weekly rule itself is `StreakCalculatorTest`'s.
@@ -913,6 +923,7 @@ class SessionCompletionPipelineTest {
                 petRepository = pets,
                 gamificationRepository = observedGamification,
             ),
+            evaluateUnlocks = EvaluateUnlocksUseCase(observedGamification, sessions, { 0 }, unlocks),
             sessionRepository = sessions,
             personalRecordRepository = observedRecords,
             gamificationRepository = observedGamification,

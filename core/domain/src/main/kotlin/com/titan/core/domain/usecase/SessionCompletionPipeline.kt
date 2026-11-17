@@ -191,6 +191,7 @@ class SessionCompletionPipeline(
     private val completeQuests: QuestCompletionUseCase,
     private val rollLoot: LootRollUseCase,
     private val growPet: GrowPetUseCase,
+    private val evaluateUnlocks: EvaluateUnlocksUseCase,
     private val sessionRepository: SessionRepository,
     private val personalRecordRepository: PersonalRecordRepository,
     private val gamificationRepository: GamificationRepository,
@@ -265,6 +266,10 @@ class SessionCompletionPipeline(
             growPet(sessionId)
         }
 
+        val unlocked = runStep(SessionProgressionStep.UNLOCKS, failures) {
+            evaluateUnlocks(finishedAt.toEpochMilli())
+        }.orEmpty()
+
         return SessionProgression(
             sessionId = sessionId,
             recordsBroken = records,
@@ -280,6 +285,7 @@ class SessionCompletionPipeline(
             lootDropped = loot?.drop,
             foodDropped = loot?.food.orEmpty(),
             pet = petGrowth,
+            unlocked = unlocked,
             failures = failures,
         )
     }

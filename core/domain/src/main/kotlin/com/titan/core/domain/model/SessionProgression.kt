@@ -60,6 +60,8 @@ package com.titan.core.domain.model
  *   answers: no active pet, a session with no paid set, a re-run whose claim was already spent,
  *   and a pet step that threw (see [failures]). None of them is a gain to show. The figures were
  *   produced inside the write that persisted them, so nothing re-reads the pet to learn them.
+ * @property unlocked what the session's training newly unlocked for the titan, by key — empty on
+ *   a re-run, since an unlock is stored once.
  * @property failures the steps that threw, in the order they were attempted.
  */
 data class SessionProgression(
@@ -72,6 +74,7 @@ data class SessionProgression(
     val lootDropped: Collectible? = null,
     val foodDropped: List<Collectible> = emptyList(),
     val pet: PetGrowth? = null,
+    val unlocked: Set<String> = emptySet(),
     val failures: List<SessionProgressionFailure> = emptyList(),
 ) {
 
@@ -175,4 +178,7 @@ enum class SessionProgressionStep {
      * steps above write, so a failed step above does not take it down.
      */
     PET,
+
+    /** What the session's training newly unlocks for the titan: places, and later gear. Last. */
+    UNLOCKS,
 }

@@ -13,6 +13,7 @@ import com.titan.core.domain.backup.model.PersonalRecordRow
 import com.titan.core.domain.backup.model.PetFeedRow
 import com.titan.core.domain.backup.model.PetRow
 import com.titan.core.domain.backup.model.PetStateRow
+import com.titan.core.domain.backup.model.PetUnlockRow
 import com.titan.core.domain.backup.model.PlateStockPayload
 import com.titan.core.domain.backup.model.PreferencesPayload
 import com.titan.core.domain.backup.model.QuestCompletionRow
@@ -103,6 +104,8 @@ fun sampleDocument(
         pet = samplePets(),
         petFeed = listOf(PetFeedRow(collectedItemId = 5, petId = 1, fedAt = FINISHED_AT)),
         foodSeen = listOf(FoodSeenRow(collectibleId = "steak", seenUpTo = 5)),
+        // One this build knows and one it does not: both are kept.
+        petUnlock = listOf(PetUnlockRow("from_a_newer_version", FINISHED_AT), PetUnlockRow("sauna", FINISHED_AT)),
         petState = listOf(
             PetStateRow(1, fuel = 22, energy = 80, spirit = 55, "train", FINISHED_AT, FINISHED_AT + 900_000, null, FINISHED_AT),
             // An activity this build has never heard of, kept as written.
