@@ -2,7 +2,7 @@ package com.titan.core.data.importer
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
@@ -111,7 +111,7 @@ class WorkManagerHistoryImportRunner @Inject constructor(
         resolver.persistedUriPermissions
             .filter { it.uri.toString() != document }
             .forEach { granted -> runCatching { resolver.releasePersistableUriPermission(granted.uri, READ) } }
-        if (document != null) runCatching { resolver.takePersistableUriPermission(Uri.parse(document), READ) }
+        if (document != null) runCatching { resolver.takePersistableUriPermission(document.toUri(), READ) }
     }
 
     private fun workFor(request: HistoryImportRequest): OneTimeWorkRequest =

@@ -1,7 +1,7 @@
 package com.titan.core.data.worker
 
 import android.content.Context
-import android.net.Uri
+import androidx.core.net.toUri
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
@@ -175,7 +175,7 @@ class HistoryImportWorker @AssistedInject constructor(
      * reads as exactly that.
      */
     private fun documentAt(document: String): ImportSource {
-        val uri = Uri.parse(document)
+        val uri = document.toUri()
         return ImportSource {
             try {
                 applicationContext.contentResolver.openInputStream(uri) ?: throw FileNotFoundException(document)
