@@ -72,6 +72,7 @@ A value that updates silently is invisible to TalkBack. Three are announced, eac
 | The set counter | `SessionStatChips(announces = true)` on the active session | "5 sets · 2,800 kg", as one node — the chips' own words in the chips' own order | once per set logged | `StatTest` |
 | Exercise progress | `SessionProgressRail` | "3 of 8 exercises done" | once per exercise finished | (rail description in `SessionHeaderBar`) |
 | Import / export progress | `BackupScreen`'s `ProgressRow` | "Exporting… 40%" | in tens of a percent — at most ten times a run, not once per page of rows | `BackupScreenTest` |
+| Import from another app | the import screen's progress (`ImportProgressPanel`) | "Reading the file…", then "Saving workouts 40%", then "Storing photos 30%"; the exact count is drawn, not spoken | once for reading, then in tens of a percent per phase | `ImportScreenTest` |
 
 Only one rest region is live at a time: the pill announces only while the sheet is not up
 (`restTimerAnnounces = !state.isRestSheetOpen`), or the same quarter-minute would be said
@@ -202,7 +203,7 @@ make a11y-font-scale         # system font scale 2.0 (SCALE=1.5 for the middle s
 make a11y-reset              # the services and font scale the phone had before a11y-scan
 ```
 
-The inventory is every destination in the navigation graph — all twenty:
+The inventory is every destination in the navigation graph — all twenty-one:
 
 | Slice | Screens |
 | --- | --- |
@@ -211,7 +212,7 @@ The inventory is every destination in the navigation graph — all twenty:
 | History | Sessions, Template editor, Exercise library, Exercise detail, Plate calculator, Exercise picker |
 | Session | New session, Active session, Session summary |
 | Progression | Stats, Personal records, Exercise progression, Quest log, Achievements, Body measurements |
-| Settings | Settings, Backup & restore, Reminders |
+| Settings | Settings, Backup & restore, Import from another app, Reminders |
 
 For each: Scanner — tap its button, expect zero errors (the calendar's day cells are the
 accepted exception above); TalkBack — swipe right through every element and confirm every
