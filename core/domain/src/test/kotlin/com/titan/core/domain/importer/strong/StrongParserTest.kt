@@ -139,6 +139,27 @@ class StrongParserTest {
     }
 
     @Test
+    fun `an assisted exercise's unreadable counterweight does not cost its reps`() {
+        val csv = "Date,Workout Name,Exercise Name,Set Order,Weight,Reps\n2024-03-02 18:04:11,W,Pull Up (Assisted),1,heavy,8\n"
+
+        assertEquals(ImportedSet(reps = 8), parsedText(csv).workouts.single().line(0).sets.single())
+    }
+
+    @Test
+    fun `a distance in yards or feet is read in its unit, not the user's`() {
+        val csv = """
+            Date;Workout Name;Exercise Name;Set Order;Distance;Distance Unit;Seconds
+            2024-03-02 18:04:11;W;Running;1;400;yd;90
+            2024-03-02 18:04:11;W;Running;2;1000;ft;60
+        """.trimIndent()
+
+        assertEquals(
+            listOf(36_576L, 30_480L),
+            parsedText(csv).workouts.single().line(0).sets.map { it.distance },
+        )
+    }
+
+    @Test
     fun `timed and distance sets keep their seconds and distance, and the zeros Strong writes beside them`() {
         val workouts = parsed("strong-ios.csv").workouts
 
@@ -259,6 +280,13 @@ class StrongParserTest {
             "Date,Workout Name,Exercise Name,Set Order,Weight (st),Reps\n2024-03-02 18:04:11,W,Squat,1,100,5\n",
         )
         assertEquals(100_000_000L, stones.workouts.single().line(0).sets.single().weight)
+    }
+
+    @Test
+    fun `a weight column with no unit of its own is not read in a unit-named column's unit beside it`() {
+        val csv = "Date,Workout Name,Exercise Name,Set Order,Weight,Reps,lbs\n2024-03-02 18:04:11,W,Squat,1,100,5,\n"
+
+        assertEquals(100_000_000L, parsedText(csv).workouts.single().line(0).sets.single().weight)
     }
 
     @Test
