@@ -466,6 +466,8 @@ class BackupRoundTripTest : RoomTestBase() {
         /** The tables version 2 added, which a version 1 file has no key for. */
         val VERSION_TWO_TABLES = setOf(
             "pet",
+            "pet_power_snapshot",
+            "pet_spar",
             "pet_state",
             "pet_loadout",
             "pet_feed",

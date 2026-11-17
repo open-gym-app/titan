@@ -24,6 +24,8 @@ class SchemaUpgradeTest {
             pet = emptyList(),
             petState = emptyList(),
             petLoadout = emptyList(),
+            petPowerSnapshot = emptyList(),
+            petSpar = emptyList(),
             petFeed = emptyList(),
             foodSeen = emptyList(),
             petUnlock = emptyList(),
@@ -42,6 +44,7 @@ class SchemaUpgradeTest {
         assertTrue(upgraded.sessionPetClaim.isEmpty())
         assertTrue(upgraded.petState.isEmpty())
         assertTrue(upgraded.petLoadout.isEmpty())
+        assertTrue(upgraded.petSpar.isEmpty())
         assertTrue(upgraded.petFeed.isEmpty())
         assertTrue(upgraded.foodSeen.isEmpty())
         assertTrue(upgraded.petUnlock.isEmpty())

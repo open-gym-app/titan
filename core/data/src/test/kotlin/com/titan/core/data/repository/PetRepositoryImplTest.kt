@@ -221,7 +221,8 @@ class PetRepositoryImplTest : RoomTestBase() {
             val active = dao.insert(pet(egg(), xp = 10, isActive = true))
 
             val growth = repository.grow(
-                PetGain(xp = 65, stats = PetStats(strength = 3, endurance = 0, mobility = 1)),
+                at = 0,
+                gain = PetGain(xp = 65, stats = PetStats(strength = 3, endurance = 0, mobility = 1)),
             )!!
 
             assertEquals(active, growth.pet.id)
@@ -237,7 +238,7 @@ class PetRepositoryImplTest : RoomTestBase() {
         runBlocking {
             dao.insert(pet(egg()))
 
-            assertNull(repository.grow(PetGain(xp = 65, stats = PetStats(1, 0, 0))))
+            assertNull(repository.grow(PetGain(xp = 65, stats = PetStats(1, 0, 0)), at = 0))
             assertEquals(0L, repository.observeAll().first().single().xp)
         }
 
@@ -247,7 +248,8 @@ class PetRepositoryImplTest : RoomTestBase() {
             dao.insert(pet(egg(), xp = XpCalculator.MAX_TOTAL_XP - 1, isActive = true).copy(strength = PetStats.MAX))
 
             val growth = repository.grow(
-                PetGain(xp = 65, stats = PetStats(strength = 3, endurance = 2, mobility = 0)),
+                at = 0,
+                gain = PetGain(xp = 65, stats = PetStats(strength = 3, endurance = 2, mobility = 0)),
             )!!
 
             assertEquals(XpCalculator.MAX_TOTAL_XP, growth.pet.xp)
@@ -261,7 +263,7 @@ class PetRepositoryImplTest : RoomTestBase() {
             dao.insert(pet(egg(), isActive = true))
 
             withContext(Dispatchers.IO) {
-                List(20) { async { repository.grow(PetGain(xp = 5, stats = PetStats(1, 0, 0))) } }.awaitAll()
+                List(20) { async { repository.grow(PetGain(xp = 5, stats = PetStats(1, 0, 0)), at = 0) } }.awaitAll()
             }
 
             val pet = repository.observeActive().first()!!
