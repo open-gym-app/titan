@@ -178,7 +178,11 @@
     <string name="backup_export_detail">Grava cada treino, modelo, recorde e configuração em um único arquivo JSON. Salve uma cópia onde você consiga encontrar de novo, ou envie para algum lugar: nada sai do celular até você fazer isso.</string>
     <string name="backup_export_action">Exportar um backup</string>
     <string name="backup_exporting">Exportando…</string>
-    <string name="backup_export_done">%1$s salvo: %2$d linhas.</string>
+    <plurals name="backup_export_done">
+        <item quantity="one">%1$s salvo: %2$s linha.</item>
+        <item quantity="many">%1$s salvo: %2$s linhas.</item>
+        <item quantity="other">%1$s salvo: %2$s linhas.</item>
+    </plurals>
     <string name="backup_export_failed">Não foi possível gravar o backup. Verifique se há espaço no aparelho e tente de novo.</string>
     <string name="backup_share_title">Compartilhar backup</string>
     <string name="backup_save_copy_action">Salvar uma cópia…</string>
@@ -203,7 +207,11 @@
     <string name="backup_restore_action">Escolher um arquivo de backup</string>
     <string name="backup_validating">Verificando o arquivo…</string>
     <string name="backup_importing">Restaurando…</string>
-    <string name="backup_restore_done">%1$d linhas restauradas. Tudo neste aparelho agora vem do arquivo.</string>
+    <plurals name="backup_restore_done">
+        <item quantity="one">%1$s linha restaurada. Tudo neste aparelho agora vem do arquivo.</item>
+        <item quantity="many">%1$s linhas restauradas. Tudo neste aparelho agora vem do arquivo.</item>
+        <item quantity="other">%1$s linhas restauradas. Tudo neste aparelho agora vem do arquivo.</item>
+    </plurals>
 
     <!-- One message per ImportError. -->
     <string name="backup_error_malformed">Esse arquivo não é um backup do Titan, ou está danificado. Nada neste aparelho foi alterado.</string>
@@ -214,8 +222,16 @@
     <string name="backup_error_io_live_state">Não foi possível gravar o backup neste aparelho. Seu histórico e suas configurações não foram alterados, mas o treino ou modelo que você tinha aberto pode ter sido fechado.</string>
     <string name="backup_error_live_state">Esse backup não foi restaurado: não foi possível fechar antes o treino ou o modelo que você tinha aberto. Seu histórico e suas configurações não foram alterados, mas esse treino ou modelo pode ter sido fechado.</string>
     <string name="backup_error_too_large">Esse arquivo é maior do que qualquer backup do Titan (mais de %1$s), então não foi lido. Nada neste aparelho foi alterado.</string>
-    <string name="backup_error_settings">%1$d linhas restauradas, mas não foi possível salvar suas configurações, e elas podem ter voltado ao padrão. Confira em Configurações.</string>
-    <string name="backup_error_reminders">%1$d linhas e suas configurações restauradas, mas não foi possível atualizar seu lembrete de treino para combinar. Confira em Configurações.</string>
+    <plurals name="backup_error_settings">
+        <item quantity="one">%1$s linha restaurada, mas não foi possível salvar suas configurações, e elas podem ter voltado ao padrão. Confira em Configurações.</item>
+        <item quantity="many">%1$s linhas restauradas, mas não foi possível salvar suas configurações, e elas podem ter voltado ao padrão. Confira em Configurações.</item>
+        <item quantity="other">%1$s linhas restauradas, mas não foi possível salvar suas configurações, e elas podem ter voltado ao padrão. Confira em Configurações.</item>
+    </plurals>
+    <plurals name="backup_error_reminders">
+        <item quantity="one">%1$s linha e suas configurações restauradas, mas não foi possível atualizar seu lembrete de treino para combinar. Confira em Configurações.</item>
+        <item quantity="many">%1$s linhas e suas configurações restauradas, mas não foi possível atualizar seu lembrete de treino para combinar. Confira em Configurações.</item>
+        <item quantity="other">%1$s linhas e suas configurações restauradas, mas não foi possível atualizar seu lembrete de treino para combinar. Confira em Configurações.</item>
+    </plurals>
 
     <string name="backup_dismiss">Fechar</string>
 

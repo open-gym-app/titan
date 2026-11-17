@@ -178,7 +178,11 @@
     <string name="backup_export_detail">Escribe cada entrenamiento, plantilla, récord y ajuste en un solo archivo JSON. Guarda una copia donde puedas encontrarla, o envíala a algún sitio: nada sale del teléfono hasta que tú lo hagas.</string>
     <string name="backup_export_action">Exportar una copia de seguridad</string>
     <string name="backup_exporting">Exportando…</string>
-    <string name="backup_export_done">Guardado %1$s: %2$d filas.</string>
+    <plurals name="backup_export_done">
+        <item quantity="one">Guardado %1$s: %2$s fila.</item>
+        <item quantity="many">Guardado %1$s: %2$s filas.</item>
+        <item quantity="other">Guardado %1$s: %2$s filas.</item>
+    </plurals>
     <string name="backup_export_failed">No se pudo escribir la copia de seguridad. Comprueba que hay espacio en el dispositivo e inténtalo de nuevo.</string>
     <string name="backup_share_title">Compartir copia de seguridad</string>
     <string name="backup_save_copy_action">Guardar una copia…</string>
@@ -203,7 +207,11 @@
     <string name="backup_restore_action">Elegir un archivo de copia de seguridad</string>
     <string name="backup_validating">Comprobando el archivo…</string>
     <string name="backup_importing">Restaurando…</string>
-    <string name="backup_restore_done">%1$d filas restauradas. Todo lo de este dispositivo viene ahora del archivo.</string>
+    <plurals name="backup_restore_done">
+        <item quantity="one">%1$s fila restaurada. Todo lo de este dispositivo viene ahora del archivo.</item>
+        <item quantity="many">%1$s filas restauradas. Todo lo de este dispositivo viene ahora del archivo.</item>
+        <item quantity="other">%1$s filas restauradas. Todo lo de este dispositivo viene ahora del archivo.</item>
+    </plurals>
 
     <!-- One message per ImportError. -->
     <string name="backup_error_malformed">Ese archivo no es una copia de seguridad de Titan, o está dañado. No se cambió nada en este dispositivo.</string>
@@ -214,8 +222,16 @@
     <string name="backup_error_io_live_state">No se pudo escribir la copia de seguridad en este dispositivo. Tu historial y tus ajustes no cambiaron, pero el entrenamiento o la plantilla que tenías abierto puede haberse cerrado.</string>
     <string name="backup_error_live_state">No se restauró esa copia: no se pudo cerrar antes el entrenamiento o la plantilla que tenías abierto. Tu historial y tus ajustes no cambiaron, pero ese entrenamiento o esa plantilla puede haberse cerrado.</string>
     <string name="backup_error_too_large">Ese archivo es más grande que cualquier copia de seguridad de Titan (más de %1$s), así que no se leyó. No se cambió nada en este dispositivo.</string>
-    <string name="backup_error_settings">Se restauraron %1$d filas, pero no se pudieron guardar tus ajustes y puede que hayan vuelto a sus valores predeterminados. Revísalos en Ajustes.</string>
-    <string name="backup_error_reminders">Se restauraron %1$d filas y tus ajustes, pero no se pudo actualizar tu recordatorio de entrenamiento para que coincida. Revísalo en Ajustes.</string>
+    <plurals name="backup_error_settings">
+        <item quantity="one">Se restauró %1$s fila, pero no se pudieron guardar tus ajustes y puede que hayan vuelto a sus valores predeterminados. Revísalos en Ajustes.</item>
+        <item quantity="many">Se restauraron %1$s filas, pero no se pudieron guardar tus ajustes y puede que hayan vuelto a sus valores predeterminados. Revísalos en Ajustes.</item>
+        <item quantity="other">Se restauraron %1$s filas, pero no se pudieron guardar tus ajustes y puede que hayan vuelto a sus valores predeterminados. Revísalos en Ajustes.</item>
+    </plurals>
+    <plurals name="backup_error_reminders">
+        <item quantity="one">Se restauraron %1$s fila y tus ajustes, pero no se pudo actualizar tu recordatorio de entrenamiento para que coincida. Revísalo en Ajustes.</item>
+        <item quantity="many">Se restauraron %1$s filas y tus ajustes, pero no se pudo actualizar tu recordatorio de entrenamiento para que coincida. Revísalo en Ajustes.</item>
+        <item quantity="other">Se restauraron %1$s filas y tus ajustes, pero no se pudo actualizar tu recordatorio de entrenamiento para que coincida. Revísalo en Ajustes.</item>
+    </plurals>
 
     <string name="backup_dismiss">Cerrar</string>
 

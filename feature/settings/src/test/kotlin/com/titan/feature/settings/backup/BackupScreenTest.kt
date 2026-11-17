@@ -286,7 +286,7 @@ class BackupScreenTest {
         setContent(lastRestore = RestoreOutcome.Succeeded(rowsRestored = 52_180))
 
         composeTestRule
-            .onNodeWithText("Restored 52180 rows", substring = true)
+            .onNodeWithText("Restored 52,180 rows", substring = true)
             .performScrollTo()
             .assertIsDisplayed()
     }
@@ -405,7 +405,7 @@ class BackupScreenTest {
             ),
         )
 
-        composeTestRule.onNodeWithText("Restored 52180 rows", substring = true).performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Restored 52,180 rows", substring = true).performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithText("settings could not be saved", substring = true).assertIsDisplayed()
         assertPromisesNothing()
     }
@@ -419,7 +419,7 @@ class BackupScreenTest {
             ),
         )
 
-        composeTestRule.onNodeWithText("Restored 52180 rows and your settings", substring = true)
+        composeTestRule.onNodeWithText("Restored 52,180 rows and your settings", substring = true)
             .performScrollTo()
             .assertIsDisplayed()
         composeTestRule.onNodeWithText("reminder could not be updated", substring = true).assertIsDisplayed()
