@@ -1,0 +1,7 @@
+date,exercise_name,Reps,weight_kg,duration_seconds,distance_meters,Incline,Resistance,isWarmup
+2026-08-12,Back Squat,5,60,,,,,true
+2026-08-12,Back Squat,5,100,,,,,false
+2026-08-12,Seated Leg Curl,10,31.751465900000003,,,,,false
+2026-08-12,Elliptical,,,600.0,804.67224894628168,,1.0,false
+2026-08-10,Farmer's Walk,,20.41165665,,18.288,,,false
+2026-08-10,Back Squat,5,100,,,,,false
