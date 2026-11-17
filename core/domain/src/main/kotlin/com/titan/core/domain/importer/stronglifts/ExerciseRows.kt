@@ -53,7 +53,7 @@ internal class ExerciseRows private constructor(
         val exercise = header[record, EXERCISE] ?: return false
 
         history.bodyWeight(startedAt, cell(record, bodyWeightColumn), bodyWeightUnit)
-        history.workout(startedAt, header[record, WORKOUT_NAME], durationSeconds(record))
+        history.workout(startedAt, header[record, WORKOUT_NAME]) { durationSeconds(record) }
             .line(history.exercise(exercise), sets(record), SourceValues.note(header[record, NOTES]))
         return true
     }
@@ -118,7 +118,10 @@ internal class ExerciseRows private constructor(
         ): ExerciseRows? {
             val date = header.qualified(DATE)
             val numbered = header.columns.mapNotNull { column ->
-                SET_COLUMN.matchEntire(column)?.let { Triple(column, it.groupValues[1].toInt(), it.groupValues[2]) }
+                SET_COLUMN.matchEntire(column)?.let { set ->
+                    val (number, qualifier) = set.destructured
+                    Triple(column, number.toInt(), qualifier.trim())
+                }
             }
             val reps = numbered.filter { (_, _, qualifier) -> qualifier.equals(REPS, ignoreCase = true) }
             if (date == null || EXERCISE !in header || reps.isEmpty()) return null
@@ -171,7 +174,7 @@ internal class ExerciseRows private constructor(
             column.lowercase(Locale.ROOT).replace('×', 'x').filterNot(Char::isWhitespace)
 
         /** `Set 1 (Reps)`, `Set 1 (KG)`, ` Set 1 (LB)`: the set's number and what its column holds. */
-        private val SET_COLUMN = Regex("\\s*Set\\s*(\\d{1,4})\\s*\\(\\s*([^()]*?)\\s*\\)\\s*", RegexOption.IGNORE_CASE)
+        private val SET_COLUMN = Regex("Set\\s*(\\d{1,4})\\s*\\(([^()]*)\\)", RegexOption.IGNORE_CASE)
 
         private const val SECONDS_PER_HOUR = 3_600.0
         private const val SECONDS_PER_MINUTE = 60L

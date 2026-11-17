@@ -42,20 +42,23 @@ internal class StrongLiftsHistory(private val context: ImportContext) {
         }
 
     /**
-     * The workout that started at [startedAt], begun with [name] and [durationSeconds] when this is
-     * its first row; a later row of it does not change either, since every row repeats them.
+     * The workout that started at [startedAt], begun with [name] and the [durationSeconds] it
+     * answers when this is its first row; a later row of it does not change either, since every
+     * row repeats them, so the duration is only read off the first.
      */
     fun workout(
         startedAt: Long,
         name: String?,
-        durationSeconds: Long?,
-    ): WorkoutDraft = workouts.getOrPut(startedAt) { WorkoutDraft(startedAt, name, durationSeconds) }
+        durationSeconds: () -> Long?,
+    ): WorkoutDraft = workouts.getOrPut(startedAt) { WorkoutDraft(startedAt, name, durationSeconds()) }
 
     /**
      * [text], the body weight on the row of a workout that started at [takenAt], as the measurement
-     * of that day taken then, in the unit the cell names or else [unit]. Only the first row of a day
-     * counts, as StrongLifts keeps one weight a day. A figure that is not a number is passed on as
-     * an entry with nothing in it, which the planner refuses and counts.
+     * of that day taken then, in the unit the cell names or else [unit]. StrongLifts keeps one
+     * weight a day, so a day has one measurement, at the start of its earliest workout whatever
+     * order the rows come in: the same instant on every import, and so a duplicate on the next. A
+     * figure that is not a number is passed on as an entry with nothing in it, which the planner
+     * refuses and counts.
      */
     fun bodyWeight(
         takenAt: Long,
@@ -63,7 +66,8 @@ internal class StrongLiftsHistory(private val context: ImportContext) {
         unit: SourceWeightUnit,
     ) {
         val day = Instant.ofEpochMilli(takenAt).atZone(context.zone).toLocalDate()
-        if (text == null || day in bodyWeights) return
+        val earlier = bodyWeights[day]?.let { it.createdAt <= takenAt } == true
+        if (text == null || earlier) return
         val figure = WeightFigure.parse(text)
         if (figure?.value == 0.0) return
         bodyWeights[day] = BodyMeasurement(
