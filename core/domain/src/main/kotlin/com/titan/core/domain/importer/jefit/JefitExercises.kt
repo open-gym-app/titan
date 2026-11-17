@@ -121,13 +121,10 @@ internal class JefitExercises(
     /**
      * Whether [key] is an assisted variation, whose weight is the counterweight a machine took
      * off rather than a load: Strong's spelling, "Pull Up (Assisted)", and JEFIT's own,
-     * "Machine Assisted Pull-Up". See [SuffixedExerciseNames.isAssisted].
+     * "Machine Assisted Pull-Up". See [SuffixedExerciseNames.namesAssistance].
      */
     fun isAssisted(key: JefitExerciseKey): Boolean =
-        assisted.getOrPut(key) {
-            val name = get(key).name
-            SuffixedExerciseNames.isAssisted(name) || ASSISTED in ExerciseMatcher.normalised(name).split(' ')
-        }
+        assisted.getOrPut(key) { SuffixedExerciseNames.namesAssistance(get(key).name) }
 
     /** The routine line [row]'s exercise. */
     fun routineKey(row: JefitRow): JefitExerciseKey? =
@@ -174,8 +171,6 @@ internal class JefitExercises(
 
         /** `belongSys` for an exercise of JEFIT's own library. */
         const val JEFIT_LIBRARY = "1"
-
-        const val ASSISTED = "assisted"
 
         /** JEFIT's body part for cardio exercises. */
         const val CARDIO_BODY_PART = 10
