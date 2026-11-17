@@ -431,6 +431,10 @@ class FitbodParserTest {
                 "2026-10-24 18:24:59 +0000,Sled Push,10,17.5,30,0.05,false",
         )
         assertEquals(listOf(ImportedSet(reps = 10, weight = lb17p5, duration = 30, distance = 5_000)), pounds)
+        val minutes = onlySets(
+            "Date,Exercise,Reps,Weight(kg),Duration(min),isWarmup\n2026-10-24 18:24:59 +0000,Rowing,0,0,2.5,false",
+        )
+        assertEquals(listOf(150L), minutes.map { it.duration })
 
         val unlabelled = "Date,Exercise,Reps,Weight,Distance,isWarmup\n2026-10-24 18:24:59 +0000,Sled Push,10,17.5,1,false"
         assertEquals(
@@ -454,7 +458,7 @@ class FitbodParserTest {
         listOf(
             "Date,Exercise,Reps,Weight(stone),isWarmup" to "Weight(stone)",
             "Date,Exercise,Reps,Weight(kg),Distance(parsecs),isWarmup" to "Distance(parsecs)",
-            "Date,Exercise,Reps,Weight(kg),Duration(min),isWarmup" to "Duration(min)",
+            "Date,Exercise,Reps,Weight(kg),Duration(days),isWarmup" to "Duration(days)",
         ).forEach { (columns, column) ->
             val result = read("$columns\n2026-10-24 18:24:59 +0000,Curl,10,1,1,false")
             assertTrue(result.toString(), result is ParseResult.Malformed && column in result.reason)

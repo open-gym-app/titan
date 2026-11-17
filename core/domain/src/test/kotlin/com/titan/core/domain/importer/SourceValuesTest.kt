@@ -241,6 +241,15 @@ class SourceValuesTest {
     }
 
     @Test
+    fun `a date with a time after it proves its order by its date`() {
+        assertEquals(
+            DayMonthOrder.DAY_FIRST,
+            SourceValues.dayMonthOrder(listOf("02/05/2026 18:30", "15/05/2026 6:30 PM")),
+        )
+        assertEquals(DayMonthOrder.MONTH_FIRST, SourceValues.dayMonthOrder(listOf(" 5/13/2026 0:00 ")))
+    }
+
+    @Test
     fun `dates that never prove an order, or prove both, give none`() {
         assertNull(SourceValues.dayMonthOrder(listOf("02/05/17", "03/05/17")))
         assertNull(SourceValues.dayMonthOrder(listOf("13/05/17", "05/13/17")))
@@ -262,6 +271,12 @@ class SourceValuesTest {
         assertEquals(LocalTime.of(12, 30), SourceValues.timeOfDay("12:30 pm"))
         assertEquals(LocalTime.of(18, 4), SourceValues.timeOfDay("오후 6:04"))
         assertEquals(LocalTime.of(18, 4), SourceValues.timeOfDay("下午6:04"))
+    }
+
+    @Test
+    fun `a time of day keeps its seconds when it has them`() {
+        assertEquals(LocalTime.of(18, 4, 30), SourceValues.timeOfDay("18:04:30"))
+        assertEquals(LocalTime.of(18, 4, 5), SourceValues.timeOfDay("6:04:05 PM"))
     }
 
     @Test
@@ -292,6 +307,31 @@ class SourceValuesTest {
         assertNull(SourceValues.localDateAt("2026/08/11", "soon", ZoneOffset.UTC))
         assertNull(SourceValues.localDateAt("15/05/17", "18:56", ZoneOffset.UTC))
         assertNull(SourceValues.localDateAt("+999999999-12-31", "23:59", ZoneOffset.UTC))
+    }
+
+    // ------------------------------------------------------------------ localDateTime
+
+    @Test
+    fun `a date and a time in one cell are an instant, however a spreadsheet wrote them`() {
+        assertEquals(millis("2026-11-02T18:30:00Z"), SourceValues.localDateTime("2026-11-02T18:30", ZoneOffset.UTC))
+        assertEquals(millis("2026-11-02T17:30:00Z"), SourceValues.localDateTime("2026-11-02T18:30+01:00", newYork))
+        assertEquals(millis("2026-11-02T23:30:15Z"), SourceValues.localDateTime("2026-11-02 18:30:15", newYork))
+        assertEquals(millis("2026-11-02T18:30:00Z"), SourceValues.localDateTime("2026/11/02 6:30 PM", ZoneOffset.UTC))
+        assertEquals(
+            millis("2026-11-02T18:30:00Z"),
+            SourceValues.localDateTime(" 02/11/2026 18:30 ", ZoneOffset.UTC, DayMonthOrder.DAY_FIRST),
+        )
+        assertEquals(
+            millis("2026-11-02T18:30:00Z"),
+            SourceValues.localDateTime("11/2/2026 6:30 PM", ZoneOffset.UTC, DayMonthOrder.MONTH_FIRST),
+        )
+    }
+
+    @Test
+    fun `a date alone, or a date and a time that do not read, is no instant in one cell`() {
+        listOf(null, "", "2026-11-02", "02/11/2026 18:30", "2026-11-02 soon", "yesterday evening").forEach { text ->
+            assertNull(text, SourceValues.localDateTime(text, ZoneOffset.UTC))
+        }
     }
 
     // ------------------------------------------------------------------ note

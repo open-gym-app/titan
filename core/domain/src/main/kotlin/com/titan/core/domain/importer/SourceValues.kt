@@ -47,11 +47,11 @@ object SourceValues {
     )
 
     /**
-     * A clock, with whatever word a 12-hour one has before it, or after it — where the word may
-     * have a space inside it (`p. m.`).
+     * A clock, seconds optional, with whatever word a 12-hour one has before it, or after it —
+     * where the word may have a space inside it (`p. m.`).
      */
     private val TIME_OF_DAY = Regex(
-        "(?<before>\\S*?) ?(?<hour>\\d{1,2}):(?<minute>\\d{2}) ?(?<after>.*)",
+        "(?<before>\\S*?) ?(?<hour>\\d{1,2}):(?<minute>\\d{2})(?::(?<second>\\d{2}))? ?(?<after>.*)",
     )
 
     /** The spaces a formatter puts in a time: ordinary, no-break, and the narrow one before `PM`. */
@@ -267,12 +267,16 @@ object SourceValues {
      * Some apps write a date the way the phone's region does, so whether `03/02` is March or
      * February depends on whose phone wrote it, and nothing in a single cell says. A whole history
      * nearly always does: a few weeks of workouts reach a thirteenth of the month.
+     *
+     * A date with a time after it, `25/12/2023 18:30` as [localDateTime] reads, is evidence the same
+     * way: only the date, up to the first space, is looked at.
      */
     fun dayMonthOrder(dates: Iterable<String?>): DayMonthOrder? {
         var dayFirst = false
         var monthFirst = false
         dates.forEach { text ->
-            val groups = YEAR_LAST_DATE.matchEntire(text?.trim().orEmpty())?.groups ?: return@forEach
+            val date = text?.trim().orEmpty().substringBefore(' ')
+            val groups = YEAR_LAST_DATE.matchEntire(date)?.groups ?: return@forEach
             val first = checkNotNull(groups["first"]).value.toInt()
             val second = checkNotNull(groups["second"]).value.toInt()
             if (first in MONTHS_PER_YEAR + 1..LAST_DAY_OF_ANY_MONTH && second in 1..MONTHS_PER_YEAR) dayFirst = true
@@ -286,13 +290,14 @@ object SourceValues {
     }
 
     /**
-     * [text] as a time of day, to the minute: a 24-hour clock, `18:04`, or a 12-hour one with one
-     * word for the part of the day before or after it — `6:04 PM`, `6:04 p. m.`, `오후 6:04`,
-     * `下午6:04`. Null for anything else, including a word it does not know.
+     * [text] as a time of day, to the minute or, when it has them, the second: a 24-hour clock,
+     * `18:04` or `18:04:30`, or a 12-hour one with one word for the part of the day before or after
+     * it — `6:04 PM`, `6:04 p. m.`, `오후 6:04`, `下午6:04`. Null for anything else, including a word
+     * it does not know.
      *
      * Apps that write the time apart from the date write it as the phone formats a time, so the
      * same export holds `22:56` from one user and `10:56 PM`, with a narrow no-break space before
-     * the `PM`, from the next.
+     * the `PM`, from the next. A spreadsheet writes the seconds too.
      */
     fun timeOfDay(text: String?): LocalTime? {
         val cleaned = text.orEmpty().replace(SPACES, " ").trim()
@@ -310,7 +315,7 @@ object SourceValues {
         }
         return hourOfDay?.let {
             try {
-                LocalTime.of(it, group("minute").toInt())
+                LocalTime.of(it, group("minute").toInt(), group("second").ifEmpty { "0" }.toInt())
             } catch (_: DateTimeException) {
                 null
             }
@@ -333,6 +338,30 @@ object SourceValues {
         val day = calendarDate(date, order) ?: return null
         val clock = timeOfDay(time) ?: return null
         return day.atTime(clock).atZone(zone).toInstant().toEpochMilli()
+    }
+
+    /**
+     * [text], a date and a time of day in one cell, as an instant in epoch milliseconds: a timestamp
+     * [localTimestamp] reads, or a date [calendarDate] reads, a space, and a time [timeOfDay] reads —
+     * `02/11/2026 18:30`, `11/2/2026 6:30 PM`, `2026-11-02 18:30:00`. Null for a date on its own, and
+     * for anything else.
+     *
+     * A file that has been through a spreadsheet comes back with its dates and times in the
+     * spreadsheet's locale rather than as they were written, and a parser reading a file a user
+     * made by hand sees every spelling of both. The second form is what that leaves behind, read
+     * in [zone], the date in [order] when its year is last, and a time a daylight-saving change
+     * skipped or repeated as [localTimestamp] resolves it.
+     */
+    fun localDateTime(
+        text: String?,
+        zone: ZoneId,
+        order: DayMonthOrder? = null,
+    ): Long? {
+        localTimestamp(text, zone)?.let { return it }
+        val trimmed = text?.trim().orEmpty()
+        val space = trimmed.indexOf(' ')
+        if (space < 0) return null
+        return localDateAt(trimmed.substring(0, space), trimmed.substring(space + 1), zone, order)
     }
 
     /**
