@@ -1,7 +1,8 @@
 # Import CSV format
 
 The spreadsheet Titan reads when you import a history from an app it has no importer for. Convert
-your data into it, with a spreadsheet or a script, and import it as a plain CSV file.
+your data into it, with a spreadsheet or a script, and import it as a plain CSV file: Settings →
+Import from another app → Plain CSV, whose guide links back to this page.
 
 This file is the specification, version 1. `PlainCsvParser` is held to it by tests, including one
 that imports the two example files below, so a change here that is not a change to those tests is
