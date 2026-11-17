@@ -7,6 +7,7 @@
     <string name="nav_sessions">Sesiones</string>
     <string name="nav_library">Ejercicios</string>
     <string name="nav_stats">Progreso</string>
+    <string name="nav_titan">Titán</string>
 
     <string name="action_settings">Ajustes</string>
 </resources>

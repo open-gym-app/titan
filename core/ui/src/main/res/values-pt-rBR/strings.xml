@@ -463,5 +463,31 @@
     <string name="titan_food_banana">Banana</string>
     <string name="titan_food_berries">Frutas vermelhas</string>
     <string name="titan_food_unknown">Alimento desconhecido</string>
+    <string name="titan_species_iron_cub">Filhote de ferro</string>
+    <string name="titan_species_chalk_sprite">Duende de magnésio</string>
+    <string name="titan_species_plate_tortoise">Tartaruga de anilhas</string>
+    <string name="titan_species_kettle_ram">Carneiro kettlebell</string>
+    <string name="titan_species_barbell_drake">Draco de barra</string>
+    <string name="titan_species_atlas">Atlas</string>
+    <string name="titan_species_unknown">Titã desconhecido</string>
+    <string name="titan_need_level">Nível %1$d</string>
+    <string name="titan_need_km">%1$d km</string>
+    <string name="titan_need_legend">Rank Lenda</string>
+    <string name="titan_owned">Seu</string>
+    <plurals name="titan_need_streak">
+        <item quantity="one">Sequência de %1$d semana</item>
+        <item quantity="many">Sequência de %1$d semanas</item>
+        <item quantity="other">Sequência de %1$d semanas</item>
+    </plurals>
+    <plurals name="titan_need_spars">
+        <item quantity="one">%1$d luta vencida</item>
+        <item quantity="many">%1$d lutas vencidas</item>
+        <item quantity="other">%1$d lutas vencidas</item>
+    </plurals>
+    <plurals name="titan_minutes_left">
+        <item quantity="one">Falta %1$d min</item>
+        <item quantity="many">Faltam %1$d min</item>
+        <item quantity="other">Faltam %1$d min</item>
+    </plurals>
 
 </resources>

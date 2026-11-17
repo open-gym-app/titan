@@ -46,6 +46,7 @@ include(":feature:session")
 include(":feature:history")
 include(":feature:progression")
 include(":feature:settings")
+include(":feature:titan")
 
 // On-device performance (#42). A `com.android.test` module: it has no `main` source set and
 // ships nothing, it instruments `:app`'s `benchmark` build type from a second process, and it

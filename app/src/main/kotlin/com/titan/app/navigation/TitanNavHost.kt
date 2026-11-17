@@ -58,6 +58,7 @@ import com.titan.feature.settings.navigation.BackupDestination
 import com.titan.feature.settings.navigation.OpenSourceLicencesDestination
 import com.titan.feature.settings.navigation.ReminderDestination
 import com.titan.feature.settings.navigation.settingsGraph
+import com.titan.feature.titan.navigation.titanGraph
 
 /**
  * The whole app graph — and the only place in the codebase where two features appear in the
@@ -326,6 +327,12 @@ fun TitanNavHost(
                         appState.navigateToTopLevelDestination(TopLevelDestination.SESSIONS)
                     },
                 ),
+            )
+            titanGraph(
+                // The inventory (#298) and the spar screen (#299) land with their own issues;
+                // until then the link and the option do nothing.
+                onOpenInventory = {},
+                onOpenSpar = {},
             )
         }
 

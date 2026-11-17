@@ -12,10 +12,12 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.titan.app.R
+import com.titan.core.ui.component.titan.TitanIcons
 import com.titan.feature.history.navigation.HistoryGraphDestination
 import com.titan.feature.history.navigation.LibraryGraphDestination
 import com.titan.feature.home.navigation.HomeGraphDestination
 import com.titan.feature.progression.navigation.ProgressionGraphDestination
+import com.titan.feature.titan.navigation.TitanGraphDestination
 import kotlin.reflect.KClass
 
 /**
@@ -69,6 +71,14 @@ enum class TopLevelDestination(
         labelRes = R.string.nav_stats,
         selectedIcon = Icons.Filled.Insights,
         unselectedIcon = Icons.Outlined.Insights,
+    ),
+
+    /** The companion: last, after Stats. One icon for both states — it is a line drawing. */
+    TITAN(
+        graphDestination = TitanGraphDestination,
+        labelRes = R.string.nav_titan,
+        selectedIcon = TitanIcons.titan,
+        unselectedIcon = TitanIcons.titan,
     ),
     ;
 
