@@ -31,11 +31,26 @@ import com.titan.core.domain.model.EquipmentType
  * Whatever neither finds is left to the matcher's own name comparison and, failing that, created
  * as a custom exercise — the safe outcome, which the user can see and rename.
  *
+ * ### Equipment at the front of the name
+ *
+ * Some libraries put the equipment first instead: JEFIT's "Barbell Bench Press", "Cable Seated
+ * Row", "Machine Leg Extension". With [leadingEquipment], a name with no equipment in a trailing
+ * parenthesis has it read from its first words, so a custom exercise is created with it and the
+ * matcher holds a match to it, as it does for a parenthesis. The name is not shortened for it:
+ * "Barbell Squat" without its first word is a different catalogue row's name ("Squat" on any
+ * equipment) far more often than it is a better match, and the source's table already maps the
+ * names that need it. Off by default, because a source that writes plain words ("Cable Face Pull"
+ * in FitNotes) is read as it always was.
+ *
  * @param catalogueNames a source name, as the source writes it, to the name of the catalogue
  *   exercise it is known to be. Looked up by [ExerciseMatcher.normalised] name, so case and
  *   punctuation in the source do not matter.
+ * @param leadingEquipment whether the first words of a name may say its equipment; see above.
  */
-class SuffixedExerciseNames(catalogueNames: Map<String, String>) {
+class SuffixedExerciseNames(
+    catalogueNames: Map<String, String>,
+    private val leadingEquipment: Boolean = false,
+) {
 
     private val aliases: Map<String, String> = catalogueNames.mapKeys { (name, _) -> ExerciseMatcher.normalised(name) }
 
@@ -47,7 +62,7 @@ class SuffixedExerciseNames(catalogueNames: Map<String, String>) {
         return ImportedExercise(
             name = trimmed,
             catalogueName = aliases[ExerciseMatcher.normalised(trimmed)] ?: base.takeIf { equipment != null },
-            equipment = equipment,
+            equipment = equipment ?: leadingEquipmentOf(trimmed).takeIf { leadingEquipment },
         )
     }
 
@@ -103,6 +118,26 @@ class SuffixedExerciseNames(catalogueNames: Map<String, String>) {
          */
         fun equipmentOf(label: String): EquipmentType? =
             EQUIPMENT[ExerciseMatcher.normalised(label.substringBefore(" - "))]
+
+        /**
+         * The equipment the first words of [name] name — "Barbell" in "Barbell Bench Press",
+         * "Smith Machine" in "Smith Machine Squat" — or null when they name none, or are the
+         * whole name. The longest name of a piece of equipment wins.
+         *
+         * A band, bodyweight or a bare "Smith" at the front is not read. The catalogue files rows
+         * that start that way under other equipment ("Band Assisted Pull-Up", "Bodyweight Walking
+         * Lunge", "Smith Incline Shoulder Raise"), so reading them would have the matcher refuse
+         * matches the names alone make. Every catalogue row that starts with one of the rest is
+         * filed under it, which `JefitCatalogueNamesTest` holds the seed to.
+         */
+        fun leadingEquipmentOf(name: String): EquipmentType? {
+            val normalised = ExerciseMatcher.normalised(name)
+            return LEADING.firstOrNull { label -> normalised.startsWith("$label ") }?.let(EQUIPMENT::get)
+        }
+
+        /** The labels in [EQUIPMENT] [leadingEquipmentOf] reads, longest first. */
+        private val LEADING = (EQUIPMENT.keys - setOf("band", "resistance band", "bodyweight", "smith"))
+            .sortedByDescending(String::length)
 
         /**
          * Whether [name] is the assisted variation of a movement — "Pull Up (Assisted)" — whose

@@ -132,6 +132,17 @@ class SourceValuesTest {
         assertNull(SourceValues.localTimestamp("+999999999-12-31 23:59:59", ZoneOffset.UTC))
     }
 
+    // ------------------------------------------------------------------ epochSeconds
+
+    @Test
+    fun `seconds since 1970 are an instant, and zero or nonsense is no time at all`() {
+        assertEquals(millis("2026-10-05T18:00:00Z"), SourceValues.epochSeconds("1791223200"))
+        assertEquals(millis("2026-10-05T18:00:00Z"), SourceValues.epochSeconds(" 1791223200 "))
+        listOf(null, "", "0", "-5", "1791223200.5", "soon", "99999999999999999").forEach { text ->
+            assertNull(text, SourceValues.epochSeconds(text))
+        }
+    }
+
     // ------------------------------------------------------------------ localDateAtNoon
 
     @Test

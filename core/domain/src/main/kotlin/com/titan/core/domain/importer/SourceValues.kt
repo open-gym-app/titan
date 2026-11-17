@@ -46,6 +46,7 @@ object SourceValues {
 
     private const val SECONDS_PER_MINUTE = 60L
     private const val SECONDS_PER_HOUR = 3_600L
+    private const val MILLIS_PER_SECOND = 1_000L
 
     /**
      * Wall-clock date and time, `2024-03-02 18:04:11`: a space or a `T` between the two, seconds
@@ -200,6 +201,21 @@ object SourceValues {
         } catch (_: DateTimeException) {
             null
         }
+    }
+
+    /**
+     * [text], a whole number of seconds since the start of 1970 in UTC, as an instant in epoch
+     * milliseconds; null when it is blank, not a whole number, not positive, or too large to be
+     * one.
+     *
+     * Some apps export a time as the integer their database stores rather than as a date, and
+     * write `0` for a time they never recorded. Read as written, that would be a workout on the
+     * first day of 1970, so zero and below read as no time at all; anything later is passed on as
+     * it is, for [ImportPlanner] to judge.
+     */
+    fun epochSeconds(text: String?): Long? {
+        val seconds = text?.trim()?.toLongOrNull()?.takeIf { it > 0L } ?: return null
+        return if (seconds > Long.MAX_VALUE / MILLIS_PER_SECOND) null else seconds * MILLIS_PER_SECOND
     }
 
     /**
