@@ -84,7 +84,7 @@ class JefitParser : HistoryParser {
         val cardioLogIds = tables.rows(JefitSection.CARDIO_EXERCISE_LOGS, JefitColumn.CARDIO_LOG_ID)
             .mapNotNullTo(HashSet()) { it[JefitColumn.CARDIO_LOG_ID] }
         val exercises = JefitExercises(tables, logs, routines.lines, notes, cardioLogIds)
-        val reader = JefitWorkouts(tables, context.zone, exercises, JefitSetReader(units), routines.dayNames, notes)
+        val reader = JefitWorkouts(tables, context, exercises, JefitSetReader(units), routines.dayNames, notes)
 
         // The workouts first: a routine plans an exercise in time or in reps by how it was logged.
         val workouts = reader.read(logs)

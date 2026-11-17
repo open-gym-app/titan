@@ -266,7 +266,7 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
         }
 
     @Test
-    fun `importing onto a large history costs about what it costs onto an empty one`(): Unit =
+    fun `importing onto a large history stays within its per-workout budget`(): Unit =
         runBlocking {
             seedHistory(STRESS_SCALE)
             val firstDay = WorkoutHistoryFixture.sessionEpochDay(STRESS_SCALE.sessionCount) + 1
@@ -292,9 +292,14 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
             )
             warmUp()
 
-            val allowedMs = (IMPORT_BUDGET_MS_PER_WORKOUT * IMPORTED_WORKOUTS * machineSlowdown()).toLong()
+            // One attempt only, since a second would import onto the first, so the machine is
+            // calibrated on both sides of it: load that arrives during a run of several seconds
+            // is load the calibration before it never saw.
+            val slowdownBefore = machineSlowdown()
             val progress: List<HistoryImportProgress>
             val elapsedMs = measureTime { progress = stack.importHistory(history).toList() }.inWholeMilliseconds
+            val slowdown = maxOf(slowdownBefore, machineSlowdown())
+            val allowedMs = (IMPORT_BUDGET_MS_PER_WORKOUT * IMPORTED_WORKOUTS * slowdown).toLong()
             println(
                 "[benchmark] import of $IMPORTED_WORKOUTS workouts: ${elapsedMs}ms (budget ${allowedMs}ms on this machine now)",
             )

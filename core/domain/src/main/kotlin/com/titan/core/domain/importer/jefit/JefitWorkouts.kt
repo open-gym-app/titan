@@ -1,9 +1,10 @@
 package com.titan.core.domain.importer.jefit
 
+import com.titan.core.domain.importer.ImportContext
 import com.titan.core.domain.importer.ImportedWorkout
 import com.titan.core.domain.importer.ImportedWorkoutExercise
 import com.titan.core.domain.importer.SourceValues
-import java.time.ZoneId
+import com.titan.core.domain.importer.checkSetCount
 
 /**
  * Turns EXERCISE LOGS into workouts, placing each log in the WORKOUT SESSIONS row it names.
@@ -25,7 +26,7 @@ import java.time.ZoneId
  */
 internal class JefitWorkouts(
     tables: JefitTables,
-    private val zone: ZoneId,
+    private val context: ImportContext,
     private val exercises: JefitExercises,
     private val sets: JefitSetReader,
     private val dayNames: Map<String, String>,
@@ -62,9 +63,15 @@ internal class JefitWorkouts(
      */
     fun isTimed(key: JefitExerciseKey): Boolean = shapes[key]?.let { (counted, timed) -> timed > counted } ?: false
 
-    /** The workouts [logs] make, in the order their first log appears. */
+    /**
+     * The workouts [logs] make, in the order their first log appears.
+     *
+     * @throws com.titan.core.domain.importer.TooManySetsException once the sets read pass
+     *   [ImportContext.maxSets].
+     */
     fun read(logs: List<JefitLog>): List<ImportedWorkout> {
         val drafts = LinkedHashMap<String, WorkoutDraft>()
+        var setCount = 0
         logs.forEach { log ->
             val key = log.key ?: return@forEach
             val draft = draftFor(log, drafts) ?: return@forEach
@@ -77,6 +84,8 @@ internal class JefitWorkouts(
                 exercises.isAssisted(key),
             )
             if (performed.isNotEmpty()) {
+                setCount += performed.size
+                context.checkSetCount(setCount)
                 draft.exercises += ImportedWorkoutExercise(exercise, performed, notes = notes.remove(key to log.date))
                 val shape = shapes.getOrPut(key) { IntArray(2) }
                 performed.forEach { set ->
@@ -102,7 +111,7 @@ internal class JefitWorkouts(
                 WorkoutDraft(startedAt, session.durationSeconds, session.dayId?.let(dayNames::get), session.calories)
             }
         }
-        val noon = SourceValues.localDateAtNoon(log.date, zone) ?: return null
+        val noon = SourceValues.localDateAtNoon(log.date, context.zone) ?: return null
         return drafts.getOrPut("day#$noon") { WorkoutDraft(noon) }
     }
 

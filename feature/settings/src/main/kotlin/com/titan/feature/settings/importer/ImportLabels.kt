@@ -4,11 +4,12 @@ import android.text.format.Formatter
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.titan.core.domain.importer.HistoryImportError
 import com.titan.core.domain.importer.HistoryImportSource
+import com.titan.core.ui.format.formatCount
 import com.titan.feature.settings.R
-import java.text.NumberFormat
 
 /*
  * What the import screen calls each source and each refusal.
@@ -148,9 +149,10 @@ internal fun HistoryImportError.message(source: HistoryImportSource): String {
             Formatter.formatShortFileSize(LocalContext.current, limitBytes),
         )
 
-        is HistoryImportError.TooManySets -> stringResource(
-            R.string.import_failed_too_many_sets,
-            NumberFormat.getIntegerInstance().format(limitSets),
+        is HistoryImportError.TooManySets -> pluralStringResource(
+            R.plurals.import_failed_too_many_sets,
+            limitSets,
+            formatCount(limitSets),
         )
 
         is HistoryImportError.Unreadable -> stringResource(R.string.import_failed_unreadable)
