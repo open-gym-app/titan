@@ -64,4 +64,10 @@ object DeepLinks {
      * of the month's streak allowance.
      */
     const val QUEST_LOG: String = "$SCHEME://$PROGRESSION_HOST/quests"
+
+    /**
+     * The Titan tab. Carries no id: there is one titan on screen, the active one, and a link that
+     * named a pet could outlive it.
+     */
+    const val TITANS: String = "$SCHEME://$PROGRESSION_HOST/titans"
 }
