@@ -9,9 +9,11 @@ import com.titan.core.domain.backup.model.ExerciseMuscleGroupRow
 import com.titan.core.domain.backup.model.ExerciseRow
 import com.titan.core.domain.backup.model.ExerciseTagRow
 import com.titan.core.domain.backup.model.ExportDocument
+import com.titan.core.domain.backup.model.FoodSeenRow
 import com.titan.core.domain.backup.model.ImportError
 import com.titan.core.domain.backup.model.MuscleGroupRow
 import com.titan.core.domain.backup.model.PersonalRecordRow
+import com.titan.core.domain.backup.model.PetFeedRow
 import com.titan.core.domain.backup.model.PetRow
 import com.titan.core.domain.backup.model.PetStateRow
 import com.titan.core.domain.backup.model.PreferencesPayload
@@ -139,6 +141,8 @@ object ExportFormat {
             is CollectedItemRow -> json.encodeToString(CollectedItemRow.serializer(), row)
             is PetRow -> json.encodeToString(PetRow.serializer(), row)
             is PetStateRow -> json.encodeToString(PetStateRow.serializer(), row)
+            is PetFeedRow -> json.encodeToString(PetFeedRow.serializer(), row)
+            is FoodSeenRow -> json.encodeToString(FoodSeenRow.serializer(), row)
         }
 
     /**

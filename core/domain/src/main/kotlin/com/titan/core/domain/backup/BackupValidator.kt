@@ -241,6 +241,14 @@ object BackupValidator {
         return unique(BackupTable.PET, "id", document.pet.map { it.id })
             ?: unique(BackupTable.PET, "hatched_from_item_id", document.pet.map { it.hatchedFromItemId })
             ?: references(PET_TO_COLLECTED_ITEM, collectedItems, document.pet.map { it.hatchedFromItemId })
+            ?: unique(BackupTable.PET_FEED, "collected_item_id", document.petFeed.map { it.collectedItemId })
+            ?: references(PET_FEED_TO_COLLECTED_ITEM, collectedItems, document.petFeed.map { it.collectedItemId })
+            ?: references(
+                PET_FEED_TO_PET,
+                document.pet.mapTo(mutableSetOf()) { it.id },
+                document.petFeed.map { it.petId },
+            )
+            ?: unique(BackupTable.FOOD_SEEN, "collectible_id", document.foodSeen.map { it.collectibleId })
             ?: unique(BackupTable.PET_STATE, "pet_id", document.petState.map { it.petId })
             ?: references(
                 PET_STATE_TO_PET,
@@ -297,6 +305,7 @@ object BackupValidator {
             Column(BackupTable.QUEST_COMPLETION, "completed_at") { quests.map { it.completedAt } },
             Column(BackupTable.COLLECTED_ITEM, "acquired_at") { document.collectedItem.map { it.acquiredAt } },
             Column(BackupTable.PET, "hatched_at") { document.pet.map { it.hatchedAt } },
+            Column(BackupTable.PET_FEED, "fed_at") { document.petFeed.map { it.fedAt } },
             Column(BackupTable.PET_STATE, "activity_started_at") { document.petState.map { it.activityStartedAt } },
             Column(BackupTable.PET_STATE, "activity_ends_at") { document.petState.map { it.activityEndsAt } },
             Column(BackupTable.PET_STATE, "updated_at") { document.petState.map { it.updatedAt } },
@@ -542,6 +551,10 @@ object BackupValidator {
         ForeignKey(BackupTable.SESSION_PET_CLAIM, "session_id", BackupTable.WORKOUT_SESSION)
     private val COLLECTED_ITEM_TO_SESSION =
         ForeignKey(BackupTable.COLLECTED_ITEM, "session_id", BackupTable.WORKOUT_SESSION)
+    private val PET_FEED_TO_COLLECTED_ITEM =
+        ForeignKey(BackupTable.PET_FEED, "collected_item_id", BackupTable.COLLECTED_ITEM)
+    private val PET_FEED_TO_PET =
+        ForeignKey(BackupTable.PET_FEED, "pet_id", BackupTable.PET)
     private val PET_STATE_TO_PET =
         ForeignKey(BackupTable.PET_STATE, "pet_id", BackupTable.PET)
     private val PET_TO_COLLECTED_ITEM =

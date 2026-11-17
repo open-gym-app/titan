@@ -1,6 +1,8 @@
 package com.titan.core.domain.gamification
 
 import com.titan.core.domain.model.ChooseActivityResult
+import com.titan.core.domain.model.Collectible
+import com.titan.core.domain.model.FeedEffect
 import com.titan.core.domain.model.PetStats
 import com.titan.core.domain.model.TitanActivity
 import com.titan.core.domain.model.TitanPlace
@@ -140,6 +142,40 @@ object TitanRules {
             activity.energyCost > state.vitals.energy -> ChooseActivityResult.NotAffordable(activity.energyCost)
             else -> ChooseActivityResult.Chosen(start(state.vitals, activity, at = now, resume = null))
         }
+
+    /** What any food adds to spirit on top of its fuel. */
+    const val FEED_SPIRIT = 5
+
+    /**
+     * What feeding [food] to [state] at [now] would do, without doing it — the figures the feed
+     * sheet shows before the tap. [feed] applies exactly these.
+     *
+     * @throws IllegalArgumentException if [food] is not a food.
+     */
+    fun previewFeed(
+        state: TitanState,
+        food: Collectible,
+    ): FeedEffect {
+        val fuel = requireNotNull(food.fuel) { "${food.id} is not a food" }
+        val after = state.vitals.plus(TitanVital.FUEL, fuel).plus(TitanVital.SPIRIT, FEED_SPIRIT)
+        return FeedEffect(before = state.vitals, after = after)
+    }
+
+    /**
+     * [state] fed [food] at [now]: the effect applied, and the titan stopping to eat before it
+     * goes back to what it was doing. A titan already eating goes back to what it was doing
+     * before that meal, not to eating.
+     */
+    fun feed(
+        state: TitanState,
+        food: Collectible,
+        now: Long,
+    ): Pair<TitanState, FeedEffect> {
+        val effect = previewFeed(state, food)
+        val resume = if (state.activity == TitanActivity.EAT) state.resumeActivity else state.activity
+        val eating = start(effect.after, TitanActivity.EAT, at = now, resume = resume)
+        return eating to effect
+    }
 
     /**
      * The titan's power: one figure, derived from what training has built.

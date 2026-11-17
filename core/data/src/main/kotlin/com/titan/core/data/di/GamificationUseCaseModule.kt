@@ -4,6 +4,7 @@ import com.titan.core.domain.gamification.DropTableEvaluator
 import com.titan.core.domain.repository.CollectedItemRepository
 import com.titan.core.domain.repository.ExerciseRepository
 import com.titan.core.domain.repository.GamificationRepository
+import com.titan.core.domain.repository.PantryRepository
 import com.titan.core.domain.repository.PersonalRecordRepository
 import com.titan.core.domain.repository.PetRepository
 import com.titan.core.domain.repository.ProgressionRepository
@@ -15,6 +16,7 @@ import com.titan.core.domain.time.Clock
 import com.titan.core.domain.usecase.AchievementTriggerUseCase
 import com.titan.core.domain.usecase.AwardXpUseCase
 import com.titan.core.domain.usecase.ChooseActivityUseCase
+import com.titan.core.domain.usecase.FeedUseCase
 import com.titan.core.domain.usecase.GrowPetUseCase
 import com.titan.core.domain.usecase.HatchEggUseCase
 import com.titan.core.domain.usecase.LootRollUseCase
@@ -186,4 +188,10 @@ object GamificationUseCaseModule {
     @Provides
     fun provideChooseActivityUseCase(titanStateRepository: TitanStateRepository): ChooseActivityUseCase =
         ChooseActivityUseCase(titanStateRepository)
+
+    @Provides
+    fun provideFeedUseCase(
+        pantryRepository: PantryRepository,
+        titanStateRepository: TitanStateRepository,
+    ): FeedUseCase = FeedUseCase(pantryRepository, titanStateRepository)
 }

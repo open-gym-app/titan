@@ -282,6 +282,63 @@ class TitanRulesTest {
         assertEquals(sound, TitanRules.repaired(sound, now = START + HOUR))
     }
 
+    // ─── Feeding ────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a feed's preview is its fuel and the spirit every food adds, held at the top`() {
+        val state = idle(TitanVitals(fuel = 22, energy = 80, spirit = 55))
+
+        val effect = TitanRules.previewFeed(state, Collectibles.STEAK)
+
+        assertEquals(TitanVitals(fuel = 62, energy = 80, spirit = 60), effect.after)
+        assertEquals(40, effect.change(TitanVital.FUEL))
+        assertEquals(listOf(TitanVital.FUEL, TitanVital.SPIRIT), effect.moved)
+        assertEquals(100, TitanRules.previewFeed(idle(TitanVitals(90, 80, 99)), Collectibles.STEAK).after.fuel)
+    }
+
+    @Test
+    fun `feeding applies exactly the preview and stops the titan to eat`() {
+        val training = (
+            TitanRules.choose(
+                idle(TitanVitals(22, 80, 55)),
+                TitanActivity.TRAIN,
+                now = 0,
+            ) as ChooseActivityResult.Chosen
+            ).state
+
+        val (fed, effect) = TitanRules.feed(training, Collectibles.STEAK, now = 1_000)
+
+        assertEquals(TitanRules.previewFeed(training, Collectibles.STEAK), effect)
+        assertEquals(effect.after, fed.vitals)
+        assertEquals(TitanActivity.EAT, fed.activity)
+        assertEquals(TitanActivity.TRAIN, fed.resumeActivity)
+        val back = TitanRules.advance(fed, to = fed.endsAt!!, seed = 1)
+        assertEquals("after the meal it goes back to the rack", TitanActivity.TRAIN, back.activity)
+    }
+
+    @Test
+    fun `a second feed mid-meal goes back to what came before the first`() {
+        val training = (
+            TitanRules.choose(
+                idle(TitanVitals(22, 80, 55)),
+                TitanActivity.TRAIN,
+                now = 0,
+            ) as ChooseActivityResult.Chosen
+            ).state
+        val (once, _) = TitanRules.feed(training, Collectibles.OATS, now = 1_000)
+
+        val (twice, _) = TitanRules.feed(once, Collectibles.OATS, now = 2_000)
+
+        assertEquals(TitanActivity.TRAIN, twice.resumeActivity)
+    }
+
+    @Test
+    fun `a trophy cannot be fed`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            TitanRules.previewFeed(idle(TitanVitals(22, 80, 55)), Collectibles.IRON_CROWN)
+        }
+    }
+
     // ─── Power and storage keys ─────────────────────────────────────────────────────────
 
     @Test
