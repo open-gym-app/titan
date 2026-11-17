@@ -15,7 +15,6 @@ import com.titan.core.domain.importer.SourceDurationUnit
 import com.titan.core.domain.importer.SourceValues
 import com.titan.core.domain.importer.SourceWeightUnit
 import com.titan.core.domain.importer.SuffixedExerciseNames
-import com.titan.core.domain.importer.WeightFigure
 import com.titan.core.domain.importer.csv.CsvHeader
 import com.titan.core.domain.model.EquipmentType
 import com.titan.core.domain.model.SetType
@@ -28,7 +27,8 @@ import kotlin.math.roundToInt
  * ### What becomes what
  *
  * - **A workout** is the rows that share a start: `workout_date` at its own time or at
- *   `workout_time`, or at noon on the date when neither gives one ([startOf]). Wherever its rows are
+ *   `workout_time`, or at noon on the date when neither gives one, a spreadsheet's midnight counting
+ *   as none ([startOf]). Wherever its rows are
  *   in the file, they are one workout, and reading the file again gives the same starts, so a
  *   re-import is a duplicate of every workout. Two workouts on one day without a time share noon,
  *   and are one workout: apart, the planner would refuse the second as a duplicate of the first
@@ -53,15 +53,17 @@ import kotlin.math.roundToInt
  * set the heaviest. See [SuffixedExerciseNames.namesAssistance].
  */
 internal class WorkoutColumns private constructor(
-    private val header: CsvHeader,
+    header: CsvHeader,
     private val context: ImportContext,
     private val figures: FigureColumns,
 ) : PlainCsvLayout {
 
     override val problem: String? = figures.problem
 
+    private val cells = PlainCells(header)
+
     override fun read(records: List<List<String>>): ParseResult {
-        val order = SourceValues.dayMonthOrder(records.map { cell(it, WORKOUT_DATE) })
+        val order = SourceValues.dayMonthOrder(records.map { cells[it, WORKOUT_DATE] })
         val reading = WorkoutReading()
         val usable = records.count { reading.read(it, order) }
         return if (usable == 0 && records.isNotEmpty()) {
@@ -73,16 +75,6 @@ internal class WorkoutColumns private constructor(
         }
     }
 
-    private fun cell(
-        record: List<String>,
-        name: String,
-    ): String? = header.plainColumn(name)?.let { header[record, it] }
-
-    private fun cell(
-        record: List<String>,
-        column: UnitColumn<*>?,
-    ): String? = column?.let { header[record, it.name] }
-
     /** One pass over the file's rows, building the workouts as it goes. */
     private inner class WorkoutReading {
 
@@ -90,26 +82,40 @@ internal class WorkoutColumns private constructor(
         private val exercises = LinkedHashMap<ExerciseKey, ExerciseDraft>()
         private val workouts = LinkedHashMap<Long, WorkoutDraft>()
 
+        /** The equipment each exercise name says, by name as written: resolving a name is not per-row work. */
+        private val namedEquipment = HashMap<String, EquipmentType?>()
+
         /** Reads [record] into the history; whether it had a start and an exercise to read. */
         fun read(
             record: List<String>,
             order: DayMonthOrder?,
         ): Boolean {
-            val startedAt = startOf(cell(record, WORKOUT_DATE), cell(record, WORKOUT_TIME), context.zone, order)
+            val startedAt = startOf(cells[record, WORKOUT_DATE], cells[record, WORKOUT_TIME], context.zone, order)
                 ?: return false
-            val name = cell(record, EXERCISE) ?: return false
+            val name = cells[record, EXERCISE] ?: return false
 
-            val key = ExerciseKey(ExerciseMatcher.normalised(name), cell(record, EQUIPMENT)?.let(::equipmentOf))
+            // Equipment the name already says is no other exercise: `Bench Press (Barbell)` with
+            // `barbell` beside it on one row and nothing on the next is one exercise, not two.
+            val equipment = cells[record, EQUIPMENT]?.let(::equipmentOf)
+                ?.takeUnless { it == equipmentNamed(name) }
+            val key = ExerciseKey(ExerciseMatcher.normalised(name), equipment)
             val exercise = exercises.getOrPut(key) { ExerciseDraft(name, key.equipment) }
-            exercise.muscle = exercise.muscle ?: cell(record, MUSCLE)?.let(::muscleOf)
+            exercise.muscle = exercise.muscle ?: cells[record, MUSCLE]?.let(::muscleOf)
 
             val workout = workouts.getOrPut(startedAt) { WorkoutDraft(startedAt) }
             describe(workout, record)
-            val line = workout.line(key, cell(record, SUPERSET)?.let(::supersetKey))
-            SourceValues.note(cell(record, EXERCISE_NOTES))?.let(line.notes::add)
-            set(record, SuffixedExerciseNames.namesAssistance(name))?.let(line.sets::add)
+            val line = workout.line(key, cells[record, SUPERSET]?.let(::supersetKey))
+            SourceValues.note(cells[record, EXERCISE_NOTES])?.let(line.notes::add)
+            set(record, exercise.assisted)?.let(line.sets::add)
             return true
         }
+
+        private fun equipmentNamed(name: String): EquipmentType? =
+            if (name in namedEquipment) {
+                namedEquipment[name]
+            } else {
+                names.exercise(name).equipment.also { namedEquipment[name] = it }
+            }
 
         fun history(): ImportedHistory {
             val resolved = exercises.mapValues { (_, draft) -> draft.toExercise(names) }
@@ -124,61 +130,52 @@ internal class WorkoutColumns private constructor(
             workout: WorkoutDraft,
             record: List<String>,
         ) {
-            workout.name = workout.name ?: cell(record, WORKOUT_NAME)
+            workout.name = workout.name ?: cells[record, WORKOUT_NAME]
             workout.durationSeconds = workout.durationSeconds
-                ?: figures.workoutDurationUnit.seconds(cell(record, figures.workoutDuration))
-            workout.calories = workout.calories ?: whole(cell(record, WORKOUT_CALORIES))
-            workout.rating = workout.rating ?: whole(cell(record, WORKOUT_RATING))
-            SourceValues.note(cell(record, WORKOUT_NOTES))?.let(workout.notes::add)
+                ?: figures.workoutDurationUnit.seconds(cells[record, figures.workoutDuration])
+            workout.calories = workout.calories ?: whole(cells[record, WORKOUT_CALORIES])
+            workout.rating = workout.rating ?: whole(cells[record, WORKOUT_RATING])
+            SourceValues.note(cells[record, WORKOUT_NOTES])?.let(workout.notes::add)
         }
 
         /**
          * The set [record] describes; null when it records none of reps, weight, duration and
          * distance; and one with nothing recorded when one of those is not a number or is in a unit
          * Titan does not read, which the planner refuses and counts, where dropping the row here
-         * would lose it without a word.
+         * would lose it without a word. An [assisted] exercise's weight is never read, so a
+         * counterweight that does not read cannot cost the set its reps.
          */
         private fun set(
             record: List<String>,
             assisted: Boolean,
         ): ImportedSet? {
-            val reps = Figure.of(cell(record, REPS), ::whole)
-            val weight = Figure.of(cell(record, figures.weight)) { text ->
-                WeightFigure.parse(text)?.let { figure -> (figure.unit ?: weightUnit(record))?.let(figure::milligrams) }
-            }
-            val duration = Figure.of(cell(record, figures.duration), figures.durationUnit::seconds)
-            val distance = Figure.of(cell(record, figures.distance)) { text ->
+            val reps = Figure.of(cells[record, REPS], ::whole)
+            val weight = Figure(
+                cells[record, figures.weight],
+                if (assisted) null else cells.weight(record, figures.weight, SourceWeightUnit.of(context.unitSystem)),
+            )
+            val duration = Figure.of(cells[record, figures.duration], figures.durationUnit::seconds)
+            val distance = Figure.of(cells[record, figures.distance]) { text ->
                 SourceValues.decimal(text)?.let { figure -> distanceUnit(record)?.toCentimetres(figure) }
             }
             val all = listOf(reps, weight, duration, distance)
             if (all.all(Figure<*>::isBlank)) return null
 
-            val type = cell(record, SET_TYPE)?.let(::setTypeOf) ?: SetType.NORMAL
-            if (all.any(Figure<*>::isUnreadable)) return ImportedSet(setType = type)
+            val type = cells[record, SET_TYPE]?.let(::setTypeOf) ?: SetType.NORMAL
+            val read = if (assisted) listOf(reps, duration, distance) else all
+            if (read.any(Figure<*>::isUnreadable)) return ImportedSet(setType = type)
             return ImportedSet(
                 setType = type,
                 reps = reps.value,
-                weight = weight.value?.takeUnless { assisted },
+                weight = weight.value,
                 duration = duration.value,
                 distance = distance.value,
-                rpe = SourceValues.decimal(cell(record, RPE))?.let { (it * RPE_SCALE).roundToInt() },
-                heartRateAvg = whole(cell(record, AVG_HEART_RATE)),
-                heartRateMax = whole(cell(record, MAX_HEART_RATE)),
-                restAfter = figures.restUnit.seconds(cell(record, figures.rest)),
-                notes = SourceValues.note(cell(record, NOTES)),
+                rpe = SourceValues.decimal(cells[record, RPE])?.let { (it * RPE_SCALE).roundToInt() },
+                heartRateAvg = whole(cells[record, AVG_HEART_RATE]),
+                heartRateMax = whole(cells[record, MAX_HEART_RATE]),
+                restAfter = figures.restUnit.seconds(cells[record, figures.rest]),
+                notes = SourceValues.note(cells[record, NOTES]),
             )
-        }
-
-        /**
-         * The unit [record]'s weight is in when its cell names none: its row's, else the header's,
-         * else the user's. Null when its row names one Titan does not read.
-         */
-        private fun weightUnit(record: List<String>): SourceWeightUnit? {
-            val label = cell(
-                record,
-                WEIGHT_UNIT,
-            ) ?: return figures.weight?.unit ?: SourceWeightUnit.of(context.unitSystem)
-            return SourceWeightUnit.parse(label)
         }
 
         /**
@@ -186,7 +183,7 @@ internal class WorkoutColumns private constructor(
          * distance. Null when its row names one Titan does not read.
          */
         private fun distanceUnit(record: List<String>): SourceDistanceUnit? {
-            val label = cell(record, DISTANCE_UNIT)
+            val label = cells[record, DISTANCE_UNIT]
                 ?: return figures.distance?.unit ?: SourceDistanceUnit.of(context.unitSystem)
             return SourceDistanceUnit.parse(label)
         }
@@ -247,7 +244,7 @@ private class Figure<T : Any>(
     val isBlank: Boolean get() = text == null
 
     /** Whether the cell says something that is not a figure: a set the planner should count rather than lose. */
-    val isUnreadable: Boolean get() = text != null && value == null
+    val isUnreadable: Boolean get() = SourceValues.isUnread(text, value)
 
     companion object {
 
@@ -260,8 +257,8 @@ private class Figure<T : Any>(
 
 /**
  * What tells one exercise of the file from another: its name, as [ExerciseMatcher.normalised] has
- * it, so `Bench press` and `bench press` are one, and the equipment `equipment` says, so a row
- * that names another is a different exercise.
+ * it, so `Bench press` and `bench press` are one, and the equipment `equipment` says when the name
+ * does not already say it, so a row that names another is a different exercise.
  */
 private data class ExerciseKey(
     val name: String,
@@ -274,6 +271,9 @@ private class ExerciseDraft(
     private val equipment: EquipmentType?,
 ) {
     var muscle: String? = null
+
+    /** Whether its name calls it assisted, which leaves its weight out: see [SuffixedExerciseNames.namesAssistance]. */
+    val assisted: Boolean = SuffixedExerciseNames.namesAssistance(name)
 
     fun toExercise(names: SuffixedExerciseNames): ImportedExercise {
         val named = names.exercise(name)
@@ -364,11 +364,11 @@ private fun supersetKey(label: String): String = SourceValues.decimal(label)?.to
  * — `barbell`, `dumbbells`, `smith machine`, `ez bar`), or one of Titan's own equipment names
  * (`other`, `ez_curl_bar`); null for anything else, which leaves the exercise's name to say.
  */
-private fun equipmentOf(label: String): EquipmentType? {
-    val key = ExerciseMatcher.normalised(label)
-    return SuffixedExerciseNames.equipmentOf(label)
-        ?: EquipmentType.entries.firstOrNull { ExerciseMatcher.normalised(it.name) == key }
-}
+private fun equipmentOf(label: String): EquipmentType? =
+    SuffixedExerciseNames.equipmentOf(label) ?: EQUIPMENT_NAMES[ExerciseMatcher.normalised(label)]
+
+/** Titan's own equipment names, by [ExerciseMatcher.normalised] name: `ez curl bar`. */
+private val EQUIPMENT_NAMES = EquipmentType.entries.associateBy { ExerciseMatcher.normalised(it.name) }
 
 /**
  * A `muscle` cell as the name of one of the catalogue's muscle groups would be written, `Lower

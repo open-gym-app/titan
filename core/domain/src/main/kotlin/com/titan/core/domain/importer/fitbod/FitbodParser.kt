@@ -304,8 +304,8 @@ private class FitbodReading(private val layout: FitbodLayout) : RecordReading {
         val reps = SourceValues.decimal(repsText)
         val duration = layout.durationUnit.seconds(durationText)
         val distance = SourceValues.decimal(distanceText)
-        val unreadable = unread(weightText, weight) || unread(repsText, reps) ||
-            unread(durationText, duration) || unread(distanceText, distance)
+        val unreadable = SourceValues.isUnread(weightText, weight) || SourceValues.isUnread(repsText, reps) ||
+            SourceValues.isUnread(durationText, duration) || SourceValues.isUnread(distanceText, distance)
         if (unreadable) return ImportedSet(setType = type)
 
         val performed = ImportedSet(
@@ -332,12 +332,6 @@ private class FitbodReading(private val layout: FitbodLayout) : RecordReading {
     ): Boolean =
         SourceValues.decimal(multiplier) == 0.0 && (set.reps ?: 0) > 0 && (set.duration ?: 0L) == 0L &&
             (set.distance ?: 0L) == 0L
-
-    /** Whether a cell held [text] that did not read as a [value]. */
-    private fun unread(
-        text: String?,
-        value: Any?,
-    ): Boolean = text != null && value == null
 }
 
 private class WorkoutDraft(val startedAt: Long) {

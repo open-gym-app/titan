@@ -7,7 +7,6 @@ import com.titan.core.domain.importer.ParseResult
 import com.titan.core.domain.importer.SourceLengthUnit
 import com.titan.core.domain.importer.SourceValues
 import com.titan.core.domain.importer.SourceWeightUnit
-import com.titan.core.domain.importer.WeightFigure
 import com.titan.core.domain.importer.csv.CsvHeader
 import com.titan.core.domain.model.BodyMeasurement
 import kotlin.math.roundToInt
@@ -28,16 +27,19 @@ import kotlin.math.roundToInt
  * and so is a row that records nothing at all.
  */
 internal class MeasurementColumns private constructor(
-    private val header: CsvHeader,
+    header: CsvHeader,
     private val context: ImportContext,
-    private val weight: UnitColumn<SourceWeightUnit>?,
+    private val weightColumn: UnitColumn<SourceWeightUnit>?,
     private val sites: Map<Site, UnitColumn<SourceLengthUnit>>,
 ) : PlainCsvLayout {
 
-    override val problem: String? = (listOfNotNull(weight) + sites.values).firstNotNullOfOrNull(UnitColumn<*>::problem)
+    override val problem: String? =
+        (listOfNotNull(weightColumn) + sites.values).firstNotNullOfOrNull(UnitColumn<*>::problem)
+
+    private val cells = PlainCells(header)
 
     override fun read(records: List<List<String>>): ParseResult {
-        val order = SourceValues.dayMonthOrder(records.map { cell(it, MEASUREMENT_DATE) })
+        val order = SourceValues.dayMonthOrder(records.map { cells[it, MEASUREMENT_DATE] })
         val measurements = records.mapNotNull { measurement(it, order) }
         return if (measurements.isEmpty() && records.isNotEmpty()) {
             ParseResult.Malformed("none of the file's ${records.size} rows has a measurement_date that can be read")
@@ -51,17 +53,15 @@ internal class MeasurementColumns private constructor(
         record: List<String>,
         order: DayMonthOrder?,
     ): BodyMeasurement? {
-        val takenAt = startOf(cell(record, MEASUREMENT_DATE), cell(record, MEASUREMENT_TIME), context.zone, order)
+        val takenAt = startOf(cells[record, MEASUREMENT_DATE], cells[record, MEASUREMENT_TIME], context.zone, order)
             ?: return null
         val empty = BodyMeasurement(createdAt = takenAt, updatedAt = takenAt)
 
-        val weightText = weight?.let { header[record, it.name] }
-        val weight = WeightFigure.parse(
-            weightText,
-        )?.let { figure -> (figure.unit ?: weightUnit(record))?.let(figure::milligrams) }
-        val bodyFatText = cell(record, BODY_FAT)
+        val weightText = cells[record, weightColumn]
+        val weight = cells.weight(record, weightColumn, SourceWeightUnit.of(context.unitSystem))
+        val bodyFatText = cells[record, BODY_FAT]
         val bodyFat = SourceValues.decimal(bodyFatText?.removeSuffix(PERCENT))
-        val siteTexts = sites.mapValues { (_, column) -> header[record, column.name] }
+        val siteTexts = sites.mapValues { (_, column) -> cells[record, column] }
         val millimetres = siteTexts.mapValues { (site, text) ->
             SourceValues.decimal(text)?.let { figure -> lengthUnit(record, site)?.toMillimetres(figure) }
         }
@@ -83,19 +83,8 @@ internal class MeasurementColumns private constructor(
             forearm = mm(Site.FOREARM),
             thigh = mm(Site.THIGH),
             calf = mm(Site.CALF),
-            notes = SourceValues.note(cell(record, NOTES)),
+            notes = SourceValues.note(cells[record, NOTES]),
         )
-    }
-
-    private fun cell(
-        record: List<String>,
-        name: String,
-    ): String? = header.plainColumn(name)?.let { header[record, it] }
-
-    /** The unit [record]'s weight is in when its cell names none, as a workout file reads it. */
-    private fun weightUnit(record: List<String>): SourceWeightUnit? {
-        val label = cell(record, WEIGHT_UNIT) ?: return weight?.unit ?: SourceWeightUnit.of(context.unitSystem)
-        return SourceWeightUnit.parse(label)
     }
 
     /**
@@ -107,7 +96,7 @@ internal class MeasurementColumns private constructor(
         record: List<String>,
         site: Site,
     ): SourceLengthUnit? {
-        val label = cell(record, LENGTH_UNIT)
+        val label = cells[record, LENGTH_UNIT]
             ?: return sites[site]?.unit ?: SourceLengthUnit.of(context.unitSystem)
         return SourceLengthUnit.parse(label)
     }
@@ -123,7 +112,7 @@ internal class MeasurementColumns private constructor(
                 MeasurementColumns(
                     header = header,
                     context = context,
-                    weight = header.unitColumn(WEIGHT, SourceWeightUnit::parse),
+                    weightColumn = header.unitColumn(WEIGHT, SourceWeightUnit::parse),
                     sites = Site.entries.mapNotNull { site -> header.siteColumn(site)?.let { site to it } }.toMap(),
                 )
             } else {

@@ -6,9 +6,13 @@ import com.titan.core.domain.importer.HistoryParser
 import com.titan.core.domain.importer.ImportContext
 import com.titan.core.domain.importer.ParseResult
 import com.titan.core.domain.importer.SourceValues
+import com.titan.core.domain.importer.SourceWeightUnit
+import com.titan.core.domain.importer.WeightFigure
+import com.titan.core.domain.importer.WholeFile
 import com.titan.core.domain.importer.csv.CsvHeader
 import com.titan.core.domain.importer.csv.CsvReader
-import com.titan.core.domain.importer.csv.MalformedCsvException
+import com.titan.core.domain.importer.readAll
+import java.time.LocalTime
 import java.time.ZoneId
 import java.util.Locale
 
@@ -76,33 +80,16 @@ class PlainCsvParser : HistoryParser {
     ): ParseResult =
         source.open().use { stream ->
             val reader = CsvReader.open(stream)
-            val layout = readHeader(reader)?.let { header ->
-                WorkoutColumns.of(header, context) ?: MeasurementColumns.of(header, context)
+            val layout = reader.readHeader()?.let { header ->
+                val canonical = CsvHeader(header.columns.map(::canonicalColumn))
+                WorkoutColumns.of(canonical, context) ?: MeasurementColumns.of(canonical, context)
             }
             val problem = layout?.problem
             when {
                 layout == null -> ParseResult.NotRecognised
-
                 problem != null -> ParseResult.Malformed(problem)
-
-                else -> try {
-                    layout.read(reader.records().toList())
-                } catch (failure: MalformedCsvException) {
-                    ParseResult.Malformed(failure.message.orEmpty())
-                }
+                else -> WholeFile(layout::read).readAll(reader)
             }
-        }
-
-    /**
-     * The first record as a header, its names made canonical, or null when there is none —
-     * including when it is not CSV at all, which is a file that is not this format rather than a
-     * broken one.
-     */
-    private fun readHeader(reader: CsvReader): CsvHeader? =
-        try {
-            reader.readRecord()?.let { columns -> CsvHeader(columns.map(::canonicalColumn)) }
-        } catch (_: MalformedCsvException) {
-            null
         }
 }
 
@@ -133,7 +120,13 @@ internal fun canonicalColumn(column: String): String {
     return match?.let { "$name (${it.groupValues[2].trim()})" } ?: name
 }
 
-private val QUALIFIED_COLUMN = Regex("(.*?)\\s*\\(([^()]*)\\)")
+/**
+ * A name and what its last parentheses hold. Greedy, as [CsvHeader.qualified]'s is, and the
+ * space before the parenthesis left in the name for the separators to drop: a lazy name followed
+ * by `\s*` would overlap it on a run of spaces, and a hostile header cell would take quadratic
+ * time to reject.
+ */
+private val QUALIFIED_COLUMN = Regex("(.*)\\(([^()]*)\\)")
 private val NAME_SEPARATORS = Regex("[^\\p{L}\\p{N}]+")
 
 /**
@@ -180,6 +173,50 @@ internal fun <U : Any> CsvHeader.unitColumn(
 internal fun CsvHeader.plainColumn(name: String): String? = qualified(name)?.name
 
 /**
+ * A record's cells by the name the format gives their column, each column looked up once.
+ *
+ * Finding a column by name matches every name in the header, and a layout reads a score of
+ * columns from every row of a history that can run to a hundred thousand sets.
+ */
+internal class PlainCells(private val header: CsvHeader) {
+
+    private val columns = HashMap<String, String?>()
+
+    /** [record]'s value in the column [plainColumn] finds for [name], as [CsvHeader.get] reads it. */
+    operator fun get(
+        record: List<String>,
+        name: String,
+    ): String? {
+        val column = if (name in columns) columns[name] else header.plainColumn(name).also { columns[name] = it }
+        return column?.let { header[record, it] }
+    }
+
+    /** [record]'s value in [column], or null when the header has none. */
+    operator fun get(
+        record: List<String>,
+        column: UnitColumn<*>?,
+    ): String? = column?.let { header[record, it.name] }
+
+    /**
+     * [record]'s weight in [column], in milligrams: in the unit its cell names, else its row's
+     * `weight_unit`, else [column]'s header's, else [fallback]. Null when it is blank or not a
+     * number, or when its row names a unit Titan does not read.
+     */
+    fun weight(
+        record: List<String>,
+        column: UnitColumn<SourceWeightUnit>?,
+        fallback: SourceWeightUnit,
+    ): Long? {
+        val figure = WeightFigure.parse(this[record, column]) ?: return null
+        val unit = figure.unit ?: when (val label = this[record, WEIGHT_UNIT]) {
+            null -> column?.unit ?: fallback
+            else -> SourceWeightUnit.parse(label)
+        }
+        return unit?.let(figure::milligrams)
+    }
+}
+
+/**
  * When a workout started, or a measurement was taken, from its row's [date] and [time] cells, in
  * epoch milliseconds; null when they do not read.
  *
@@ -187,15 +224,26 @@ internal fun CsvHeader.plainColumn(name: String): String? = qualified(name)?.nam
  * spreadsheet formats a date cell as a date and a time, and writes `2026-11-02 00:00` for a day the
  * user typed no time on. Without that column, the date's own time is read, and a date with none
  * starts at noon, [SourceValues.localDateAtNoon], the same instant on every import.
+ *
+ * A date's own time of exactly midnight, with no offset, is that same spreadsheet's mark of a day
+ * with no time, and starts at noon too: a file of dates that has been opened and saved again in a
+ * spreadsheet then reads as it did before, and a second import of it is a duplicate of every
+ * workout rather than a second copy of each, twelve hours earlier.
  */
 internal fun startOf(
     date: String?,
     time: String?,
     zone: ZoneId,
     order: DayMonthOrder?,
-): Long? =
-    when {
-        date == null -> null
-        time != null -> SourceValues.localDateAt(date.substringBefore(' ').substringBefore('T'), time, zone, order)
+): Long? {
+    if (date == null) return null
+    val day = date.substringBefore(' ').substringBefore('T')
+    return when {
+        time != null -> SourceValues.localDateAt(day, time, zone, order)
+
+        SourceValues.timeOfDay(date.removePrefix(day).trimStart(' ', 'T')) == LocalTime.MIDNIGHT ->
+            SourceValues.localDateAtNoon(day, zone, order)
+
         else -> SourceValues.localDateTime(date, zone, order) ?: SourceValues.localDateAtNoon(date, zone, order)
     }
+}

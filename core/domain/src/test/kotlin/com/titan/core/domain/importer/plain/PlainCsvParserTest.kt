@@ -144,6 +144,13 @@ class PlainCsvParserTest {
         ).forEach { text -> assertEquals(text, expected, onlySets(text)) }
     }
 
+    @Test(timeout = 2_000)
+    fun `a header cell of nothing but spaces is read in linear time`() {
+        val spaces = " ".repeat(100_000)
+        val text = "workout_date,exercise,reps,weight$spaces(kg),x${spaces}y\n2026-11-02,Squat,5,100,\n"
+        assertEquals(listOf(ImportedSet(reps = 5, weight = kg(100.0))), onlySets(text))
+    }
+
     @Test
     fun `a column whose header names no unit Titan reads is malformed`() {
         listOf(
@@ -251,6 +258,20 @@ class PlainCsvParserTest {
         // An assisted exercise's weight is its counterweight; a bodyweight set's zero is kept.
         assertEquals(listOf(ImportedSet(reps = 8)), bench[3].sets)
         assertEquals(listOf(ImportedSet(reps = 20, weight = 0)), bench[4].sets)
+    }
+
+    @Test
+    fun `an assisted exercise's counterweight is never read, so one that does not read costs nothing`() {
+        assertEquals(
+            listOf(ImportedSet(reps = 8), ImportedSet(reps = 6), ImportedSet()),
+            onlySets(
+                "workout_date,exercise,reps,weight,weight_unit\n" +
+                    "2026-11-02,Assisted Pull-Up,8,-20,kg\n" +
+                    "2026-11-02,Assisted Pull-Up,6,lots,stone\n" +
+                    // Only a counterweight, and a bad one: still a row that says a set, for the planner to count.
+                    "2026-11-02,Assisted Pull-Up,,lots,kg\n",
+            ),
+        )
     }
 
     @Test
@@ -373,6 +394,18 @@ class PlainCsvParserTest {
     }
 
     @Test
+    fun `equipment the name already says, on some of its rows only, is still one exercise`() {
+        val history = parsedText(
+            "workout_date,exercise,equipment,reps\n" +
+                "2026-11-02,Bench Press (Barbell),barbell,5\n2026-11-02,Bench Press (Barbell),,5\n" +
+                "2026-11-02,Barbell Squat,,5\n2026-11-02,Barbell Squat,Barbell,5\n",
+        )
+
+        assertEquals(listOf(2, 2), history.workouts.single().exercises.map { it.sets.size })
+        assertEquals(listOf(EquipmentType.BARBELL, EquipmentType.BARBELL), history.exercises.map { it.equipment })
+    }
+
+    @Test
     fun `rows sharing a start are one workout wherever they are, the first name and figures winning`() {
         val history = parsedText(
             listOf(
@@ -422,6 +455,25 @@ class PlainCsvParserTest {
                 "2026-11-08T11:00:00Z",
             ).map(::millis),
             starts,
+        )
+    }
+
+    @Test
+    fun `a date's own midnight is a spreadsheet's date with no time, so a re-saved file starts at noon again`() {
+        val paris = ImporterFixtures.context("Europe/Paris")
+        fun starts(vararg dates: String) =
+            parsedText("workout_date,exercise,reps\n" + dates.joinToString("") { "$it,Squat,5\n" }, paris)
+                .workouts.map { it.startedAt }
+
+        val typed = starts("2026-11-02", "13/11/2026", "2026-11-04")
+        assertEquals(typed, starts("2026-11-02 00:00", "13/11/2026 00:00:00", "2026-11-04T00:00:00"))
+        assertEquals(typed.take(1), starts("2026-11-02 12:00 AM"))
+        // A midnight with its offset says the moment, not the day; so does one in a time column.
+        assertEquals(listOf(millis("2026-11-02T00:00:00Z")), starts("2026-11-02T00:00:00Z"))
+        assertEquals(
+            listOf(millis("2026-11-01T23:00:00Z")),
+            parsedText("workout_date,workout_time,exercise,reps\n2026-11-02,00:00,Squat,5\n", paris)
+                .workouts.map { it.startedAt },
         )
     }
 
