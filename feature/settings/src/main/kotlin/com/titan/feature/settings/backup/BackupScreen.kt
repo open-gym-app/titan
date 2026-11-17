@@ -32,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -269,7 +270,12 @@ private fun ExportSection(
             null -> Unit
 
             is ExportOutcome.Succeeded -> ExportedCard(
-                text = stringResource(R.string.backup_export_done, outcome.fileName, outcome.rowsWritten),
+                text = pluralStringResource(
+                    R.plurals.backup_export_done,
+                    outcome.rowsWritten.pluralQuantity(),
+                    outcome.fileName,
+                    formatCount(outcome.rowsWritten),
+                ),
                 isBusy = state.isBusy,
                 onSaveCopy = { onSaveCopy(outcome.fileName) },
                 onShare = { onShare(outcome.fileName) },
@@ -338,7 +344,11 @@ private fun RestoreSection(
             null -> Unit
 
             is RestoreOutcome.Succeeded -> OutcomeCard(
-                text = stringResource(R.string.backup_restore_done, outcome.rowsRestored),
+                text = pluralStringResource(
+                    R.plurals.backup_restore_done,
+                    outcome.rowsRestored.pluralQuantity(),
+                    formatCount(outcome.rowsRestored),
+                ),
                 onDismiss = { onEvent(BackupEvent.OutcomeDismissed) },
             )
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Chrome -->
     <string name="settings_title">Settings</string>
@@ -128,7 +128,8 @@
          The reps are whole numbers; the step is typed in the current unit system. -->
     <string name="settings_custom_reps_from">Reps from</string>
     <string name="settings_custom_reps_to">Reps to</string>
-    <string name="settings_custom_reps_invalid">Enter a range from %1$d to %2$d reps, lowest first</string>
+    <!-- The bounds are RepRange's constants, so the noun is always plural. -->
+    <string name="settings_custom_reps_invalid" tools:ignore="PluralsCandidate">Enter a range from %1$d to %2$d reps, lowest first</string>
     <string name="settings_custom_increment_field_label">Weight step (%1$s)</string>
     <string name="settings_custom_increment_detail">Added when every set reaches the top of the range</string>
     <string name="settings_custom_increment_invalid">Enter a step above zero, up to %1$s</string>
@@ -189,7 +190,10 @@
     <string name="backup_export_detail">Writes every workout, template, record and setting to one JSON file. Save a copy where you can find it again, or send it somewhere — nothing leaves the phone until you do.</string>
     <string name="backup_export_action">Export a backup</string>
     <string name="backup_exporting">Exporting…</string>
-    <string name="backup_export_done">Saved %1$s — %2$d rows.</string>
+    <plurals name="backup_export_done">
+        <item quantity="one">Saved %1$s — %2$s row.</item>
+        <item quantity="other">Saved %1$s — %2$s rows.</item>
+    </plurals>
     <string name="backup_export_failed">The backup could not be written. Check there is space on the device and try again.</string>
     <string name="backup_share_title">Share backup</string>
     <string name="backup_save_copy_action">Save a copy…</string>
@@ -215,7 +219,10 @@
     <string name="backup_restore_action">Choose a backup file</string>
     <string name="backup_validating">Checking the file…</string>
     <string name="backup_importing">Restoring…</string>
-    <string name="backup_restore_done">Restored %1$d rows. Everything on this device now comes from the file.</string>
+    <plurals name="backup_restore_done">
+        <item quantity="one">Restored %1$s row. Everything on this device now comes from the file.</item>
+        <item quantity="other">Restored %1$s rows. Everything on this device now comes from the file.</item>
+    </plurals>
 
     <!--
       One message per ImportError. Each says what went wrong and, for the five that guarantee
@@ -223,15 +230,22 @@
       BackupLabels.kt.
     -->
     <string name="backup_error_malformed">That file is not a Titan backup, or it is damaged. Nothing on this device was changed.</string>
-    <string name="backup_error_version">That backup was written at format version %1$d and this build reads version %2$d. Update Titan and try again. Nothing on this device was changed.</string>
+    <!-- Two version numbers, not a count of anything: lint's plural heuristic does not apply. -->
+    <string name="backup_error_version" tools:ignore="PluralsCandidate">That backup was written at format version %1$d and this build reads version %2$d. Update Titan and try again. Nothing on this device was changed.</string>
     <string name="backup_error_constraint">That backup contradicts itself — it refers to workouts it does not contain, or holds values no version of Titan writes. Nothing on this device was changed.</string>
     <string name="backup_error_constraint_live_state">That backup contradicts itself — it refers to workouts it does not contain, or holds values no version of Titan writes. Your history and settings were not changed, but the workout or template you had open may have been closed.</string>
     <string name="backup_error_io">The backup could not be read. Nothing on this device was changed.</string>
     <string name="backup_error_io_live_state">The backup could not be written to this device. Your history and settings were not changed, but the workout or template you had open may have been closed.</string>
     <string name="backup_error_live_state">That backup was not restored: the workout or template you had open could not be closed first. Your history and settings were not changed, but that workout or template may have been closed.</string>
     <string name="backup_error_too_large">That file is larger than any Titan backup (over %1$s), so it was not read. Nothing on this device was changed.</string>
-    <string name="backup_error_settings">Restored %1$d rows, but your settings could not be saved and may be back at their defaults. Check them in Settings.</string>
-    <string name="backup_error_reminders">Restored %1$d rows and your settings, but your workout reminder could not be updated to match. Check it in Settings.</string>
+    <plurals name="backup_error_settings">
+        <item quantity="one">Restored %1$s row, but your settings could not be saved and may be back at their defaults. Check them in Settings.</item>
+        <item quantity="other">Restored %1$s rows, but your settings could not be saved and may be back at their defaults. Check them in Settings.</item>
+    </plurals>
+    <plurals name="backup_error_reminders">
+        <item quantity="one">Restored %1$s row and your settings, but your workout reminder could not be updated to match. Check it in Settings.</item>
+        <item quantity="other">Restored %1$s rows and your settings, but your workout reminder could not be updated to match. Check it in Settings.</item>
+    </plurals>
 
     <string name="backup_dismiss">Dismiss</string>
 
