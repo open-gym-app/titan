@@ -27,6 +27,24 @@ class SourceUnitsTest {
     }
 
     @Test
+    fun `a weight with its unit written after it reads as both`() {
+        assertEquals(WeightFigure(64.5, SourceWeightUnit.KILOGRAM), WeightFigure.parse("64.5kg"))
+        assertEquals(WeightFigure(95.5, SourceWeightUnit.KILOGRAM), WeightFigure.parse(" 95.5KG "))
+        assertEquals(WeightFigure(142.0, SourceWeightUnit.POUND), WeightFigure.parse("142 lbs."))
+        assertEquals(WeightFigure(80.5, null), WeightFigure.parse("80,5"))
+        assertEquals(WeightFigure(-5.0, null), WeightFigure.parse("-5"))
+        listOf(null, "", "kg", "64.5 stone", "about 80kg", "64.5kg2").forEach { text ->
+            assertNull(text, WeightFigure.parse(text))
+        }
+    }
+
+    @Test
+    fun `a weight figure is in its own unit, or the one given when it names none`() {
+        assertEquals(64_500_000L, WeightFigure(64.5, SourceWeightUnit.KILOGRAM).milligrams(SourceWeightUnit.POUND))
+        assertEquals(83_460_996L, WeightFigure(184.0, null).milligrams(SourceWeightUnit.POUND))
+    }
+
+    @Test
     fun `a bare weight is in the unit the user displays`() {
         assertEquals(SourceWeightUnit.KILOGRAM, SourceWeightUnit.of(UnitSystem.METRIC))
         assertEquals(SourceWeightUnit.POUND, SourceWeightUnit.of(UnitSystem.IMPERIAL))

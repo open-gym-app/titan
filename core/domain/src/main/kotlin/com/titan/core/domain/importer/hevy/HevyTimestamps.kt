@@ -5,7 +5,6 @@ import java.text.Normalizer
 import java.time.DateTimeException
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.LocalTime
 import java.time.ZoneId
 import java.util.Locale
 
@@ -20,7 +19,7 @@ import java.util.Locale
  *
  * So rather than one pattern per language, this reads the few shapes those dates come in and
  * looks the words up: a month in [MONTHS], from any of the languages, and a word beside a
- * 12-hour time in [DAY_PERIODS]. A month word is never two different months in any pair of
+ * 12-hour time as [SourceValues.timeOfDay] reads it. A month word is never two different months in any pair of
  * languages, so nothing has to know which language a file is in, and a file in a language with
  * the same shapes and different words fails on the word, not on a guess. An ISO date, as a
  * spreadsheet re-saves one, is read by [SourceValues.localTimestamp].
@@ -63,34 +62,12 @@ internal object HevyTimestamps {
             ?: return null
         val groups = match.groups
         val month = if (shape.monthIsWord) MONTHS[monthKey(groups.text(WORD))] else groups.text(MONTH).toIntOrNull()
-        val time = clockTime(groups.text(TIME_OF_DAY))
+        val time = SourceValues.timeOfDay(groups.text(TIME_OF_DAY))
         return if (month == null || time == null) {
             null
         } else {
             try {
                 LocalDateTime.of(LocalDate.of(groups.text(YEAR).toInt(), month, groups.text(DAY).toInt()), time)
-            } catch (_: DateTimeException) {
-                null
-            }
-        }
-    }
-
-    /**
-     * [text] as a time of day: a 24-hour clock, or a 12-hour one with one word from
-     * [DAY_PERIODS] before or after it. Null for anything else, including a word it does not know.
-     */
-    private fun clockTime(text: String): LocalTime? {
-        val groups = CLOCK.matchEntire(text)?.groups ?: return null
-        val periods = listOf(BEFORE, AFTER).map { periodKey(groups.text(it)) }.filter(String::isNotEmpty)
-        val hour = groups.text(HOUR).toInt()
-        val hourOfDay = when {
-            periods.isEmpty() -> hour
-            periods.size > 1 || hour !in 1..HALF_DAY -> null
-            else -> DAY_PERIODS[periods.single()]?.let { shift -> hour % HALF_DAY + shift }
-        }
-        return hourOfDay?.let {
-            try {
-                LocalTime.of(it, groups.text(MINUTE).toInt())
             } catch (_: DateTimeException) {
                 null
             }
@@ -116,14 +93,6 @@ internal object HevyTimestamps {
     /** A month word as [MONTHS] keys it: lower case, without the full stop or `॰` abbreviating it. */
     private fun monthKey(word: String): String = word.lowercase(Locale.ROOT).trimEnd('.', '॰')
 
-    /**
-     * A day-period word as [DAY_PERIODS] keys it: lower case, without the full stops and spaces
-     * that Canadian English (`p.m.`) and Latin American Spanish (`p. m.`) write inside it.
-     */
-    private fun periodKey(word: String): String = word.lowercase(Locale.ROOT).filterNot { it == '.' || it == ' ' }
-
-    private const val HALF_DAY = 12
-
     /** The spaces a formatter puts in a date: ordinary, no-break, and the narrow one before `PM`. */
     private val SPACES = Regex("[\\s\\u00A0\\u202F\\u2009]+")
 
@@ -132,16 +101,6 @@ internal object HevyTimestamps {
     private const val WORD = "word"
     private const val YEAR = "year"
     private const val TIME_OF_DAY = "time"
-    private const val BEFORE = "before"
-    private const val HOUR = "hour"
-    private const val MINUTE = "minute"
-    private const val AFTER = "after"
-
-    /**
-     * A clock, with whatever word a 12-hour one has before it, or after it — where the word may
-     * have a space inside it (`p. m.`).
-     */
-    private val CLOCK = Regex("(?<$BEFORE>\\S*?) ?(?<$HOUR>\\d{1,2}):(?<$MINUTE>\\d{2}) ?(?<$AFTER>.*)")
 
     /** The shapes Hevy's dates come in, each ending in the time of day, tried in order. */
     private val SHAPES = listOf(
@@ -221,23 +180,4 @@ internal object HevyTimestamps {
         months("1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月")
         months("1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월")
     }
-
-    /**
-     * The words the website puts beside a 12-hour time, to the hours each adds once twelve
-     * o'clock has been read as zero: none for a morning, twelve for the rest. Traditional
-     * Chinese names six parts of the day where English has two.
-     */
-    private val DAY_PERIODS: Map<String, Int> = mapOf(
-        "am" to 0,
-        "pm" to HALF_DAY,
-        "오전" to 0,
-        "오후" to HALF_DAY,
-        "凌晨" to 0,
-        "清晨" to 0,
-        "早上" to 0,
-        "上午" to 0,
-        "中午" to HALF_DAY,
-        "下午" to HALF_DAY,
-        "晚上" to HALF_DAY,
-    )
 }
