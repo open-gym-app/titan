@@ -57,5 +57,13 @@ class DeepLinksTest {
         // start with them would resolve to no activity at all.
         assertTrue(DeepLinks.activeSession(1).startsWith("${DeepLinks.SCHEME}://${DeepLinks.SESSION_HOST}/"))
         assertTrue(DeepLinks.QUEST_LOG.startsWith("${DeepLinks.SCHEME}://${DeepLinks.PROGRESSION_HOST}/"))
+        assertTrue(DeepLinks.HISTORY_IMPORT.startsWith("${DeepLinks.SCHEME}://${DeepLinks.SETTINGS_HOST}/"))
+    }
+
+    @Test
+    fun `the history import link is the whole URI, not a base path`() {
+        // Both of the import's notifications post it, and the screen takes no arguments: it
+        // reads the import's state from the worker, not from the link.
+        assertEquals("titan://settings/import", DeepLinks.HISTORY_IMPORT)
     }
 }
