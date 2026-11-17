@@ -1,0 +1,6 @@
+Date (yyyy/mm/dd),Workout,Workout Name,Program Name,Body Weight (LB),Exercise,SetsxReps,SetsxTime,Top Set Reps x LB,e1RM  (LB),Reps,Volume (LB),Workout Volume (LB),Duration (hours),Start Time (h:mm),End Time (h:mm),Notes,Set 1 (Reps), Set 1 (LB),Set 2 (Reps), Set 2 (LB),Set 3 (Reps), Set 3 (LB),Set 4 (Reps), Set 4 (LB),Set 5 (Reps), Set 5 (LB),Set 6 (Reps), Set 6 (LB)
+"2015/05/25","1","Workout A","","192","Squat","5x5","","5x45","52.5","25","1125","2025","1","19:37","20:37","Second week, adding weight next week","5","45","5","45","5","45","5","45","5","45","",""
+"2015/05/25","1","Workout A","","192","Bench Press","5x5","","5x45","52.5","25","1125","2025","1","19:37","20:37","Second week, adding weight next week","5","45","5","45","5","45","5","45","5","45","",""
+"2026/04/30","1269","Workout B","","215.5","Deadlift","1x5","","5x255","297.5","5","1275","","0.6","07:00","07:35","","5","255","","","","","","","","","",""
+"2026/04/30","1269","Workout B","","215.5","Chinups","3x10","","10x-10","","30","","","0.6","07:00","07:35","","10","-10","10","-10","10","-10","","","","","",""
+"2026/04/30","1269","Workout B","","215.5","Pullups","6x3","","3x0","","17","","","0.6","07:00","07:35","","3","0","3","0","3","0","3","0","3","0","2","0"

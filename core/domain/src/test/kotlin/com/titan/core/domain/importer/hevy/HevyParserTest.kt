@@ -132,6 +132,24 @@ class HevyParserTest {
     }
 
     @Test
+    fun `no StrongLifts export is a Hevy export`() {
+        listOf(
+            "stronglifts-export.csv",
+            "stronglifts-export-lb.csv",
+            "stronglifts-export-semicolon.csv",
+            "stronglifts-spreadsheet.csv",
+            "stronglifts-spreadsheet-us.csv",
+            "stronglifts-damaged.csv",
+        ).forEach { sample ->
+            assertEquals(
+                sample,
+                ParseResult.NotRecognised,
+                ImporterFixtures.read(parser, ImporterFixtures.resource("stronglifts/$sample")),
+            )
+        }
+    }
+
+    @Test
     fun `an export with no workouts or no measurements in it is an empty history, not a broken file`() {
         assertEquals(ImportedHistory(), parsedText("title,start_time,end_time,exercise_title,set_index,set_type\n"))
         assertEquals(ImportedHistory(), parsedText("date,weight_kg,fat_percent,waist_cm\n"))
