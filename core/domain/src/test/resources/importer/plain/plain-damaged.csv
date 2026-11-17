@@ -1,0 +1,11 @@
+workout_date,exercise,reps,weight,weight_unit,distance,distance_unit,duration,rpe,avg_heart_rate,workout_rating
+2026-10-01 18:00,Bench Press (Barbell),5,100,kg,,,,8,,4
+yesterday,Bench Press (Barbell),5,100,kg,,,,,,
+2026-10-01 18:00,,5,100,kg,,,,,,
+2026-10-01 18:00,Bench Press (Barbell),five,100,kg,,,,,,
+2026-10-01 18:00,Bench Press (Barbell),5,100,stone,,,,,,
+2026-10-01 18:00,Bench Press (Barbell),5,heavy,kg,,,,,,
+2026-10-01 18:00,Bench Press (Barbell),5,100,kg,,,,hard,fast,great
+2026-10-01 18:00,Rowing,,,,2000,parsecs,,,,
+2026-10-01 18:00,Rowing,,,,2000,m,soon,,,
+2026-10-01 18:00,Rowing,,,,2000,m,8:00,,,

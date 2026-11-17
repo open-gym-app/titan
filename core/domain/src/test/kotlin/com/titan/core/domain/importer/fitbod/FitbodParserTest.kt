@@ -138,6 +138,13 @@ class FitbodParserTest {
     }
 
     @Test
+    fun `no plain CSV file is a Fitbod export`() {
+        ImporterFixtures.plainCsvSamples.forEach { (sample, source) ->
+            assertEquals(sample, ParseResult.NotRecognised, ImporterFixtures.read(parser, source))
+        }
+    }
+
+    @Test
     fun `an export with no sets in it is an empty history, not a broken file`() {
         assertEquals(ImportedHistory(), parsedText(header))
         assertEquals(ImportedHistory(), parsedText("$header\n\n"))
