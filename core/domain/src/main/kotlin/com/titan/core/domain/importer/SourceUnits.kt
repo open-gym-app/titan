@@ -1,5 +1,10 @@
 package com.titan.core.domain.importer
 
+import com.titan.core.domain.model.CENTIMETRES_PER_FOOT
+import com.titan.core.domain.model.CENTIMETRES_PER_KILOMETRE
+import com.titan.core.domain.model.CENTIMETRES_PER_METRE
+import com.titan.core.domain.model.CENTIMETRES_PER_MILE
+import com.titan.core.domain.model.CENTIMETRES_PER_YARD
 import com.titan.core.domain.model.MILLIGRAMS_PER_KILOGRAM
 import com.titan.core.domain.model.MILLIGRAMS_PER_POUND
 import com.titan.core.domain.model.UnitSystem
@@ -67,6 +72,8 @@ enum class SourceWeightUnit(private val milligrams: Double) {
 enum class SourceDistanceUnit(private val centimetres: Double) {
     METRE(CENTIMETRES_PER_METRE),
     KILOMETRE(CENTIMETRES_PER_KILOMETRE),
+    FOOT(CENTIMETRES_PER_FOOT),
+    YARD(CENTIMETRES_PER_YARD),
 
     /** The international mile, 1,609.344 m exactly. */
     MILE(CENTIMETRES_PER_MILE),
@@ -89,6 +96,13 @@ enum class SourceDistanceUnit(private val centimetres: Double) {
             "kilometers" to KILOMETRE,
             "kilometre" to KILOMETRE,
             "kilometres" to KILOMETRE,
+            "ft" to FOOT,
+            "foot" to FOOT,
+            "feet" to FOOT,
+            "yd" to YARD,
+            "yds" to YARD,
+            "yard" to YARD,
+            "yards" to YARD,
             "mi" to MILE,
             "mile" to MILE,
             "miles" to MILE,
@@ -105,15 +119,11 @@ enum class SourceDistanceUnit(private val centimetres: Double) {
             }
 
         /**
-         * The unit [label] names — `m`, `km`, `Miles`, `mi.` — or null when it names none. Case,
+         * The unit [label] names — `m`, `km`, `yd`, `Miles`, `mi.` — or null when it names none. Case,
          * surrounding space and a trailing full stop are ignored.
          */
         fun parse(label: String): SourceDistanceUnit? = LABELS[unitKey(label)]
     }
 }
-
-private const val CENTIMETRES_PER_METRE = 100.0
-private const val CENTIMETRES_PER_KILOMETRE = 100_000.0
-private const val CENTIMETRES_PER_MILE = 160_934.4
 
 private fun unitKey(label: String): String = label.trim().removeSuffix(".").trim().lowercase(Locale.ROOT)

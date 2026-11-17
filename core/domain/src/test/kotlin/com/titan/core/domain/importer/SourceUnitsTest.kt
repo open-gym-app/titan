@@ -38,6 +38,8 @@ class SourceUnitsTest {
         assertEquals(520_000L, SourceDistanceUnit.KILOMETRE.toCentimetres(5.2))
         // 3.1 mi is 498,896.64 cm.
         assertEquals(498_897L, SourceDistanceUnit.MILE.toCentimetres(3.1))
+        assertEquals(9_144L, SourceDistanceUnit.YARD.toCentimetres(100.0))
+        assertEquals(3_048L, SourceDistanceUnit.FOOT.toCentimetres(100.0))
     }
 
     @Test
@@ -47,7 +49,9 @@ class SourceUnitsTest {
         assertEquals(SourceDistanceUnit.KILOMETRE, SourceDistanceUnit.parse("KM"))
         assertEquals(SourceDistanceUnit.MILE, SourceDistanceUnit.parse("mi."))
         assertEquals(SourceDistanceUnit.MILE, SourceDistanceUnit.parse("miles"))
-        assertNull(SourceDistanceUnit.parse("yd"))
+        assertEquals(SourceDistanceUnit.YARD, SourceDistanceUnit.parse("yd"))
+        assertEquals(SourceDistanceUnit.FOOT, SourceDistanceUnit.parse("Feet"))
+        assertNull(SourceDistanceUnit.parse("furlongs"))
     }
 
     @Test

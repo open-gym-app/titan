@@ -16,6 +16,7 @@ import com.titan.core.domain.importer.SuffixedExerciseNames
 import com.titan.core.domain.importer.csv.CsvHeader
 import com.titan.core.domain.importer.csv.CsvReader
 import com.titan.core.domain.importer.csv.MalformedCsvException
+import com.titan.core.domain.importer.csv.QualifiedColumn
 import com.titan.core.domain.model.SetType
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -158,18 +159,20 @@ private class StrongLayout(
             context: ImportContext,
         ): StrongLayout? {
             if (!header.containsAll(SIGNATURE)) return null
+            // Early exports named the column after the unit alone: `lbs`, `kg`, `mi.`, `km`. A
+            // column found by name keeps its own qualifier, or none: a unit-named column beside
+            // it says nothing about its figures.
             val weight = header.qualified(WEIGHT)
+                ?: header.columns.firstOrNull { SourceWeightUnit.parse(it) != null }?.let { QualifiedColumn(it, it) }
             val distance = header.qualified(DISTANCE)
-            // Early exports named the column after the unit alone: `lbs`, `kg`, `mi.`, `km`.
-            val weightByUnit = header.columns.firstOrNull { SourceWeightUnit.parse(it) != null }
-            val distanceByUnit = header.columns.firstOrNull { SourceDistanceUnit.parse(it) != null }
+                ?: header.columns.firstOrNull { SourceDistanceUnit.parse(it) != null }?.let { QualifiedColumn(it, it) }
             return StrongLayout(
                 header = header,
                 context = context,
-                weightColumn = weight?.name ?: weightByUnit,
-                weightUnit = (weight?.qualifier ?: weightByUnit)?.let(SourceWeightUnit::parse),
-                distanceColumn = distance?.name ?: distanceByUnit,
-                distanceUnit = (distance?.qualifier ?: distanceByUnit)?.let(SourceDistanceUnit::parse),
+                weightColumn = weight?.name,
+                weightUnit = weight?.qualifier?.let(SourceWeightUnit::parse),
+                distanceColumn = distance?.name,
+                distanceUnit = distance?.qualifier?.let(SourceDistanceUnit::parse),
                 durationColumn = (header.qualified(DURATION) ?: header.qualified(WORKOUT_DURATION))?.name,
             )
         }
@@ -196,8 +199,8 @@ private class StrongReading(private val layout: StrongLayout) {
         )
         workout.notes = workout.notes ?: layout[record, WORKOUT_NOTES]?.let(::noteText)
 
-        val block = workout.blocks.lastOrNull()?.takeIf { it.name == exerciseName }
-            ?: ExerciseDraft(exerciseName, exercises.getOrPut(exerciseName) { names.exercise(exerciseName) })
+        val block = workout.blocks.lastOrNull()?.takeIf { it.exercise.name == exerciseName }
+            ?: ExerciseDraft(exercises.getOrPut(exerciseName) { names.exercise(exerciseName) })
                 .also(workout.blocks::add)
         val marker = layout[record, SET_ORDER]?.lowercase(Locale.ROOT)
         when (marker) {
@@ -207,7 +210,7 @@ private class StrongReading(private val layout: StrongLayout) {
 
             else -> {
                 block.note(layout[record, NOTES])
-                block.sets += set(record, marker?.let(SET_TYPES::get) ?: SetType.NORMAL, isAssisted(exerciseName))
+                block.sets += set(record, marker?.let(SET_TYPES::get) ?: SetType.NORMAL, block.isAssisted)
             }
         }
     }
@@ -228,35 +231,41 @@ private class StrongReading(private val layout: StrongLayout) {
     /**
      * The set [record] describes, or one with nothing recorded when a figure in it is not a
      * number: the planner refuses that and counts it, where dropping the row here would lose it
-     * without a word.
+     * without a word. An [assisted] exercise's weight is never recorded, so it cannot cost the
+     * set either.
      */
     private fun set(
         record: List<String>,
         type: SetType,
         assisted: Boolean,
     ): ImportedSet {
-        val weight = layout[record, layout.weightColumn]
-        val reps = layout[record, REPS]
-        val distance = layout[record, layout.distanceColumn]
-        val seconds = layout[record, SECONDS]
-        val unreadable = listOf(weight, reps, distance).any { it != null && SourceValues.decimal(it) == null } ||
-            (seconds != null && SourceValues.elapsedSeconds(seconds) == null)
+        val weightText = layout[record, layout.weightColumn].takeUnless { assisted }
+        val repsText = layout[record, REPS]
+        val distanceText = layout[record, layout.distanceColumn]
+        val secondsText = layout[record, SECONDS]
+        val weight = SourceValues.decimal(weightText)
+        val reps = SourceValues.decimal(repsText)
+        val distance = SourceValues.decimal(distanceText)
+        val seconds = SourceValues.elapsedSeconds(secondsText)
+        val unreadable = unread(weightText, weight) || unread(repsText, reps) ||
+            unread(distanceText, distance) || unread(secondsText, seconds)
         if (unreadable) return ImportedSet(setType = type)
 
         return ImportedSet(
             setType = type,
-            reps = SourceValues.decimal(reps)?.roundToInt(),
-            weight = SourceValues.decimal(weight)
-                ?.takeUnless { assisted }
-                ?.let(layout.weightUnitOf(record)::toMilligrams),
-            duration = SourceValues.elapsedSeconds(seconds),
-            distance = SourceValues.decimal(distance)?.let(layout.distanceUnitOf(record)::toCentimetres),
+            reps = reps?.roundToInt(),
+            weight = weight?.let(layout.weightUnitOf(record)::toMilligrams),
+            duration = seconds,
+            distance = distance?.let(layout.distanceUnitOf(record)::toCentimetres),
             rpe = SourceValues.decimal(layout[record, RPE])?.let { (it * RPE_SCALE).roundToInt() },
         )
     }
 
-    private fun isAssisted(exerciseName: String): Boolean =
-        SuffixedExerciseNames.split(exerciseName).second.equals(ASSISTED, ignoreCase = true)
+    /** Whether a cell held [text] that did not read as a [value]. */
+    private fun unread(
+        text: String?,
+        value: Any?,
+    ): Boolean = text != null && value == null
 }
 
 /** What tells one workout's rows from another's. */
@@ -284,11 +293,11 @@ private class WorkoutDraft(
         )
 }
 
-private class ExerciseDraft(
-    val name: String,
-    private val exercise: ImportedExercise,
-) {
+private class ExerciseDraft(val exercise: ImportedExercise) {
     val sets = mutableListOf<ImportedSet>()
+
+    /** Whether the exercise is an `(Assisted)` one, whose weight is a counterweight. */
+    val isAssisted: Boolean = SuffixedExerciseNames.split(exercise.name).second.equals(ASSISTED, ignoreCase = true)
     private val notes = LinkedHashSet<String>()
 
     fun note(text: String?) {

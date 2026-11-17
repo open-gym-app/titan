@@ -1,6 +1,10 @@
 package com.titan.core.ui.format
 
 import android.icu.util.MeasureUnit
+import com.titan.core.domain.model.CENTIMETRES_PER_KILOMETRE
+import com.titan.core.domain.model.CENTIMETRES_PER_METRE
+import com.titan.core.domain.model.CENTIMETRES_PER_MILE
+import com.titan.core.domain.model.CENTIMETRES_PER_YARD
 import com.titan.core.domain.model.Exercise
 import com.titan.core.domain.model.UnitSystem
 
@@ -51,28 +55,28 @@ enum class DistanceUnit(
     internal val entryFractionDigits: Int,
 ) {
     METRE(
-        centimetres = 100.0,
+        centimetres = CENTIMETRES_PER_METRE,
         decimillimetres = 10_000,
         measureUnit = MeasureUnit.METER,
         fractionDigits = 0,
         entryFractionDigits = 0,
     ),
     KILOMETRE(
-        centimetres = 100_000.0,
+        centimetres = CENTIMETRES_PER_KILOMETRE,
         decimillimetres = 10_000_000,
         measureUnit = MeasureUnit.KILOMETER,
         fractionDigits = 2,
         entryFractionDigits = 3,
     ),
     YARD(
-        centimetres = 91.44,
+        centimetres = CENTIMETRES_PER_YARD,
         decimillimetres = 9_144,
         measureUnit = MeasureUnit.YARD,
         fractionDigits = 0,
         entryFractionDigits = 0,
     ),
     MILE(
-        centimetres = 160_934.4,
+        centimetres = CENTIMETRES_PER_MILE,
         decimillimetres = 16_093_440,
         measureUnit = MeasureUnit.MILE,
         fractionDigits = 2,

@@ -54,9 +54,9 @@ interface HistoryParser {
  * @property zone the zone a timestamp without one is read in. Most apps export local wall-clock
  *   times ("2024-03-02 18:04:11"), and the zone the user trained in is, for nearly everybody, the
  *   one their phone is in now.
- * @property unitSystem the unit a weight with no unit beside it is read in. Several apps write the
- *   bare number in whatever the user had chosen, and the user's choice here is the best evidence
- *   of what that was.
+ * @property unitSystem the unit a weight or a distance with no unit beside it is read in. Several
+ *   apps write the bare number in whatever the user had chosen, and the user's choice here is the
+ *   best evidence of what that was.
  */
 data class ImportContext(
     val zone: ZoneId,
