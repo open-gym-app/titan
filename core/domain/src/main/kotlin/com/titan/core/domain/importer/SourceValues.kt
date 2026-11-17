@@ -50,8 +50,10 @@ object SourceValues {
 
     /**
      * Wall-clock date and time, `2024-03-02 18:04:11`: a space or a `T` between the two, seconds
-     * and a fraction of one optional, and an offset (`Z`, `+01:00`) optional too, for the sources
-     * that write one.
+     * and a fraction of one optional, and an offset optional too, for the sources that write one.
+     * The offset is read as ISO writes it (`Z`, `+01:00`) and as Fitbod does, after a space and
+     * without the colon (`2024-03-02 18:04:11 +0000`), because both spellings name the same instant
+     * and refusing either would refuse every row of a file that uses it.
      */
     private val TIMESTAMP: DateTimeFormatter = DateTimeFormatterBuilder()
         .parseCaseInsensitive()
@@ -71,6 +73,12 @@ object SourceValues {
         .optionalStart()
         .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
         .optionalEnd()
+        .optionalEnd()
+        .optionalStart()
+        .appendLiteral(' ')
+        .optionalEnd()
+        .optionalStart()
+        .appendOffset("+HHMM", "Z")
         .optionalEnd()
         .optionalStart()
         .appendOffsetId()
