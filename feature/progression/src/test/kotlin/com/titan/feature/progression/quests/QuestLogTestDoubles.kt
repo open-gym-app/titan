@@ -89,6 +89,7 @@ class FakeCollectedItemReads : CollectedItemRepository {
         collectibleId: String,
         source: String,
         acquiredAt: Instant,
+        sessionId: Long?,
     ): Unit = readOnly()
 }
 

@@ -187,6 +187,7 @@ private suspend fun TitanDatabase.seedPets() {
                 collectibleId = "steel_shaker",
                 source = "session_finished",
                 acquiredAt = FINISHED_AT,
+                sessionId = 1,
             ),
             // The same collectible twice: the inventory is a bag rather than a set, and an
             // import must not collapse two drops into one row.

@@ -99,6 +99,7 @@ class BackupTableTest {
             BackupTable.SESSION_XP_CLAIM to BackupTable.WORKOUT_SESSION,
             BackupTable.SESSION_LOOT_CLAIM to BackupTable.WORKOUT_SESSION,
             BackupTable.SESSION_PET_CLAIM to BackupTable.WORKOUT_SESSION,
+            BackupTable.COLLECTED_ITEM to BackupTable.WORKOUT_SESSION,
             BackupTable.PET to BackupTable.COLLECTED_ITEM,
             BackupTable.PET_STATE to BackupTable.PET,
         )

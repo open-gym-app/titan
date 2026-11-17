@@ -1,6 +1,7 @@
 package com.titan.core.domain.gamification
 
 import com.titan.core.domain.model.Collectible
+import com.titan.core.domain.model.CollectibleKind
 import com.titan.core.domain.model.DropSource
 import com.titan.core.domain.model.Rarity
 import org.junit.Assert.assertEquals
@@ -21,8 +22,10 @@ class CollectiblesTest {
     // ─── The set itself ─────────────────────────────────────────────────────────────────
 
     @Test
-    fun `the initial set ships eight collectibles`() {
-        assertEquals(8, Collectibles.ALL.size)
+    fun `the trophy pool ships eight collectibles, and the catalogue adds eight foods`() {
+        assertEquals(8, Collectibles.TROPHY_POOL.size)
+        assertEquals(8, Collectibles.FOOD.size)
+        assertEquals(Collectibles.TROPHY_POOL + Collectibles.FOOD, Collectibles.ALL)
     }
 
     @Test
@@ -63,6 +66,14 @@ class CollectiblesTest {
                 "pet_egg",
                 "golden_dumbbell",
                 "iron_crown",
+                "steak",
+                "rice",
+                "shake",
+                "eggs",
+                "oats",
+                "honey",
+                "banana",
+                "berries",
             ),
             Collectibles.ALL.map(Collectible::id).toSet(),
         )
@@ -98,10 +109,10 @@ class CollectiblesTest {
     }
 
     @Test
-    fun `collectibles are listed commonest band first`() {
+    fun `the trophy pool is listed commonest band first`() {
         // Not read by the roll — [DropTableEvaluator] walks [Rarity] itself — but it is what
         // makes the catalogue legible as a ladder, and what a collection screen would draw.
-        val rarities = Collectibles.ALL.map { it.rarity.ordinal }
+        val rarities = Collectibles.TROPHY_POOL.map { it.rarity.ordinal }
         assertEquals(rarities.sorted(), rarities)
     }
 
@@ -113,7 +124,7 @@ class CollectiblesTest {
         // of the roll that silently drops nothing, so the table would pay out less often than it
         // says. See [DropTableEvaluator], which does not re-roll to cover for it.
         DropSource.entries.forEach { source ->
-            val stocked = Collectibles.ALL.filter { it.source == source }.map(Collectible::rarity).toSet()
+            val stocked = Collectibles.TROPHY_POOL.filter { it.source == source }.map(Collectible::rarity).toSet()
             assertEquals("$source does not stock every priced band", DropRates.WEIGHTS.keys, stocked)
         }
     }
@@ -124,7 +135,7 @@ class CollectiblesTest {
         // and a specific legendary would be rarer than its own weight suggests while a specific
         // common was commoner — a curve the table no longer describes.
         DropSource.entries.forEach { source ->
-            val bySize = Collectibles.ALL
+            val bySize = Collectibles.TROPHY_POOL
                 .filter { it.source == source }
                 .groupingBy(Collectible::rarity)
                 .eachCount()
@@ -136,6 +147,65 @@ class CollectiblesTest {
                 )
             }
         }
+    }
+
+    // ─── The kinds, and food ────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the egg is the one egg, the trophies are trophies, and food is food`() {
+        assertEquals(listOf(Collectibles.PET_EGG), Collectibles.ALL.filter { it.kind == CollectibleKind.EGG })
+        assertTrue(Collectibles.TROPHY_POOL.minus(Collectibles.PET_EGG).all { it.kind == CollectibleKind.TROPHY })
+        assertEquals(Collectibles.FOOD, Collectibles.ALL.filter { it.kind == CollectibleKind.FOOD })
+    }
+
+    @Test
+    fun `no food is in the trophy pool, so food moves no trophy or egg odds`() {
+        assertTrue(Collectibles.TROPHY_POOL.none { it.kind == CollectibleKind.FOOD })
+    }
+
+    @Test
+    fun `each food restores the fuel the canvas gives it, most filling first`() {
+        assertEquals(
+            listOf(
+                "steak" to 40,
+                "rice" to 30,
+                "shake" to 25,
+                "eggs" to 20,
+                "oats" to 15,
+                "honey" to 12,
+                "banana" to 10,
+                "berries" to 8,
+            ),
+            Collectibles.FOOD.map { it.id to it.fuel },
+        )
+    }
+
+    @Test
+    fun `fuel belongs to food and to nothing else`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            Collectible("odd", Rarity.COMMON, DropSource.SESSION_FINISHED, kind = CollectibleKind.TROPHY, fuel = 5)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            Collectible("odd", Rarity.COMMON, DropSource.SESSION_FINISHED, kind = CollectibleKind.FOOD)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            Collectible("odd", Rarity.COMMON, DropSource.SESSION_FINISHED, kind = CollectibleKind.FOOD, fuel = 0)
+        }
+    }
+
+    @Test
+    fun `the egg's and each trophy's per-session odds are what they were before food`() {
+        // From the table and the pool alone: a band's weight over the roll, split evenly over
+        // what the band stocks. Pinned to the figures the shipped economy has always had.
+        fun odds(collectible: Collectible): Double {
+            val band = Collectibles.TROPHY_POOL.filter { it.rarity == collectible.rarity }
+            return DropRates.WEIGHTS.getValue(collectible.rarity).toDouble() / DropRates.TOTAL_WEIGHT / band.size
+        }
+
+        assertEquals(0.03, odds(Collectibles.PET_EGG), 1e-12)
+        assertEquals(0.17, Collectibles.TROPHY_POOL.minus(Collectibles.PET_EGG).sumOf(::odds), 1e-12)
+        assertEquals(0.1 / 3, odds(Collectibles.CHALK_BLOCK), 1e-12)
+        assertEquals(0.002, odds(Collectibles.IRON_CROWN), 1e-12)
     }
 
     // ─── Entries are coherent ───────────────────────────────────────────────────────────
