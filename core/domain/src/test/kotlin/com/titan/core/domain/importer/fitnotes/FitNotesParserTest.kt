@@ -105,6 +105,17 @@ class FitNotesParserTest {
     }
 
     @Test
+    fun `no JEFIT export is a FitNotes export`() {
+        listOf("jefit-export.csv", "jefit-export-2024.csv", "jefit-damaged.csv").forEach { sample ->
+            assertEquals(
+                sample,
+                ParseResult.NotRecognised,
+                ImporterFixtures.read(parser, ImporterFixtures.resource("jefit/$sample")),
+            )
+        }
+    }
+
+    @Test
     fun `an export with no workouts or no measurements in it is an empty history, not a broken file`() {
         assertEquals(ImportedHistory(), parsedText(header))
         assertEquals(ImportedHistory(), parsedText("Date,Time,Measurement,Value,Unit,Comment"))
