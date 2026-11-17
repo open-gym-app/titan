@@ -9,14 +9,15 @@ import com.titan.core.domain.importer.ImportedSet
 import com.titan.core.domain.importer.ImportedWorkout
 import com.titan.core.domain.importer.ImportedWorkoutExercise
 import com.titan.core.domain.importer.ParseResult
+import com.titan.core.domain.importer.RecordReading
 import com.titan.core.domain.importer.SourceDistanceUnit
 import com.titan.core.domain.importer.SourceValues
 import com.titan.core.domain.importer.SourceWeightUnit
 import com.titan.core.domain.importer.SuffixedExerciseNames
 import com.titan.core.domain.importer.csv.CsvHeader
 import com.titan.core.domain.importer.csv.CsvReader
-import com.titan.core.domain.importer.csv.MalformedCsvException
 import com.titan.core.domain.importer.csv.QualifiedColumn
+import com.titan.core.domain.importer.readAll
 import com.titan.core.domain.model.SetType
 import java.time.ZoneId
 import java.util.Locale
@@ -118,30 +119,13 @@ class FitbodParser : HistoryParser {
     ): ParseResult =
         source.open().use { stream ->
             val reader = CsvReader.open(stream)
-            val layout = readHeader(reader)?.let { FitbodLayout.of(it, context) }
+            val layout = reader.readHeader()?.let { FitbodLayout.of(it, context) }
             val problem = layout?.problem
             when {
                 layout == null -> ParseResult.NotRecognised
-
                 problem != null -> ParseResult.Malformed(problem)
-
-                else -> try {
-                    FitbodReading(layout).apply { reader.records().forEach(::read) }.result()
-                } catch (failure: MalformedCsvException) {
-                    ParseResult.Malformed(failure.message.orEmpty())
-                }
+                else -> FitbodReading(layout).readAll(reader)
             }
-        }
-
-    /**
-     * The first record as a header, or null when there is none — including when it is not CSV
-     * at all, which is a file that is not an export rather than a broken one.
-     */
-    private fun readHeader(reader: CsvReader): CsvHeader? =
-        try {
-            reader.readRecord()?.let(::CsvHeader)
-        } catch (_: MalformedCsvException) {
-            null
         }
 
     internal companion object {
@@ -266,14 +250,14 @@ private class FitbodLayout(
 }
 
 /** One pass over an export's rows, building the workouts as it goes. */
-private class FitbodReading(private val layout: FitbodLayout) {
+private class FitbodReading(private val layout: FitbodLayout) : RecordReading {
 
     private val names = SuffixedExerciseNames(FITBOD_CATALOGUE_NAMES, leadingEquipment = true)
     private val exercises = HashMap<String, ImportedExercise>()
     private val workouts = LinkedHashMap<Long, WorkoutDraft>()
     private var rows = 0
 
-    fun read(record: List<String>) {
+    override fun read(record: List<String>) {
         rows++
         val date = layout[record, DATE]
         val startedAt = SourceValues.localTimestamp(date, layout.zone)
@@ -282,14 +266,14 @@ private class FitbodReading(private val layout: FitbodLayout) {
         val exerciseName = layout[record, layout.exerciseColumn] ?: return
 
         val workout = workouts.getOrPut(startedAt) { WorkoutDraft(startedAt) }
-        val block = workout.blocks.lastOrNull()?.takeIf { it.name == exerciseName }
-            ?: ExerciseDraft(exerciseName, exercises.getOrPut(exerciseName) { names.exercise(exerciseName) })
+        val block = workout.blocks.lastOrNull()?.takeIf { it.exercise.name == exerciseName }
+            ?: ExerciseDraft(exercises.getOrPut(exerciseName) { names.exercise(exerciseName) })
                 .also(workout.blocks::add)
         block.note(layout[record, NOTE])
-        block.sets += set(record, SuffixedExerciseNames.namesAssistance(exerciseName))
+        block.sets += set(record, block.isAssisted)
     }
 
-    fun result(): ParseResult =
+    override fun result(): ParseResult =
         if (workouts.isEmpty() && rows > 0) {
             ParseResult.Malformed("none of the export's $rows rows has a date and an exercise that can be read")
         } else {
@@ -299,27 +283,32 @@ private class FitbodReading(private val layout: FitbodLayout) {
     /**
      * The set [record] describes, or one with nothing recorded when a figure in it is not a
      * number: the planner refuses that and counts it, where dropping the row here would lose it
-     * without a word.
+     * without a word. An [assisted] exercise's weight is never recorded, so it cannot cost the
+     * set either.
      */
     private fun set(
         record: List<String>,
         assisted: Boolean,
     ): ImportedSet {
         val type = if (layout[record, IS_WARMUP].equals(TRUE, ignoreCase = true)) SetType.WARMUP else SetType.NORMAL
-        val weight = layout[record, layout.weightColumn]
-        val reps = layout[record, REPS]
-        val duration = layout[record, layout.durationColumn]
-        val distance = layout[record, layout.distanceColumn]
-        val unreadable = listOf(weight, reps, distance).any { it != null && SourceValues.decimal(it) == null } ||
-            (duration != null && SourceValues.elapsedSeconds(duration) == null)
+        val weightText = layout[record, layout.weightColumn].takeUnless { assisted }
+        val repsText = layout[record, REPS]
+        val durationText = layout[record, layout.durationColumn]
+        val distanceText = layout[record, layout.distanceColumn]
+        val weight = SourceValues.decimal(weightText)
+        val reps = SourceValues.decimal(repsText)
+        val duration = SourceValues.elapsedSeconds(durationText)
+        val distance = SourceValues.decimal(distanceText)
+        val unreadable = unread(weightText, weight) || unread(repsText, reps) ||
+            unread(durationText, duration) || unread(distanceText, distance)
         if (unreadable) return ImportedSet(setType = type)
 
         val performed = ImportedSet(
             setType = type,
-            reps = SourceValues.decimal(reps)?.roundToInt(),
-            weight = SourceValues.decimal(weight)?.takeUnless { assisted }?.let(layout::milligrams),
-            duration = SourceValues.elapsedSeconds(duration),
-            distance = SourceValues.decimal(distance)?.let { layout.distanceUnit?.toCentimetres(it) },
+            reps = reps?.roundToInt(),
+            weight = weight?.let(layout::milligrams),
+            duration = duration,
+            distance = distance?.let { layout.distanceUnit?.toCentimetres(it) },
         )
         return if (!assisted && isHoldInReps(performed, layout[record, MULTIPLIER])) {
             performed.copy(reps = null, duration = performed.reps?.toLong())
@@ -338,6 +327,12 @@ private class FitbodReading(private val layout: FitbodLayout) {
     ): Boolean =
         SourceValues.decimal(multiplier) == 0.0 && (set.reps ?: 0) > 0 && (set.duration ?: 0L) == 0L &&
             (set.distance ?: 0L) == 0L
+
+    /** Whether a cell held [text] that did not read as a [value]. */
+    private fun unread(
+        text: String?,
+        value: Any?,
+    ): Boolean = text != null && value == null
 }
 
 private class WorkoutDraft(val startedAt: Long) {
@@ -347,11 +342,11 @@ private class WorkoutDraft(val startedAt: Long) {
     fun toWorkout() = ImportedWorkout(startedAt = startedAt, exercises = blocks.map(ExerciseDraft::toLine))
 }
 
-private class ExerciseDraft(
-    val name: String,
-    private val exercise: ImportedExercise,
-) {
+private class ExerciseDraft(val exercise: ImportedExercise) {
     val sets = mutableListOf<ImportedSet>()
+
+    /** Whether the exercise names assistance, whose weight is a counterweight rather than a load. */
+    val isAssisted: Boolean = SuffixedExerciseNames.namesAssistance(exercise.name)
     private val notes = LinkedHashSet<String>()
 
     fun note(text: String?) {
