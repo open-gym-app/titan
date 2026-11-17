@@ -25,6 +25,13 @@ internal class JefitRow(
 }
 
 /**
+ * [this] sorted by [key], read once a row rather than once a comparison, since it parses a
+ * figure. The sort is stable, so rows with the same key keep their file order.
+ */
+internal fun List<JefitRow>.sortedByOnce(key: (JefitRow) -> Long): List<JefitRow> =
+    map { it to key(it) }.sortedBy { it.second }.map { it.first }
+
+/**
  * The rows of a JEFIT export, looked up by section and by the columns a table's header has.
  *
  * A section can hold tables of several shapes — ROUTINES holds routines, their days and the days'

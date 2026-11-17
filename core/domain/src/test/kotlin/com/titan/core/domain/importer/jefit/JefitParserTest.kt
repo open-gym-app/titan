@@ -496,6 +496,9 @@ class JefitParserTest {
             ),
             onlySets(logs("42,x,1,\"100x5,abc,100x,1x2x3,0x0,90x0,62.5X8,,\",1,0,2026-10-05,2,Bench,0,0,0,")),
         )
+        // A log of nothing but skipped sets, and no set rows to stand in, records nothing at all.
+        val skipped = logs("42,x,1,\"0x0,0x0\",1,0,2026-10-05,2,Bench,0,0,0,")
+        assertEquals(emptyList<ImportedWorkout>(), parsedText(skipped).workouts)
     }
 
     @Test
@@ -546,10 +549,12 @@ class JefitParserTest {
                 "SETTING" to "row_id,USERID,mass\n1,42, $mass",
                 "EXERCISE LOGS" to
                     "$logsHeader\n42,x,1,,1,0,2026-10-05,2,Bench,0,0,0,\n42,x,1,\"80x5,80x5\",2,0,2026-10-05,3,Row,0,0,0,\n" +
-                    "42,x,1,,3,0,2026-10-05,4,Bike,0,0,0,\n42,x,1,,4,0,2026-10-05,290,Machine Assisted Dip,0,0,0,",
+                    "42,x,1,,3,0,2026-10-05,4,Bike,0,0,0,\n42,x,1,,4,0,2026-10-05,290,Machine Assisted Dip,0,0,0,\n" +
+                    "42,x,1,0x0,5,0,2026-10-05,5,Curl,0,0,0,",
                 "EXERCISE SET LOGS" to
                     "$setHeader\n1,42,1,1,88.1849,5,,,,,0,default\n2,42,1,0,88.1849,8,,,,,0,warm-up\n" +
-                    "3,42,2,0,176.3698,5,,,,,0,drop\n4,42,3,0,,,,1.5,,,900,default\n5,42,3,1,,,,,,,,default\n6,42,4,0,50,10,,,,,,failure",
+                    "3,42,2,0,176.3698,5,,,,,0,drop\n4,42,3,0,,,,1.5,,,900,default\n5,42,3,1,,,,,,,,default\n6,42,4,0,50,10,,,,,,failure" +
+                    "\n7,42,5,0,22.0462,12,,,,,0,default",
             )
 
         val metric = parsedText(export("kg")).workouts.single().exercises
@@ -564,6 +569,8 @@ class JefitParserTest {
         // A row with neither reps nor time records nothing.
         assertEquals(listOf(ImportedSet(duration = 900, distance = 241_402)), metric[2].sets)
         assertEquals(listOf(ImportedSet(setType = SetType.FAILURE, reps = 10)), metric[3].sets)
+        // A packed string of nothing but `0x0` holds no set, so its rows are the sets too.
+        assertEquals(listOf(ImportedSet(reps = 12, weight = 10_000_000)), metric[4].sets)
         // An account in pounds keeps the pounds as written.
         assertEquals(39_999_998L, parsedText(export("lbs")).workouts.single().exercises[0].sets[0].weight)
     }
@@ -658,6 +665,9 @@ class JefitParserTest {
             "EXERCISE LOGS" to "$logsHeader\n42,x,1,100x5,1,0,2026-10-05,2,\"'; DROP TABLE session; --\",0,1,0,\n" +
                 "42,x,1,100x5,2,0,2026-10-06,3,\"Bench Press‮\u0000\",0,2,0,",
             "NOTES" to "_id,eid,belongSys,mynote,mydate\n1,2,1,\"<script>\"\"x\"\"</script>\",2026-10-05",
+            "ROUTINES" to "_id,name\n1,R\npackage,_id,name\n1,11,D\n" +
+                "belongSys,_id,exercise_id,belongplan,exercisename,setcount,bodypart,interval_time,interval_unit\n" +
+                "1,1,321,11,Treadmill Running,1,10,307445734561825920,min",
         )
 
         val (overflow, negative) = parsedText(text).workouts
@@ -667,6 +677,8 @@ class JefitParserTest {
         assertEquals("<script>\"x\"</script>", overflow.exercises.single().notes)
         assertNull(negative.durationSeconds)
         assertEquals("Bench Press‮\u0000", negative.exercises.single().exercise.name)
+        // Minutes that would overflow as seconds are no time, not a time wrapped round to an hour.
+        assertEquals(listOf(PlannedSet()), parsedText(text).templates.single().exercises.single().sets)
     }
 
     // ------------------------------------------------------------------ through the planner

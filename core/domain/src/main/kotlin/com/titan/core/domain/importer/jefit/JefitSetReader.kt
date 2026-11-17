@@ -38,7 +38,7 @@ import kotlin.math.roundToLong
  *   (`default`, `warm-up`, `drop`), and its figures in fixed units (`weight_lbs`, `distance_mi`,
  *   `duration` in seconds). When it has one row per packed set, each row gives its set its type,
  *   and a cardio set its distance and time, which it keeps more faithfully than the packed string.
- *   When the packed string holds nothing, its rows are the sets.
+ *   When the packed string holds no set — nothing at all, or only `0x0` — its rows are the sets.
  *
  * ### What a piece that does not read costs
  *
@@ -65,19 +65,19 @@ internal class JefitSetReader(private val units: JefitUnits) {
         val groups = if (packedAsCardio) pieces.chunked(CARDIO_FIGURES) else pieces.map(::listOf)
         val matched = rows.takeIf { it.size == groups.size }
 
-        return when {
-            groups.isNotEmpty() -> groups.mapIndexedNotNull { index, group ->
-                val row = matched?.get(index)
-                if (packedAsCardio) {
-                    cardioSet(group, row)
-                } else {
-                    strengthSet(group.single(), intervals.getOrNull(index), assisted)?.withTypeOf(row)
-                }
+        val packed = groups.mapIndexedNotNull { index, group ->
+            val row = matched?.get(index)
+            if (packedAsCardio) {
+                cardioSet(group, row)
+            } else {
+                strengthSet(group.single(), intervals.getOrNull(index), assisted)?.withTypeOf(row)
             }
-
+        }
+        return when {
+            packed.isNotEmpty() -> packed
             rows.isNotEmpty() -> rows.mapNotNull { rowSet(it, assisted) }
-
-            else -> intervals.filterNotNull().filter { it > 0 }.map { ImportedSet(duration = it) }
+            groups.isEmpty() -> intervals.filterNotNull().filter { it > 0 }.map { ImportedSet(duration = it) }
+            else -> emptyList()
         }
     }
 
