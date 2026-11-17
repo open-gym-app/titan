@@ -14,7 +14,9 @@ import com.titan.core.domain.importer.ImportPlan
 import com.titan.core.domain.importer.ImportPlanner
 import com.titan.core.domain.importer.ImportedHistory
 import com.titan.core.domain.importer.ImportedPhoto
+import com.titan.core.domain.importer.MAX_IMPORT_SETS
 import com.titan.core.domain.importer.MAX_SOURCE_BYTES
+import com.titan.core.domain.importer.NO_SET_LIMIT
 import com.titan.core.domain.importer.ParseOutcome
 import com.titan.core.domain.importer.ParseResult
 import com.titan.core.domain.importer.PlannedWorkout
@@ -140,6 +142,7 @@ class ImportHistoryUseCase(
     private val backupLock: BackupLock = BackupLock.SHARED,
     private val sessionLock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
     private val maxSourceBytes: Long = MAX_SOURCE_BYTES,
+    private val maxSets: Int = MAX_IMPORT_SETS,
 ) {
 
     /** Parses [source] with [parser] and imports what it holds. */
@@ -168,6 +171,13 @@ class ImportHistoryUseCase(
     @Suppress("TooGenericExceptionCaught")
     private suspend fun ProducerScope<HistoryImportProgress>.import(history: ImportedHistory): HistoryImportProgress {
         if (history.isEmpty) return failed(HistoryImportError.NothingToImport)
+        // Before the plan is built from it: the plan holds a second copy of every set, and the
+        // byte cap does not bound how many sets a file can hold. See MAX_IMPORT_SETS.
+        if (maxSets != NO_SET_LIMIT && history.setCount > maxSets) {
+            return failed(
+                HistoryImportError.TooManySets(maxSets),
+            )
+        }
         return try {
             backupLock.exclusively {
                 val (plan, report) = sessionLock.withTransition {

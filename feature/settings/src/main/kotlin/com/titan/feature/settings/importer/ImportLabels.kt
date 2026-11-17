@@ -8,6 +8,7 @@ import androidx.compose.ui.res.stringResource
 import com.titan.core.domain.importer.HistoryImportError
 import com.titan.core.domain.importer.HistoryImportSource
 import com.titan.feature.settings.R
+import java.text.NumberFormat
 
 /*
  * What the import screen calls each source and each refusal.
@@ -145,6 +146,11 @@ internal fun HistoryImportError.message(source: HistoryImportSource): String {
         is HistoryImportError.TooLarge -> stringResource(
             R.string.import_failed_too_large,
             Formatter.formatShortFileSize(LocalContext.current, limitBytes),
+        )
+
+        is HistoryImportError.TooManySets -> stringResource(
+            R.string.import_failed_too_many_sets,
+            NumberFormat.getIntegerInstance().format(limitSets),
         )
 
         is HistoryImportError.Unreadable -> stringResource(R.string.import_failed_unreadable)

@@ -478,6 +478,7 @@
     <string name="import_failed_not_recognised">This file is not a %1$s export. Check that you picked the right app, and see how to export from %1$s.</string>
     <string name="import_failed_malformed">This looks like a %1$s export, but it could not be read. Export it from %1$s again and pick the new file.</string>
     <string name="import_failed_too_large">This file is too large to import. Titan reads files up to %1$s.</string>
+    <string name="import_failed_too_many_sets">This file holds more sets than Titan can import. Titan reads up to %1$s sets.</string>
     <string name="import_failed_unreadable">The file could not be opened. It may have been moved, or access to it was taken back. Pick it again.</string>
     <string name="import_failed_nothing">The file was read, but it holds nothing Titan can import.</string>
     <string name="import_failed_storage">Your phone refused to save the import, often because its storage is full. Nothing was changed. Free up some space and try again.</string>

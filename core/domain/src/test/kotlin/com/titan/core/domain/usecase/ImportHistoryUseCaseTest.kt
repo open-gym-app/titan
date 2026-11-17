@@ -17,6 +17,7 @@ import com.titan.core.domain.importer.ImportedTemplate
 import com.titan.core.domain.importer.ImportedTemplateExercise
 import com.titan.core.domain.importer.ImportedWorkout
 import com.titan.core.domain.importer.ImportedWorkoutExercise
+import com.titan.core.domain.importer.MAX_IMPORT_SETS
 import com.titan.core.domain.importer.ParseResult
 import com.titan.core.domain.integration.FakeExerciseRepository
 import com.titan.core.domain.model.BodyMeasurement
@@ -114,20 +115,23 @@ class ImportHistoryUseCaseTest {
 
     private val backupLock = BackupLock()
 
-    private fun useCase(maxSourceBytes: Long = 1_000) =
-        ImportHistoryUseCase(
-            historyImportRepository = store,
-            exerciseRepository = exercises,
-            sessionRepository = sessions,
-            templateRepository = templates,
-            bodyMeasurementRepository = measurements,
-            progressPhotoRepository = photos,
-            completeSession = pipeline,
-            clock = MutableClock(now = NOW),
-            backupLock = backupLock,
-            sessionLock = SessionLifecycleLock(),
-            maxSourceBytes = maxSourceBytes,
-        )
+    private fun useCase(
+        maxSourceBytes: Long = 1_000,
+        maxSets: Int = MAX_IMPORT_SETS,
+    ) = ImportHistoryUseCase(
+        historyImportRepository = store,
+        exerciseRepository = exercises,
+        sessionRepository = sessions,
+        templateRepository = templates,
+        bodyMeasurementRepository = measurements,
+        progressPhotoRepository = photos,
+        completeSession = pipeline,
+        clock = MutableClock(now = NOW),
+        backupLock = backupLock,
+        sessionLock = SessionLifecycleLock(),
+        maxSourceBytes = maxSourceBytes,
+        maxSets = maxSets,
+    )
 
     private val bench = ImportedExercise(name = "bench press")
 
@@ -338,6 +342,21 @@ class ImportHistoryUseCaseTest {
         }
 
     // ------------------------------------------------------------------ refusals
+
+    @Test
+    fun `a history at the set limit imports, and one set over it is refused with nothing written`() =
+        runBlocking {
+            // Two workouts of two sets each: four sets.
+            val history = ImportedHistory(workouts = listOf(workout(day = 1), workout(day = 2)))
+
+            assertEquals(4, useCase(maxSets = 4)(history).toList().report().setsImported)
+            assertEquals(2, sessions.getAll().first().size)
+
+            val refused = useCase(maxSets = 3)(history).toList().last()
+            assertEquals(HistoryImportProgress.Failed(HistoryImportError.TooManySets(3)), refused)
+            assertEquals(1, store.transactions)
+            assertEquals(2, sessions.getAll().first().size)
+        }
 
     @Test
     fun `an empty history writes nothing and says so`() =
