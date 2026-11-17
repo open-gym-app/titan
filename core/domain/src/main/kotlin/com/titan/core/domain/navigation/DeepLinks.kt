@@ -33,6 +33,9 @@ object DeepLinks {
     /** The host the progression screens sit under. Matched by the same filter. */
     const val PROGRESSION_HOST: String = "progression"
 
+    /** The host the settings screens sit under. Matched by the same filter. */
+    const val SETTINGS_HOST: String = "settings"
+
     /**
      * Setting a workout up: `titan://session/new`.
      *
@@ -64,4 +67,14 @@ object DeepLinks {
      * of the month's streak allowance.
      */
     const val QUEST_LOG: String = "$SCHEME://$PROGRESSION_HOST/quests"
+
+    /**
+     * The import from another app: `titan://settings/import`.
+     *
+     * Where both of the import's notifications land — the progress one while it runs, and the
+     * line saying it ended — so the report is one tap from the sentence announcing it. A
+     * constant, because the destination takes no arguments: the screen reads the import's state
+     * from the worker running it, not from the link.
+     */
+    const val HISTORY_IMPORT: String = "$SCHEME://$SETTINGS_HOST/import"
 }
