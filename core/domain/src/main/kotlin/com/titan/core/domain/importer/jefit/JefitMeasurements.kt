@@ -31,12 +31,15 @@ internal class JefitMeasurements(
 ) {
     private val rows = tables.rows(JefitSection.PROFILE, JefitColumn.DATE)
 
-    /** The measurements PROFILE holds, one a day, in the order each day first appears. */
+    /**
+     * The measurements PROFILE holds, one a day, in the order of each day's earliest `logTime`:
+     * rows are read oldest first, a row without one before every other and file order breaking
+     * ties, so that a later row's figure replaces an earlier one's.
+     */
     fun read(): List<BodyMeasurement> {
         val days = LinkedHashMap<Long, DayDraft>()
-        rows.withIndex()
-            .sortedWith(compareBy({ it.value.whole(JefitColumn.LOG_TIME) ?: Long.MIN_VALUE }, { it.index }))
-            .forEach { (_, row) ->
+        rows.sortedByOnce { it.whole(JefitColumn.LOG_TIME) ?: Long.MIN_VALUE }
+            .forEach { row ->
                 val takenAt = SourceValues.localDateAtNoon(row[JefitColumn.DATE], zone) ?: return@forEach
                 val day = days.getOrPut(takenAt) { DayDraft(takenAt) }
                 Site.entries.forEach { site ->

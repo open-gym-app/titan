@@ -62,7 +62,7 @@ class SuffixedExerciseNames(
         return ImportedExercise(
             name = trimmed,
             catalogueName = aliases[ExerciseMatcher.normalised(trimmed)] ?: base.takeIf { equipment != null },
-            equipment = equipment ?: leadingEquipmentOf(trimmed).takeIf { leadingEquipment },
+            equipment = equipment ?: if (leadingEquipment) leadingEquipmentOf(trimmed) else null,
         )
     }
 

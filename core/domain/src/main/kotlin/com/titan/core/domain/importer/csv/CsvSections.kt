@@ -16,8 +16,9 @@ import java.util.Locale
  *
  * - **A marker** is a record of one field that starts with `###`. What follows the hashes, with
  *   any trailing hashes and space trimmed, is the section's name; nothing at all is the end of
- *   the current section. A marker inside quotes is part of a field, never a marker, which is why
- *   this reads records rather than lines.
+ *   the current section. A `###` line inside a quoted field that spans lines is part of that
+ *   field, never a marker, which is why this reads records rather than lines; a record that is
+ *   nothing but one quoted `###` field is read as a marker, since the quotes are gone by then.
  * - **A header** is whatever record the caller's `isHeader` says is one. Blank lines, which
  *   exporters put between tables, never reach this: [CsvReader] skips them. So a header has to
  *   be told apart from a row by its content, and the caller knows what its format's headers look

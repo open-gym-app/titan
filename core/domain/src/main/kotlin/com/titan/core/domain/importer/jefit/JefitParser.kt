@@ -78,7 +78,7 @@ class JefitParser : HistoryParser {
         val logs = tables.rows(
             JefitSection.EXERCISE_LOGS,
             JefitColumn.LOGS,
-        ).mapIndexed { index, row -> JefitLog(row, index) }
+        ).map(::JefitLog)
         val routines = JefitRoutines(tables)
         val notes = tables.rows(JefitSection.NOTES, JefitColumn.NOTE)
         val cardioLogIds = tables.rows(JefitSection.CARDIO_EXERCISE_LOGS, JefitColumn.CARDIO_LOG_ID)

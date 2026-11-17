@@ -36,10 +36,8 @@ internal class JefitWorkouts(
         .associateBy(Session::id)
 
     private val setRows: Map<String?, List<JefitRow>> = tables.rows(JefitSection.EXERCISE_SET_LOGS, JefitColumn.LOG_ID)
-        .withIndex()
-        .sortedWith(compareBy({ it.value.whole(JefitColumn.SET_INDEX) ?: Long.MAX_VALUE }, { it.index }))
-        .map { it.value }
         .groupBy { it[JefitColumn.LOG_ID] }
+        .mapValues { (_, rows) -> rows.sortedByOnce { it.whole(JefitColumn.SET_INDEX) ?: Long.MAX_VALUE } }
 
     private val notes: MutableMap<Pair<JefitExerciseKey, String?>, String> = notes
         .mapNotNull { row ->

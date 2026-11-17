@@ -40,11 +40,7 @@ internal data class JefitExerciseKey(private val id: String) {
 }
 
 /** One row of EXERCISE LOGS: one exercise of one workout, and every set of it, packed into [packed]. */
-internal class JefitLog(
-    row: JefitRow,
-    /** Where the row is in the file, which is the order the exercises were performed in. */
-    val index: Int,
-) {
+internal class JefitLog(row: JefitRow) {
     val id: String? = row[JefitColumn.ID]
     val key: JefitExerciseKey? = JefitExerciseKey.of(
         row[JefitColumn.EXERCISE_ID],
@@ -92,7 +88,7 @@ internal class JefitExercises(
 
     /** Each exercise's name in its most recent log, a later log in the file winning a tie. */
     private val logNames: Map<JefitExerciseKey, String> = buildMap {
-        logs.sortedWith(compareBy({ it.date.orEmpty() }, { it.index })).forEach { log ->
+        logs.sortedBy { it.date.orEmpty() }.forEach { log ->
             val key = log.key
             val name = log.name
             if (key != null && name != null) put(key, name)

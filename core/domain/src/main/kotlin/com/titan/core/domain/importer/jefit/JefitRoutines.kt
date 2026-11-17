@@ -56,9 +56,7 @@ internal class JefitRoutines(tables: JefitTables) {
     ): List<ImportedTemplate> {
         val routineNames = routines.associate { it[JefitColumn.ID] to it[JefitColumn.NAME] }
         val daysPerRoutine = days.groupingBy { it[JefitColumn.PACKAGE] }.eachCount()
-        val linesByDay = lines.withIndex()
-            .sortedWith(compareBy({ it.value.whole(JefitColumn.SORT) ?: Long.MAX_VALUE }, { it.index }))
-            .map { it.value }
+        val linesByDay = lines.sortedByOnce { it.whole(JefitColumn.SORT) ?: Long.MAX_VALUE }
             .groupBy { it[JefitColumn.DAY] }
 
         return days.mapNotNull { day ->
@@ -117,7 +115,7 @@ internal class JefitRoutines(tables: JefitTables) {
         val unit = line[JefitColumn.INTERVAL_UNIT]?.let(ExerciseMatcher::normalised)
         return when (unit) {
             null, in SECONDS -> time
-            in MINUTES -> time * SECONDS_PER_MINUTE
+            in MINUTES -> time.takeIf { it <= Long.MAX_VALUE / SECONDS_PER_MINUTE }?.times(SECONDS_PER_MINUTE)
             else -> null
         }
     }
