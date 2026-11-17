@@ -15,6 +15,7 @@ import com.titan.core.data.repository.PetRepositoryImpl
 import com.titan.core.data.repository.ProgressionRepositoryImpl
 import com.titan.core.data.repository.QuestRepositoryImpl
 import com.titan.core.data.repository.SessionRepositoryImpl
+import com.titan.core.data.repository.UnlockRepositoryImpl
 import com.titan.core.domain.gamification.Achievements
 import com.titan.core.domain.gamification.DropRates
 import com.titan.core.domain.gamification.DropTableEvaluator
@@ -37,6 +38,7 @@ import com.titan.core.domain.random.RandomSource
 import com.titan.core.domain.repository.UserPreferencesRepository
 import com.titan.core.domain.usecase.AchievementTriggerUseCase
 import com.titan.core.domain.usecase.AwardXpUseCase
+import com.titan.core.domain.usecase.EvaluateUnlocksUseCase
 import com.titan.core.domain.usecase.GrowPetUseCase
 import com.titan.core.domain.usecase.LootRollUseCase
 import com.titan.core.domain.usecase.PrDetectionUseCase
@@ -206,6 +208,12 @@ class SessionCompletionCascadeTest : RoomTestBase() {
                 ),
                 petRepository = pets,
                 gamificationRepository = gamification,
+            ),
+            evaluateUnlocks = EvaluateUnlocksUseCase(
+                gamificationRepository = gamification,
+                sessionRepository = sessions,
+                sparTally = { 0 },
+                unlockRepository = UnlockRepositoryImpl(db.petUnlockDao()),
             ),
             sessionRepository = sessions,
             personalRecordRepository = records,

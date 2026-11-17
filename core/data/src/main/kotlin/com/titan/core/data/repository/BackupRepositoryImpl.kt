@@ -161,6 +161,8 @@ class BackupRepositoryImpl @Inject constructor(
                 BackupTable.PET_FEED -> dao.readPetFeeds(limit, offset).map { it.toRow() }
 
                 BackupTable.FOOD_SEEN -> dao.readFoodSeen(limit, offset).map { it.toRow() }
+
+                BackupTable.PET_UNLOCK -> dao.readPetUnlocks(limit, offset).map { it.toRow() }
             }
         }
 
@@ -242,6 +244,7 @@ class BackupRepositoryImpl @Inject constructor(
                 BackupTable.PET_STATE -> dao.deletePetStates()
                 BackupTable.PET_FEED -> dao.deletePetFeeds()
                 BackupTable.FOOD_SEEN -> dao.deleteFoodSeen()
+                BackupTable.PET_UNLOCK -> dao.deletePetUnlocks()
             }
         }
     }
@@ -307,6 +310,7 @@ class BackupRepositoryImpl @Inject constructor(
         into.table(BackupTable.PET_STATE, document.petState, dao::insertPetStates) { it.toEntity() }
         into.table(BackupTable.PET_FEED, document.petFeed, dao::insertPetFeeds) { it.toEntity() }
         into.table(BackupTable.FOOD_SEEN, document.foodSeen, dao::insertFoodSeen) { it.toEntity() }
+        into.table(BackupTable.PET_UNLOCK, document.petUnlock, dao::insertPetUnlocks) { it.toEntity() }
     }
 
     /**

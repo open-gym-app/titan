@@ -394,3 +394,10 @@ data class FoodSeenRow(
     @SerialName("collectible_id") val collectibleId: String,
     @SerialName("seen_up_to") val seenUpTo: Long,
 ) : BackupRow
+
+/** A row of `pet_unlock`: something unlocked for the titan, kept once earned. Not validated. */
+@Serializable
+data class PetUnlockRow(
+    @SerialName("key") val key: String,
+    @SerialName("unlocked_at") val unlockedAt: Long,
+) : BackupRow

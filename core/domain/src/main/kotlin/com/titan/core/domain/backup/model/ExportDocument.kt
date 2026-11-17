@@ -73,6 +73,7 @@ data class ExportDocument(
     @SerialName("pet_state") val petState: List<PetStateRow> = emptyList(),
     @SerialName("pet_feed") val petFeed: List<PetFeedRow> = emptyList(),
     @SerialName("food_seen") val foodSeen: List<FoodSeenRow> = emptyList(),
+    @SerialName("pet_unlock") val petUnlock: List<PetUnlockRow> = emptyList(),
 ) {
 
     /**
@@ -109,6 +110,7 @@ data class ExportDocument(
             BackupTable.PET_STATE -> petState
             BackupTable.PET_FEED -> petFeed
             BackupTable.FOOD_SEEN -> foodSeen
+            BackupTable.PET_UNLOCK -> petUnlock
         }
 
     /** How many rows the whole document holds, across every table. What a progress bar divides by. */
@@ -128,7 +130,7 @@ data class ExportDocument(
          * every version but its own, older ones included.
          *
          * Version 2 added the Titans milestone's tables: `pet`, `pet_state`, `pet_feed`,
-         * `food_seen` and `session_pet_claim`. A version 1 file still restores, through
+         * `food_seen`, `pet_unlock` and `session_pet_claim`. A version 1 file still restores, through
          * [com.titan.core.domain.backup.SchemaUpgrade].
          */
         const val SCHEMA_VERSION: Int = 2

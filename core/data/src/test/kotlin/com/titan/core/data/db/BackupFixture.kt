@@ -7,6 +7,7 @@ import com.titan.core.data.db.entity.FoodSeenEntity
 import com.titan.core.data.db.entity.PetEntity
 import com.titan.core.data.db.entity.PetFeedEntity
 import com.titan.core.data.db.entity.PetStateEntity
+import com.titan.core.data.db.entity.PetUnlockEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
 import com.titan.core.data.db.entity.SessionLootClaimEntity
 import com.titan.core.data.db.entity.SessionPetClaimEntity
@@ -254,6 +255,10 @@ private suspend fun TitanDatabase.seedTitanState() {
     )
     backupDao().insertPetFeeds(listOf(PetFeedEntity(collectedItemId = 5, petId = 1, fedAt = FINISHED_AT)))
     backupDao().insertFoodSeen(listOf(FoodSeenEntity(collectibleId = "steak", seenUpTo = 5)))
+    backupDao().insertPetUnlocks(
+        // In key order, which is the order an export reads them back in.
+        listOf(PetUnlockEntity("from_a_newer_version", FINISHED_AT), PetUnlockEntity("sauna", FINISHED_AT)),
+    )
 }
 
 /** Every row of [table], as raw column-to-value maps, for an assertion that names no entity type. */

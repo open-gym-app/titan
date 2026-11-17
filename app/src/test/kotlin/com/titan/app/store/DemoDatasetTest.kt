@@ -20,6 +20,7 @@ import com.titan.core.domain.repository.UserPreferencesRepository
 import com.titan.core.domain.time.Clock
 import com.titan.core.domain.usecase.AchievementTriggerUseCase
 import com.titan.core.domain.usecase.AwardXpUseCase
+import com.titan.core.domain.usecase.EvaluateUnlocksUseCase
 import com.titan.core.domain.usecase.ExportUseCase
 import com.titan.core.domain.usecase.GrowPetUseCase
 import com.titan.core.domain.usecase.ImportUseCase
@@ -102,6 +103,8 @@ class DemoDatasetTest {
     @Inject lateinit var completeQuests: QuestCompletionUseCase
 
     @Inject lateinit var growPet: GrowPetUseCase
+
+    @Inject lateinit var evaluateUnlocks: EvaluateUnlocksUseCase
 
     @Inject lateinit var nextLoad: NextLoadUseCase
 
@@ -195,6 +198,7 @@ class DemoDatasetTest {
                 gamificationRepository = gamification,
             ),
             growPet = growPet,
+            evaluateUnlocks = evaluateUnlocks,
             sessionRepository = sessions,
             personalRecordRepository = personalRecords,
             gamificationRepository = gamification,

@@ -81,6 +81,7 @@ class FinishSessionUseCaseTest {
         ),
         // No pet: the step runs, spends its claim and grows nothing.
         growPet = GrowPetUseCase(sessions, FakeExerciseRepository(), FakePetRepository(), gamification),
+        evaluateUnlocks = EvaluateUnlocksUseCase(gamification, sessions, { 0 }, FakeUnlockRepository()),
         sessionRepository = sessions,
         personalRecordRepository = personalRecords,
         gamificationRepository = gamification,

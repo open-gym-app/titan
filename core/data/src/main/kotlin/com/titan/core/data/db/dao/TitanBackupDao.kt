@@ -6,6 +6,7 @@ import com.titan.core.data.db.entity.FoodSeenEntity
 import com.titan.core.data.db.entity.PetEntity
 import com.titan.core.data.db.entity.PetFeedEntity
 import com.titan.core.data.db.entity.PetStateEntity
+import com.titan.core.data.db.entity.PetUnlockEntity
 
 /**
  * The backup half of the Titans milestone's tables: a page read, a bulk insert and a wipe per
@@ -60,4 +61,16 @@ interface TitanBackupDao {
 
     @Query("DELETE FROM food_seen")
     suspend fun deleteFoodSeen()
+
+    @Query("SELECT * FROM pet_unlock ORDER BY `key` LIMIT :limit OFFSET :offset")
+    suspend fun readPetUnlocks(
+        limit: Int,
+        offset: Int,
+    ): List<PetUnlockEntity>
+
+    @Insert
+    suspend fun insertPetUnlocks(rows: List<PetUnlockEntity>)
+
+    @Query("DELETE FROM pet_unlock")
+    suspend fun deletePetUnlocks()
 }

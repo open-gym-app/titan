@@ -130,6 +130,7 @@ class FakeSessionRepository : SessionRepository {
                         totalVolume = it.sumOf { set ->
                             (set.weight ?: 0L) * (set.reps ?: 0).toLong()
                         },
+                        totalDistance = it.sumOf { set -> set.distance ?: 0L },
                     )
                 }
             }.toMap()

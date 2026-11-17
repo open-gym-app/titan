@@ -357,7 +357,10 @@ class TitanRulesTest {
             listOf("idle", "walk", "run", "swim", "train", "spar", "rest", "eat"),
             TitanActivity.entries.map { it.key },
         )
-        assertEquals(listOf("track", "rack", "pool", "ring"), TitanPlace.entries.map { it.key })
+        assertEquals(
+            listOf("track", "rack", "pool", "ring", "sauna", "trail", "dojo", "summit"),
+            TitanPlace.entries.map { it.key },
+        )
     }
 
     @Test

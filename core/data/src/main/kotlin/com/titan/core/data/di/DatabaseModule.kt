@@ -8,14 +8,10 @@ import com.titan.core.data.db.dao.BodyMeasurementDao
 import com.titan.core.data.db.dao.CollectedItemDao
 import com.titan.core.data.db.dao.ExerciseDao
 import com.titan.core.data.db.dao.MuscleGroupDao
-import com.titan.core.data.db.dao.PantryDao
 import com.titan.core.data.db.dao.PersonalRecordDao
-import com.titan.core.data.db.dao.PetDao
-import com.titan.core.data.db.dao.PetStateDao
 import com.titan.core.data.db.dao.QuestCompletionDao
 import com.titan.core.data.db.dao.SessionExerciseDao
 import com.titan.core.data.db.dao.SessionLootClaimDao
-import com.titan.core.data.db.dao.SessionPetClaimDao
 import com.titan.core.data.db.dao.SessionXpClaimDao
 import com.titan.core.data.db.dao.TagDao
 import com.titan.core.data.db.dao.UserProgressDao
@@ -119,20 +115,4 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideCollectedItemDao(db: TitanDatabase): CollectedItemDao = db.collectedItemDao()
-
-    @Provides
-    @Singleton
-    fun providePetDao(db: TitanDatabase): PetDao = db.petDao()
-
-    @Provides
-    @Singleton
-    fun providePetStateDao(db: TitanDatabase): PetStateDao = db.petStateDao()
-
-    @Provides
-    @Singleton
-    fun providePantryDao(db: TitanDatabase): PantryDao = db.pantryDao()
-
-    @Provides
-    @Singleton
-    fun provideSessionPetClaimDao(db: TitanDatabase): SessionPetClaimDao = db.sessionPetClaimDao()
 }
