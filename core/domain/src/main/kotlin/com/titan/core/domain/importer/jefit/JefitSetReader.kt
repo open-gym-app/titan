@@ -22,9 +22,11 @@ import kotlin.math.roundToLong
  * distance and the time; it has no column for a set's calories, speed or laps.
  *
  * Which of the two a log is comes from the export where it says ([JefitExercises.isCardio]), and
- * otherwise from the string itself: groups of five, every weight `0`, and in every group a zero
- * among the first four figures and the largest figure last, where the seconds go. A lift that
- * looks like that would be five bodyweight sets, one of them failed, ending on the most reps.
+ * otherwise from the string itself: groups of five, every weight `0`, and in every group that
+ * records anything a zero among the first four figures and the largest figure last, where the
+ * seconds go. A group of five zeros is a planned set that was skipped and is passed over, so a
+ * plank whose first set was skipped still reads as one. A lift that looks like that would be five
+ * bodyweight sets, one of them failed, ending on the most reps.
  *
  * ### What else says something about a set
  *
@@ -95,33 +97,36 @@ internal class JefitSetReader(private val units: JefitUnits) {
     }
 
     /** Whether [pieces] read as cardio groups when nothing else in the export says; see the class doc. */
-    private fun looksCardio(pieces: List<Piece>): Boolean =
-        pieces.isNotEmpty() && pieces.size % CARDIO_FIGURES == 0 && pieces.all { it.readable && it.first == 0.0 } &&
-            pieces.chunked(CARDIO_FIGURES).all { group ->
-                val figures = group.map { checkNotNull(it.second) }
+    private fun looksCardio(pieces: List<Piece>): Boolean {
+        if (pieces.isEmpty() || pieces.size % CARDIO_FIGURES != 0) return false
+        if (!pieces.all { it.readable && it.first == 0.0 }) return false
+        val groups = pieces.chunked(CARDIO_FIGURES).map { group -> group.map { checkNotNull(it.second) } }
+        // An all-zero group is a planned set that was skipped, which says nothing either way.
+        val recorded = groups.filterNot { figures -> figures.all { it == 0.0 } }
+        return recorded.isNotEmpty() &&
+            recorded.all { figures ->
                 figures.take(CARDIO_FIGURES - 1).any { it == 0.0 } && figures.last() > figures.dropLast(1).max()
             }
+    }
 
     private fun strengthSet(
         piece: Piece,
         interval: Long?,
         assisted: Boolean,
     ): ImportedSet? {
-        val weight = piece.first
+        // An assisted set's weight is dropped unread, so a counterweight that does not read never
+        // costs the set its reps.
+        val weight = piece.first.takeUnless { assisted }
         val reps = piece.second
         val timed = interval?.takeIf { it > 0 }
+        val milligrams = weight?.let(units.weight::toMilligrams)
         return when {
-            weight == null || reps == null -> ImportedSet()
-            reps <= 0.0 && timed != null -> ImportedSet(weight = milligrams(weight, assisted), duration = timed)
-            reps <= 0.0 && weight == 0.0 -> null
-            else -> ImportedSet(reps = reps.roundToInt(), weight = milligrams(weight, assisted))
+            reps == null || (weight == null && !assisted) -> ImportedSet()
+            reps <= 0.0 && timed != null -> ImportedSet(weight = milligrams, duration = timed)
+            reps <= 0.0 && piece.first == 0.0 -> null
+            else -> ImportedSet(reps = reps.roundToInt(), weight = milligrams)
         }
     }
-
-    private fun milligrams(
-        weight: Double,
-        assisted: Boolean,
-    ): Long? = units.weight.toMilligrams(weight).takeUnless { assisted }
 
     /**
      * The cardio set [group] packs, with what [row] holds of it in fixed units preferred; null

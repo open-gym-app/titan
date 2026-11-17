@@ -105,6 +105,8 @@ internal class JefitExercises(
     private val cardioByLog = logs.filter { it.id in cardioLogIds }.mapNotNullTo(HashSet(), JefitLog::key)
 
     private val built = HashMap<JefitExerciseKey, ImportedExercise>()
+    private val cardio = HashMap<JefitExerciseKey, Boolean>()
+    private val assisted = HashMap<JefitExerciseKey, Boolean>()
 
     /** The exercise [key] means. */
     operator fun get(key: JefitExerciseKey): ImportedExercise = built.getOrPut(key) { build(key) }
@@ -117,7 +119,19 @@ internal class JefitExercises(
      * Whether the export says [key] is logged as cardio: JEFIT files it under Cardio, or lists one
      * of its logs among its cardio logs. Every log of such an exercise packs its sets as cardio.
      */
-    fun isCardio(key: JefitExerciseKey): Boolean = bodyPart(key) == CARDIO_BODY_PART || key in cardioByLog
+    fun isCardio(key: JefitExerciseKey): Boolean =
+        cardio.getOrPut(key) { bodyPart(key) == CARDIO_BODY_PART || key in cardioByLog }
+
+    /**
+     * Whether [key] is an assisted variation, whose weight is the counterweight a machine took
+     * off rather than a load: Strong's spelling, "Pull Up (Assisted)", and JEFIT's own,
+     * "Machine Assisted Pull-Up". See [SuffixedExerciseNames.isAssisted].
+     */
+    fun isAssisted(key: JefitExerciseKey): Boolean =
+        assisted.getOrPut(key) {
+            val name = get(key).name
+            SuffixedExerciseNames.isAssisted(name) || ASSISTED in ExerciseMatcher.normalised(name).split(' ')
+        }
 
     /** The routine line [row]'s exercise. */
     fun routineKey(row: JefitRow): JefitExerciseKey? =
@@ -164,6 +178,8 @@ internal class JefitExercises(
 
         /** `belongSys` for an exercise of JEFIT's own library. */
         const val JEFIT_LIBRARY = "1"
+
+        const val ASSISTED = "assisted"
 
         /** JEFIT's body part for cardio exercises. */
         const val CARDIO_BODY_PART = 10
