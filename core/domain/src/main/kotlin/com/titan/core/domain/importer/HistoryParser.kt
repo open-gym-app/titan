@@ -138,6 +138,22 @@ internal fun RecordReading.readAll(reader: CsvReader): ParseResult =
  */
 const val MAX_SOURCE_BYTES: Long = 32L * 1024 * 1024
 
+/** A set limit that never refuses a history. */
+const val NO_SET_LIMIT: Int = -1
+
+/**
+ * The most sets one import will hold, or [NO_SET_LIMIT] for no limit, which is what it is for now.
+ * The figure the guard was sized for is 500,000, five times `LargeHistoryBenchmarkTest`'s power
+ * user.
+ *
+ * [MAX_SOURCE_BYTES] bounds bytes, and memory follows sets: the parsed history and the plan
+ * built from it together cost about 290 bytes a set, so a file of very short rows could fit a
+ * million sets under the byte cap and need more than the heap an app is given. An
+ * `OutOfMemoryError` is not something the import catches, so the count is checked right after
+ * parsing, before the plan doubles the memory. At this limit the two together stay near 150 MB.
+ */
+const val MAX_IMPORT_SETS: Int = NO_SET_LIMIT
+
 /**
  * Runs [this] parser over [source] with every byte counted and every failure typed.
  *
