@@ -46,13 +46,15 @@ internal object HevyTimestamps {
             .replace(SPACES, " ")
             .trim()
         if (cleaned.isEmpty()) return null
-        return SourceValues.localTimestamp(cleaned, zone) ?: localDateTime(cleaned)?.let {
+        // Hevy's own shapes first: they are what nearly every cell holds, and the ISO reading
+        // refuses each of them by throwing.
+        return localDateTime(cleaned)?.let {
             try {
                 it.atZone(zone).toInstant().toEpochMilli()
             } catch (_: DateTimeException) {
                 null
             }
-        }
+        } ?: SourceValues.localTimestamp(cleaned, zone)
     }
 
     /** [text] as a date and time in one of [SHAPES], or null when it is in none or is no date. */
@@ -79,12 +81,12 @@ internal object HevyTimestamps {
      */
     private fun clockTime(text: String): LocalTime? {
         val groups = CLOCK.matchEntire(text)?.groups ?: return null
-        val periods = listOf(BEFORE, AFTER).map { groups.text(it) }.filter(String::isNotEmpty)
+        val periods = listOf(BEFORE, AFTER).map { periodKey(groups.text(it)) }.filter(String::isNotEmpty)
         val hour = groups.text(HOUR).toInt()
         val hourOfDay = when {
             periods.isEmpty() -> hour
             periods.size > 1 || hour !in 1..HALF_DAY -> null
-            else -> DAY_PERIODS[periods.single().lowercase(Locale.ROOT)]?.let { shift -> hour % HALF_DAY + shift }
+            else -> DAY_PERIODS[periods.single()]?.let { shift -> hour % HALF_DAY + shift }
         }
         return hourOfDay?.let {
             try {
@@ -114,6 +116,12 @@ internal object HevyTimestamps {
     /** A month word as [MONTHS] keys it: lower case, without the full stop or `॰` abbreviating it. */
     private fun monthKey(word: String): String = word.lowercase(Locale.ROOT).trimEnd('.', '॰')
 
+    /**
+     * A day-period word as [DAY_PERIODS] keys it: lower case, without the full stops and spaces
+     * that Canadian English (`p.m.`) and Latin American Spanish (`p. m.`) write inside it.
+     */
+    private fun periodKey(word: String): String = word.lowercase(Locale.ROOT).filterNot { it == '.' || it == ' ' }
+
     private const val HALF_DAY = 12
 
     /** The spaces a formatter puts in a date: ordinary, no-break, and the narrow one before `PM`. */
@@ -129,8 +137,11 @@ internal object HevyTimestamps {
     private const val MINUTE = "minute"
     private const val AFTER = "after"
 
-    /** A clock, with whatever word a 12-hour one has before or after it. */
-    private val CLOCK = Regex("(?<$BEFORE>\\S*?) ?(?<$HOUR>\\d{1,2}):(?<$MINUTE>\\d{2}) ?(?<$AFTER>\\S*)")
+    /**
+     * A clock, with whatever word a 12-hour one has before it, or after it — where the word may
+     * have a space inside it (`p. m.`).
+     */
+    private val CLOCK = Regex("(?<$BEFORE>\\S*?) ?(?<$HOUR>\\d{1,2}):(?<$MINUTE>\\d{2}) ?(?<$AFTER>.*)")
 
     /** The shapes Hevy's dates come in, each ending in the time of day, tried in order. */
     private val SHAPES = listOf(

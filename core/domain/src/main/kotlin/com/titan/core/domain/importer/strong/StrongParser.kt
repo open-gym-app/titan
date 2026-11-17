@@ -94,8 +94,7 @@ class StrongParser : HistoryParser {
     ): ParseResult =
         source.open().use { stream ->
             val reader = CsvReader.open(stream)
-            val header = readHeader(reader)
-            val layout = header?.let { StrongLayout.of(it, context) }
+            val layout = reader.readHeader()?.let { StrongLayout.of(it, context) }
             if (layout == null) {
                 ParseResult.NotRecognised
             } else {
@@ -105,17 +104,6 @@ class StrongParser : HistoryParser {
                     ParseResult.Malformed(failure.message.orEmpty())
                 }
             }
-        }
-
-    /**
-     * The first record as a header, or null when there is none — including when it is not CSV
-     * at all, which is a file that is not an export rather than a broken one.
-     */
-    private fun readHeader(reader: CsvReader): CsvHeader? =
-        try {
-            reader.readRecord()?.let(::CsvHeader)
-        } catch (_: MalformedCsvException) {
-            null
         }
 }
 

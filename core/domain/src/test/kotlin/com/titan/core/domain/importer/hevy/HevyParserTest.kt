@@ -174,6 +174,14 @@ class HevyParserTest {
     }
 
     @Test
+    fun `an assisted exercise's assistance cannot cost its set, even when it is not a number`() {
+        val csv = "title,start_time,exercise_title,set_index,weight_kg,reps\n" +
+            "W,\"1 Jan 2024, 10:00\",Pull Up (Assisted),0,lots,8\n"
+
+        assertEquals(ImportedSet(reps = 8), parsedText(csv).workouts.single().line(0).sets.single())
+    }
+
+    @Test
     fun `timed and distance sets keep their seconds and distance`() {
         val workouts = parsed("hevy-workouts.csv").workouts
 
@@ -278,6 +286,18 @@ class HevyParserTest {
         val groups = parsedText(csv).workouts.single().exercises.map { it.supersetGroup }
         assertEquals(groups[0], groups[1])
         assertTrue(groups[2] != null && groups[2] != groups[0])
+    }
+
+    @Test
+    fun `a set index a spreadsheet re-saved as a decimal still tells an exercise done again apart`() {
+        val csv = """
+            title,start_time,exercise_title,set_index,weight_kg,reps
+            W,"1 Jan 2024, 10:00",Leg Extension (Machine),0.0,40,12
+            W,"1 Jan 2024, 10:00",Leg Extension (Machine),1.0,40,12
+            W,"1 Jan 2024, 10:00",Leg Extension (Machine),0.0,30,15
+        """.trimIndent()
+
+        assertEquals(listOf(2, 1), parsedText(csv).workouts.single().exercises.map { it.sets.size })
     }
 
     @Test

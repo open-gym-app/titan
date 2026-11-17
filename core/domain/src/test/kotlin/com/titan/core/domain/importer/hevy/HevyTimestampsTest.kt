@@ -95,6 +95,9 @@ class HevyTimestampsTest {
         assertReads("2026-10-03T05:30:00Z", "2026. 10. 3. 오전 5:30", "2026年10月3日 清晨5:30")
         assertReads("2026-10-03T10:20:00Z", "2026年10月3日 上午10:20", "Oct 3, 2026, 10:20 am")
         assertReads("2026-10-03T13:00:00Z", "2026年10月3日 中午1:00", "Oct 3, 2026, 1:00 PM")
+        // Canadian English and Latin American Spanish write the period with full stops, and spaces.
+        assertReads("2026-10-03T13:00:00Z", "Oct 3, 2026, 1:00 p.m.", "3 oct 2026, 1:00 p. m.")
+        assertReads("2026-10-03T00:30:00Z", "Oct 3, 2026, 12:30 a.m.", "3 oct 2026, 12:30 a. m.")
         assertReads("2026-10-03T18:00:00Z", "2026年10月3日 下午6:00", "2026. 10. 3. 오후 6:00")
         assertReads("2026-10-03T20:00:00Z", "2026年10月3日 晚上8:00")
     }
