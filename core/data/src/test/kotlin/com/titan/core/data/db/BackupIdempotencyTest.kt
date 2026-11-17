@@ -1,5 +1,6 @@
 package com.titan.core.data.db
 
+import com.titan.core.data.db.entity.CollectedItemEntity
 import com.titan.core.data.mapper.ExerciseMapper
 import com.titan.core.data.mapper.MuscleGroupLinkMapper
 import com.titan.core.data.mapper.PersonalRecordMapper
@@ -12,6 +13,7 @@ import com.titan.core.data.repository.CollectedItemRepositoryImpl
 import com.titan.core.data.repository.ExerciseRepositoryImpl
 import com.titan.core.data.repository.GamificationRepositoryImpl
 import com.titan.core.data.repository.PersonalRecordRepositoryImpl
+import com.titan.core.data.repository.PetRepositoryImpl
 import com.titan.core.data.repository.ProgressionRepositoryImpl
 import com.titan.core.data.repository.QuestRepositoryImpl
 import com.titan.core.data.repository.SessionRepositoryImpl
@@ -27,6 +29,7 @@ import com.titan.core.domain.random.RandomSource
 import com.titan.core.domain.usecase.AchievementTriggerUseCase
 import com.titan.core.domain.usecase.AwardXpUseCase
 import com.titan.core.domain.usecase.ExportUseCase
+import com.titan.core.domain.usecase.GrowPetUseCase
 import com.titan.core.domain.usecase.ImportUseCase
 import com.titan.core.domain.usecase.LootRollUseCase
 import com.titan.core.domain.usecase.PrDetectionUseCase
@@ -114,10 +117,13 @@ class BackupIdempotencyTest : RoomTestBase() {
             achievementDao = db.achievementDao(),
             sessionXpClaimDao = db.sessionXpClaimDao(),
             sessionLootClaimDao = db.sessionLootClaimDao(),
+            sessionPetClaimDao = db.sessionPetClaimDao(),
         )
     }
 
     private val collectedItems by lazy { CollectedItemRepositoryImpl(collectedItemDao = db.collectedItemDao()) }
+
+    private val pets by lazy { PetRepositoryImpl(db.petDao()) }
 
     private val awardXp by lazy { AwardXpUseCase(gamificationRepository = gamification) }
 
@@ -154,6 +160,18 @@ class BackupIdempotencyTest : RoomTestBase() {
             rollLoot = LootRollUseCase(
                 dropTable = DropTableEvaluator(RandomSource { 0 }, listOf(ONLY_DROP)),
                 collectedItemRepository = collectedItems,
+                gamificationRepository = gamification,
+            ),
+            growPet = GrowPetUseCase(
+                sessionRepository = sessions,
+                exerciseRepository = ExerciseRepositoryImpl(
+                    exerciseDao = db.exerciseDao(),
+                    muscleGroupDao = db.muscleGroupDao(),
+                    exerciseMapper = ExerciseMapper(),
+                    tagMapper = TagMapper(),
+                    muscleGroupLinkMapper = MuscleGroupLinkMapper(),
+                ),
+                petRepository = pets,
                 gamificationRepository = gamification,
             ),
             sessionRepository = sessions,
@@ -230,6 +248,40 @@ class BackupIdempotencyTest : RoomTestBase() {
 
             assertEquals(1, db.dumpTable(BackupTable.COLLECTED_ITEM).size)
         }
+
+    /** The pet's fence is the third claim, and it has to travel with the other two. */
+    @Test
+    fun `a restored session grows the pet nothing, and losing its claim would grow it again`() =
+        runBlocking {
+            hatchAPet()
+            val sessionId = seedFinishedSession()
+            val first = pipeline(sessionId, FINISHED_AT)
+            val grown = pets.observeActive().first()!!.xp
+            assertTrue(
+                "the fixture stopped growing the pet, so it stopped testing this",
+                (first.pet?.xpGained ?: 0) > 0,
+            )
+
+            restoreThroughAnExport()
+            val second = pipeline(sessionId, FINISHED_AT)
+
+            assertNull("a restored session must not grow the pet again", second.pet)
+            assertEquals(grown, pets.observeActive().first()!!.xp)
+            assertEquals(1, db.dumpTable(BackupTable.SESSION_PET_CLAIM).size)
+
+            // The control: without the claim, the same run grows it a second time.
+            db.backupDao().deletePetClaims()
+            val third = pipeline(sessionId, FINISHED_AT)
+            assertTrue("without the claim the pet grows again — which is what it prevents", third.pet != null)
+        }
+
+    /** An egg, hatched straight through the store: what the screen would do. */
+    private suspend fun hatchAPet() {
+        val egg = db.collectedItemDao().insert(
+            CollectedItemEntity(collectibleId = "pet_egg", source = "session_finished", acquiredAt = 0),
+        )
+        pets.hatch(egg, "iron_cub", java.time.Instant.EPOCH)
+    }
 
     /** Exports the database, empties it, and imports the file back — a device move, in one call. */
     private suspend fun restoreThroughAnExport() {

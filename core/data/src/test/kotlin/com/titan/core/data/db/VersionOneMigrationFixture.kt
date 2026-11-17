@@ -30,10 +30,21 @@ internal fun versionOneFixture(): MigrationFixture {
 
             // The new table is there, empty, and holds its two rules: an egg that exists, once.
             assertEquals(emptyList<List<String?>>(), db.dump("pet"))
+            assertEquals(emptyList<List<String?>>(), db.dump("session_pet_claim"))
             db.execSQL("PRAGMA foreign_keys = ON")
             db.execSQL(PET_INSERT, arrayOf<Any>(1))
             assertThrows(SQLiteConstraintException::class.java) { db.execSQL(PET_INSERT, arrayOf<Any>(1)) }
             assertThrows(SQLiteConstraintException::class.java) { db.execSQL(PET_INSERT, arrayOf<Any>(99)) }
+
+            // The pet claim fences a session that exists, and goes with it.
+            db.execSQL("INSERT INTO session_pet_claim (session_id) VALUES (1)")
+            assertThrows(SQLiteConstraintException::class.java) {
+                db.execSQL("INSERT INTO session_pet_claim (session_id) VALUES (404)")
+            }
+            db.execSQL("DELETE FROM session_xp_claim")
+            db.execSQL("DELETE FROM session_loot_claim")
+            db.execSQL("DELETE FROM workout_session WHERE id = 1")
+            assertEquals(emptyList<List<String?>>(), db.dump("session_pet_claim"))
         },
     )
 }

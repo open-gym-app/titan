@@ -21,6 +21,7 @@ import com.titan.core.domain.time.Clock
 import com.titan.core.domain.usecase.AchievementTriggerUseCase
 import com.titan.core.domain.usecase.AwardXpUseCase
 import com.titan.core.domain.usecase.ExportUseCase
+import com.titan.core.domain.usecase.GrowPetUseCase
 import com.titan.core.domain.usecase.ImportUseCase
 import com.titan.core.domain.usecase.LootRollUseCase
 import com.titan.core.domain.usecase.NextLoadUseCase
@@ -99,6 +100,8 @@ class DemoDatasetTest {
     @Inject lateinit var triggerAchievements: AchievementTriggerUseCase
 
     @Inject lateinit var completeQuests: QuestCompletionUseCase
+
+    @Inject lateinit var growPet: GrowPetUseCase
 
     @Inject lateinit var nextLoad: NextLoadUseCase
 
@@ -191,6 +194,7 @@ class DemoDatasetTest {
                 collectedItemRepository = collectedItems,
                 gamificationRepository = gamification,
             ),
+            growPet = growPet,
             sessionRepository = sessions,
             personalRecordRepository = personalRecords,
             gamificationRepository = gamification,

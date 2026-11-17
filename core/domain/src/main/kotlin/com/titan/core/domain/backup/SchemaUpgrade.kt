@@ -32,7 +32,13 @@ internal object SchemaUpgrade {
     fun toCurrent(document: ExportDocument): ExportDocument =
         when (document.schemaVersion) {
             ExportDocument.SCHEMA_VERSION -> document
-            1 -> document.copy(schemaVersion = ExportDocument.SCHEMA_VERSION, pet = emptyList())
+
+            1 -> document.copy(
+                schemaVersion = ExportDocument.SCHEMA_VERSION,
+                sessionPetClaim = emptyList(),
+                pet = emptyList(),
+            )
+
             else -> throw IllegalArgumentException("no up-converter from version ${document.schemaVersion}")
         }
 }

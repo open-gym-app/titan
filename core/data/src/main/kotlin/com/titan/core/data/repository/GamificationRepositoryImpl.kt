@@ -2,6 +2,7 @@ package com.titan.core.data.repository
 
 import com.titan.core.data.db.dao.AchievementDao
 import com.titan.core.data.db.dao.SessionLootClaimDao
+import com.titan.core.data.db.dao.SessionPetClaimDao
 import com.titan.core.data.db.dao.SessionXpClaimDao
 import com.titan.core.data.db.dao.UserProgressDao
 import com.titan.core.data.db.entity.AchievementEntity
@@ -57,6 +58,7 @@ class GamificationRepositoryImpl @Inject constructor(
     private val achievementDao: AchievementDao,
     private val sessionXpClaimDao: SessionXpClaimDao,
     private val sessionLootClaimDao: SessionLootClaimDao,
+    private val sessionPetClaimDao: SessionPetClaimDao,
 ) : GamificationRepository {
 
     /**
@@ -122,6 +124,8 @@ class GamificationRepositoryImpl @Inject constructor(
     override suspend fun claimSessionXp(sessionId: Long): Boolean = sessionXpClaimDao.claim(sessionId)
 
     override suspend fun claimSessionLoot(sessionId: Long): Boolean = sessionLootClaimDao.claim(sessionId)
+
+    override suspend fun claimSessionPet(sessionId: Long): Boolean = sessionPetClaimDao.claim(sessionId)
 
     /**
      * Reads the stored state, hands it to the rule, writes back what the rule answers with.

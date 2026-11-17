@@ -2,11 +2,13 @@ package com.titan.core.data.mapper
 
 import com.titan.core.data.db.entity.SessionExerciseEntity
 import com.titan.core.data.db.entity.SessionLootClaimEntity
+import com.titan.core.data.db.entity.SessionPetClaimEntity
 import com.titan.core.data.db.entity.SessionXpClaimEntity
 import com.titan.core.data.db.entity.WorkoutSessionEntity
 import com.titan.core.data.db.entity.WorkoutSetEntity
 import com.titan.core.domain.backup.model.SessionExerciseRow
 import com.titan.core.domain.backup.model.SessionLootClaimRow
+import com.titan.core.domain.backup.model.SessionPetClaimRow
 import com.titan.core.domain.backup.model.SessionXpClaimRow
 import com.titan.core.domain.backup.model.WorkoutSessionRow
 import com.titan.core.domain.backup.model.WorkoutSetRow
@@ -122,3 +124,7 @@ fun SessionXpClaimRow.toEntity(): SessionXpClaimEntity = SessionXpClaimEntity(se
 fun SessionLootClaimEntity.toRow(): SessionLootClaimRow = SessionLootClaimRow(sessionId = sessionId)
 
 fun SessionLootClaimRow.toEntity(): SessionLootClaimEntity = SessionLootClaimEntity(sessionId = sessionId)
+
+fun SessionPetClaimEntity.toRow(): SessionPetClaimRow = SessionPetClaimRow(sessionId = sessionId)
+
+fun SessionPetClaimRow.toEntity(): SessionPetClaimEntity = SessionPetClaimEntity(sessionId = sessionId)

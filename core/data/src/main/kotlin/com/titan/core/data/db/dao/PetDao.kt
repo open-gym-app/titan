@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Update
 import com.titan.core.data.db.entity.PetEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -66,4 +67,25 @@ interface PetDao {
         id: Long,
         nickname: String?,
     ): Int
+
+    @Query("SELECT * FROM pet WHERE is_active = 1 ORDER BY id LIMIT 1")
+    suspend fun active(): PetEntity?
+
+    @Update
+    suspend fun update(pet: PetEntity)
+
+    /**
+     * Rewrites the active pet through [change], in one transaction, and answers with the row
+     * before and after — or null, having written nothing, with no active pet.
+     *
+     * A read-modify-write rather than an `UPDATE ... SET xp = xp + ?`: the caller clamps, and
+     * needs both rows to report what the write did without reading again.
+     */
+    @Transaction
+    suspend fun changeActive(change: (PetEntity) -> PetEntity): Pair<PetEntity, PetEntity>? {
+        val before = active() ?: return null
+        val after = change(before)
+        update(after)
+        return before to after
+    }
 }
