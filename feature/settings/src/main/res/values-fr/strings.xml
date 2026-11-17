@@ -68,6 +68,8 @@
     <!-- Data &amp; privacy -->
     <string name="settings_backup">Sauvegarde &amp; restauration</string>
     <string name="settings_backup_detail">Exportez tout dans un fichier, ou remplacez cet appareil à partir d’un fichier</string>
+    <string name="settings_import">Importer depuis une autre application</string>
+    <string name="settings_import_detail">Ajoutez votre historique depuis Strong, Hevy et d’autres. Il s’ajoute à ce qui est ici ; rien n’est remplacé</string>
     <string name="settings_health_connect">Santé Connect</string>
     <string name="settings_delete_all">Supprimer toutes les données</string>
     <string name="settings_delete_all_detail">Efface tout sur cet appareil. Sans retour possible.</string>
@@ -246,5 +248,222 @@
 
     <string name="reminder_inexact">Peut arriver en retard</string>
     <string name="reminder_inexact_detail">Les alarmes exactes sont désactivées pour Titan, donc Android peut retenir le rappel quelques minutes.</string>
+
+    <!-- Import from another app -->
+    <string name="import_title">Importer depuis une autre application</string>
+    <string name="import_intro">Choisissez l’application qui contient votre historique. Ce que vous importez s’ajoute à l’historique déjà présent sur ce téléphone. Rien n’est remplacé ni supprimé, contrairement à la restauration d’une sauvegarde.</string>
+    <string name="import_sources_title">Importer depuis</string>
+    <string name="import_source_plain_csv">CSV simple</string>
+    <string name="import_source_strong_detail">Séances</string>
+    <string name="import_source_hevy_detail">Séances et mensurations</string>
+    <string name="import_source_fitnotes_detail">Séances et suivi corporel</string>
+    <string name="import_source_jefit_detail">Séances, routines, mensurations et exercices personnalisés</string>
+    <string name="import_source_fitbod_detail">Séances</string>
+    <string name="import_source_stronglifts_detail">Séances et poids de corps</string>
+    <string name="import_source_plain_csv_detail">Un tableur ou toute autre application, au format CSV de Titan</string>
+    <string name="import_sources_footnote">Votre application n’est pas dans la liste ? La plupart exportent un tableur que vous pouvez convertir en fichier CSV simple.</string>
+    <string name="import_guide_title">Depuis %1$s</string>
+    <string name="import_guide_steps_title">Comment exporter</string>
+    <string name="import_guide_format_title">Le format</string>
+    <string name="import_guide_note_title">Ce qui est importé</string>
+    <string name="import_guide_good_to_know">Bon à savoir</string>
+    <string name="import_guide_step_description">Étape %1$s : %2$s</string>
+    <string name="import_guide_choose_file">Choisir le fichier</string>
+    <string name="import_guide_merge">Votre historique reste en place. L’import ne fait qu’y ajouter.</string>
+    <string name="import_guide_twice">Importer deux fois le même fichier est sans risque : ce qui est déjà là est reconnu et ignoré.</string>
+    <string name="import_guide_records">Les records sont recalculés à partir de vos séries ; ils peuvent donc différer de ce qu’affichait %1$s.</string>
+    <string name="import_guide_streak">Les semaines importées antérieures à votre enchaînement actuel ne le prolongent pas, et un succès déjà obtenu garde sa date d’origine.</string>
+    <string name="import_guide_csv_link">Lire le format CSV sur GitHub</string>
+    <string name="import_guide_strong_step_1">Dans Strong, ouvrez les Réglages.</string>
+    <string name="import_guide_strong_step_2">Touchez Export Strong Data (Export Data sur Android) et enregistrez le fichier CSV sur votre téléphone ou un drive.</string>
+    <string name="import_guide_strong_step_3">Revenez ici, touchez Choisir le fichier et sélectionnez-le.</string>
+    <string name="import_guide_strong_note">Vos séances, avec leurs séries, repos et notes. L’export de Strong ne contient ni vos modèles, ni vos mensurations, ni vos supersets.</string>
+    <string name="import_guide_hevy_step_1">Dans Hevy, allez dans Profil, puis Réglages, puis Export &amp; Import Data.</string>
+    <string name="import_guide_hevy_step_2">Touchez Export Workouts et enregistrez le fichier. Pour vos mensurations, touchez aussi Export Measurements.</string>
+    <string name="import_guide_hevy_step_3">Importez chaque fichier séparément : d’abord les séances, puis relancez l’import avec les mensurations.</string>
+    <string name="import_guide_hevy_note">Séances, supersets et mensurations. L’export des séances depuis le site de Hevy fonctionne aussi. Les routines et les photos de progression ne sont dans aucun des deux fichiers.</string>
+    <string name="import_guide_fitnotes_step_1">Dans FitNotes, ouvrez les Réglages et choisissez Spreadsheet Export.</string>
+    <string name="import_guide_fitnotes_step_2">Exportez vos séances, et votre suivi corporel si vous l’utilisez, puis enregistrez les fichiers CSV.</string>
+    <string name="import_guide_fitnotes_step_3">Importez chaque fichier séparément.</string>
+    <string name="import_guide_fitnotes_note">Séances et entrées du suivi corporel. Utilisez l’export tableur, pas la sauvegarde : un fichier de sauvegarde .fitnotes ne peut pas être importé, donc les routines, les commentaires de séance et les heures, que seule la sauvegarde contient, ne sont pas importés.</string>
+    <string name="import_guide_jefit_step_1">Dans JEFIT, ouvrez les Réglages et choisissez Export Data.</string>
+    <string name="import_guide_jefit_step_2">Enregistrez le fichier CSV obtenu. Il contient tout votre compte en un seul fichier.</string>
+    <string name="import_guide_jefit_step_3">Revenez ici, touchez Choisir le fichier et sélectionnez-le.</string>
+    <string name="import_guide_jefit_note">Séances, routines (en modèles), mensurations et exercices personnalisés. Les plannings de programme ne sont pas importés : Titan a des modèles plutôt que des programmes.</string>
+    <string name="import_guide_fitbod_step_1">Dans Fitbod, ouvrez l’onglet Log, puis son menu de réglages, et choisissez Export Workout Data.</string>
+    <string name="import_guide_fitbod_step_2">Enregistrez WorkoutExport.csv sur votre téléphone ou un drive.</string>
+    <string name="import_guide_fitbod_step_3">Revenez ici, touchez Choisir le fichier et sélectionnez-le.</string>
+    <string name="import_guide_fitbod_note">Vos séances et leurs séries. L’application Android n’a pas d’export : demandez vos données d’entraînement au support de Fitbod et importez le fichier envoyé. Les recommandations et la récupération musculaire ne sont pas importées.</string>
+    <string name="import_guide_stronglifts_step_1">Dans StrongLifts, ouvrez les Réglages et choisissez Export Data.</string>
+    <string name="import_guide_stronglifts_step_2">Enregistrez le fichier CSV, ou partagez-le avec vous-même. Si l’export est réservé à l’abonnement, utilisez Contact Support dans le menu : StrongLifts vous envoie le même fichier par e-mail.</string>
+    <string name="import_guide_stronglifts_step_3">Revenez ici, touchez Choisir le fichier et sélectionnez-le.</string>
+    <string name="import_guide_stronglifts_note">Vos séances et votre poids de corps, quelle que soit la version de StrongLifts. Les prochaines charges du programme ne sont pas importées : Titan propose les siennes.</string>
+    <string name="import_guide_plain_csv_step_1">Écrivez une ligne par série, avec au moins une colonne workout_date et une colonne exercise. Ajoutez reps, weight, duration ou distance selon ce que vous avez.</string>
+    <string name="import_guide_plain_csv_step_2">Les mensurations vont dans un fichier à part, avec une colonne measurement_date.</string>
+    <string name="import_guide_plain_csv_step_3">Enregistrez-le en CSV, puis touchez Choisir le fichier et sélectionnez-le.</string>
+    <string name="import_guide_plain_csv_note">Les noms de colonnes ne tiennent pas compte de la casse et peuvent être dans n’importe quel ordre. Toutes les colonnes, les unités et les formats de date sont décrits sur GitHub, avec deux fichiers d’exemple pour commencer.</string>
+    <string name="import_active_workout_title">Une séance est en cours</string>
+    <string name="import_active_workout_body">Pendant l’import, l’enregistrement des séries doit l’attendre, et un long historique peut prendre quelques minutes. Vous pouvez d’abord terminer votre séance, ou importer maintenant.</string>
+    <string name="import_active_workout_confirm">Importer maintenant</string>
+    <string name="import_active_workout_dismiss">Pas maintenant</string>
+    <string name="import_running_title">Import depuis %1$s</string>
+    <string name="import_reading">Lecture du fichier…</string>
+    <string name="import_reading_detail">Vérification du fichier et préparation de l’import. Si une sauvegarde est en cours, l’import attend d’abord qu’elle se termine.</string>
+    <string name="import_writing">Enregistrement des séances</string>
+    <plurals name="import_writing_count">
+        <item quantity="one">%1$s sur %2$s séance</item>
+        <item quantity="many">%1$s sur %2$s séances</item>
+        <item quantity="other">%1$s sur %2$s séances</item>
+    </plurals>
+    <string name="import_photos">Enregistrement des photos</string>
+    <plurals name="import_photos_count">
+        <item quantity="one">%1$s sur %2$s photo</item>
+        <item quantity="many">%1$s sur %2$s photos</item>
+        <item quantity="other">%1$s sur %2$s photos</item>
+    </plurals>
+    <string name="import_photos_detail">Votre historique est enregistré. Il ne reste que les photos.</string>
+    <string name="import_running_leave">Vous pouvez quitter cet écran. L’import continue, et une notification indique son avancement.</string>
+    <string name="import_cancel">Annuler l’import</string>
+    <string name="import_stop_photos">Arrêter les photos</string>
+    <string name="import_cancel_title">Annuler l’import ?</string>
+    <string name="import_cancel_body">Rien ne sera importé. Vous pourrez le relancer plus tard.</string>
+    <string name="import_cancel_keep">Continuer l’import</string>
+    <string name="import_stop_photos_title">Arrêter les photos ?</string>
+    <string name="import_stop_photos_body">Votre historique est déjà enregistré et reste en place. Seules les photos pas encore enregistrées sont ignorées ; réimporter le même fichier les enregistre.</string>
+    <string name="import_stop_photos_confirm">Arrêter les photos</string>
+    <string name="import_stop_photos_keep">Continuer</string>
+    <string name="import_done_title">Import terminé</string>
+    <string name="import_done_added">Ajouté depuis %1$s</string>
+    <plurals name="import_report_workouts">
+        <item quantity="one">%1$s séance</item>
+        <item quantity="many">%1$s séances</item>
+        <item quantity="other">%1$s séances</item>
+    </plurals>
+    <plurals name="import_report_sets">
+        <item quantity="one">%1$s série</item>
+        <item quantity="many">%1$s séries</item>
+        <item quantity="other">%1$s séries</item>
+    </plurals>
+    <plurals name="import_report_templates">
+        <item quantity="one">%1$s modèle</item>
+        <item quantity="many">%1$s modèles</item>
+        <item quantity="other">%1$s modèles</item>
+    </plurals>
+    <plurals name="import_report_measurements">
+        <item quantity="one">%1$s mensuration</item>
+        <item quantity="many">%1$s mensurations</item>
+        <item quantity="other">%1$s mensurations</item>
+    </plurals>
+    <plurals name="import_report_photos">
+        <item quantity="one">%1$s photo de progression</item>
+        <item quantity="many">%1$s photos de progression</item>
+        <item quantity="other">%1$s photos de progression</item>
+    </plurals>
+    <string name="import_report_exercises_title">Exercices</string>
+    <plurals name="import_report_matched">
+        <item quantity="one">%1$s rangé sous un exercice que Titan avait déjà</item>
+        <item quantity="many">%1$s rangés sous des exercices que Titan avait déjà</item>
+        <item quantity="other">%1$s rangés sous des exercices que Titan avait déjà</item>
+    </plurals>
+    <plurals name="import_report_created">
+        <item quantity="one">%1$s nouvel exercice personnalisé à vérifier</item>
+        <item quantity="many">%1$s nouveaux exercices personnalisés à vérifier</item>
+        <item quantity="other">%1$s nouveaux exercices personnalisés à vérifier</item>
+    </plurals>
+    <string name="import_report_open_library">Ouvrir la bibliothèque d’exercices</string>
+    <string name="import_report_skipped_title">Laissé de côté</string>
+    <string name="import_report_skipped_intro">Tout le contenu du fichier n’a pas été importé :</string>
+    <plurals name="import_report_duplicate_workouts">
+        <item quantity="one">%1$s séance déjà sur ce téléphone</item>
+        <item quantity="many">%1$s séances déjà sur ce téléphone</item>
+        <item quantity="other">%1$s séances déjà sur ce téléphone</item>
+    </plurals>
+    <plurals name="import_report_invalid_workouts">
+        <item quantity="one">%1$s séance inutilisable</item>
+        <item quantity="many">%1$s séances inutilisables</item>
+        <item quantity="other">%1$s séances inutilisables</item>
+    </plurals>
+    <plurals name="import_report_invalid_sets">
+        <item quantity="one">%1$s série inutilisable</item>
+        <item quantity="many">%1$s séries inutilisables</item>
+        <item quantity="other">%1$s séries inutilisables</item>
+    </plurals>
+    <plurals name="import_report_duplicate_templates">
+        <item quantity="one">%1$s modèle déjà sur ce téléphone</item>
+        <item quantity="many">%1$s modèles déjà sur ce téléphone</item>
+        <item quantity="other">%1$s modèles déjà sur ce téléphone</item>
+    </plurals>
+    <plurals name="import_report_invalid_templates">
+        <item quantity="one">%1$s modèle inutilisable</item>
+        <item quantity="many">%1$s modèles inutilisables</item>
+        <item quantity="other">%1$s modèles inutilisables</item>
+    </plurals>
+    <plurals name="import_report_duplicate_measurements">
+        <item quantity="one">%1$s mensuration déjà sur ce téléphone</item>
+        <item quantity="many">%1$s mensurations déjà sur ce téléphone</item>
+        <item quantity="other">%1$s mensurations déjà sur ce téléphone</item>
+    </plurals>
+    <plurals name="import_report_invalid_measurements">
+        <item quantity="one">%1$s mensuration inutilisable</item>
+        <item quantity="many">%1$s mensurations inutilisables</item>
+        <item quantity="other">%1$s mensurations inutilisables</item>
+    </plurals>
+    <plurals name="import_report_duplicate_photos">
+        <item quantity="one">%1$s photo déjà sur ce téléphone</item>
+        <item quantity="many">%1$s photos déjà sur ce téléphone</item>
+        <item quantity="other">%1$s photos déjà sur ce téléphone</item>
+    </plurals>
+    <plurals name="import_report_invalid_photos">
+        <item quantity="one">%1$s photo inutilisable</item>
+        <item quantity="many">%1$s photos inutilisables</item>
+        <item quantity="other">%1$s photos inutilisables</item>
+    </plurals>
+    <plurals name="import_report_photos_failed">
+        <item quantity="one">%1$s photo n’a pas pu être enregistrée. Votre historique est bien importé ; réimporter le même fichier n’enregistre que les photos manquantes.</item>
+        <item quantity="many">%1$s photos n’ont pas pu être enregistrées. Votre historique est bien importé ; réimporter le même fichier n’enregistre que les photos manquantes.</item>
+        <item quantity="other">%1$s photos n’ont pas pu être enregistrées. Votre historique est bien importé ; réimporter le même fichier n’enregistre que les photos manquantes.</item>
+    </plurals>
+    <string name="import_report_earned_title">Ce que votre historique a rapporté</string>
+    <plurals name="import_report_records">
+        <item quantity="one">%1$s record personnel</item>
+        <item quantity="many">%1$s records personnels</item>
+        <item quantity="other">%1$s records personnels</item>
+    </plurals>
+    <string name="import_report_xp">%1$s XP</string>
+    <plurals name="import_report_achievements">
+        <item quantity="one">%1$s succès débloqué</item>
+        <item quantity="many">%1$s succès débloqués</item>
+        <item quantity="other">%1$s succès débloqués</item>
+    </plurals>
+    <plurals name="import_report_quests">
+        <item quantity="one">%1$s quête terminée</item>
+        <item quantity="many">%1$s quêtes terminées</item>
+        <item quantity="other">%1$s quêtes terminées</item>
+    </plurals>
+    <plurals name="import_report_collectibles">
+        <item quantity="one">%1$s objet trouvé</item>
+        <item quantity="many">%1$s objets trouvés</item>
+        <item quantity="other">%1$s objets trouvés</item>
+    </plurals>
+    <string name="import_report_nothing_earned">Rien de nouveau cette fois : tout le contenu du fichier était déjà là.</string>
+    <string name="import_done_action">Terminé</string>
+    <string name="import_failed_title">Rien n’a été importé</string>
+    <string name="import_failed_not_recognised">Ce fichier n’est pas un export de %1$s. Vérifiez que vous avez choisi la bonne application, et revoyez comment exporter depuis %1$s.</string>
+    <string name="import_failed_malformed">Ce fichier ressemble à un export de %1$s, mais il n’a pas pu être lu. Exportez à nouveau depuis %1$s et choisissez le nouveau fichier.</string>
+    <string name="import_failed_too_large">Ce fichier est trop volumineux pour être importé. Titan lit les fichiers jusqu’à %1$s.</string>
+    <string name="import_failed_unreadable">Le fichier n’a pas pu être ouvert. Il a peut-être été déplacé, ou l’accès a été retiré. Choisissez-le à nouveau.</string>
+    <string name="import_failed_nothing">Le fichier a été lu, mais il ne contient rien que Titan puisse importer.</string>
+    <string name="import_failed_storage">Votre téléphone a refusé d’enregistrer l’import, souvent parce que son stockage est plein. Rien n’a été modifié. Libérez de l’espace et réessayez.</string>
+    <string name="import_failed_safe">Votre téléphone est exactement comme avant : réessayer est sans risque.</string>
+    <string name="import_try_again">Réessayer</string>
+    <string name="import_choose_another_app">Choisir une autre application</string>
+    <string name="import_interrupted_title">L’import ne s’est pas terminé</string>
+    <string name="import_interrupted_body">Titan a été fermé pendant l’import depuis %1$s, donc rien n’a été importé. Vous pouvez le relancer avec le même fichier.</string>
+    <string name="import_run_again">Relancer</string>
+    <string name="import_not_now">Pas maintenant</string>
+    <string name="import_stopped_title">Import arrêté</string>
+    <string name="import_stopped_nothing">Vous avez arrêté l’import avant qu’il n’enregistre quoi que ce soit : rien n’a été importé.</string>
+    <string name="import_stopped_photos">Votre historique depuis %1$s est importé. Les photos pas encore enregistrées ont été ignorées ; réimporter le même fichier les enregistre.</string>
+    <string name="import_stopped_unknown">L’import a été arrêté avant la fin. Ce qu’il n’avait pas enregistré a été laissé de côté ; réimporter le même fichier est sans risque et n’ajoute que ce qui manque.</string>
 
 </resources>

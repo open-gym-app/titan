@@ -12,7 +12,7 @@ import kotlinx.serialization.Serializable
 /**
  * The first-run flow, and where the app opens on a fresh install.
  *
- * **One flat destination for all four steps**, not a nested graph with one per step. The step
+ * **One flat destination for all five steps**, not a nested graph with one per step. The step
  * is state inside the screen (see `OnboardingScreen`), which is what makes "completing
  * onboarding leaves nothing of it on the back stack" a single `popUpTo` in `:app` rather than
  * a property that has to survive every future step being added.
@@ -27,10 +27,16 @@ data object OnboardingDestination
 /**
  * @param onFinished onboarding is over *and recorded*. `:app` turns this into the move to Home
  *   that drops this destination — the flow is finished, and a back gesture from Home that
- *   returned to it would be asking the four questions again.
+ *   returned to it would be asking the same questions again.
+ * @param onFinishedIntoImport the same, from the last step's "Import my history": `:app`
+ *   opens the import from another app, which lives in `:feature:settings` and so is not this
+ *   module's to name.
  */
-fun NavGraphBuilder.onboardingGraph(onFinished: () -> Unit) {
+fun NavGraphBuilder.onboardingGraph(
+    onFinished: () -> Unit,
+    onFinishedIntoImport: () -> Unit,
+) {
     composable<OnboardingDestination> {
-        OnboardingRoute(onFinished = onFinished)
+        OnboardingRoute(onFinished = onFinished, onFinishedIntoImport = onFinishedIntoImport)
     }
 }

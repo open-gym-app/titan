@@ -7,8 +7,11 @@ package com.titan.feature.settings.navigation
 
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
+import androidx.navigation.navDeepLink
+import com.titan.core.domain.navigation.DeepLinks
 import com.titan.feature.settings.SettingsRoute
 import com.titan.feature.settings.backup.BackupRoute
+import com.titan.feature.settings.importer.ImportRoute
 import com.titan.feature.settings.licences.OpenSourceLicencesRoute
 import com.titan.feature.settings.reminder.ReminderRoute
 import kotlinx.serialization.Serializable
@@ -36,6 +39,17 @@ data object SettingsDestination
 data object BackupDestination
 
 /**
+ * The import from another app (#252), reached from the Data & privacy row under backup, from
+ * the last onboarding step, and from the import's own notifications (`titan://settings/import`).
+ *
+ * In this module for the reason [BackupDestination] is: it sits beside the backup it is the
+ * opposite of, and a module of its own would buy a build file and nothing else. Onboarding, in
+ * another feature, reaches it through `:app`, like everything that crosses a feature boundary.
+ */
+@Serializable
+data object ImportDestination
+
+/**
  * The workout reminder's schedule (#39), one push above settings.
  *
  * Its own destination rather than a dialog on the list, because it is three controls and one of
@@ -60,11 +74,14 @@ data object OpenSourceLicencesDestination
  *   `BuildConfig` carries the library's version, which is not the number a user is being asked
  *   to quote in a bug report — nor the one an export should stamp into its envelope.
  * @param onBack leave the current screen. Hoisted like every other navigation action: the
- *   `NavController` belongs to `:app`. It serves all four destinations, since every one of
+ *   `NavController` belongs to `:app`. It serves all five destinations, since every one of
  *   them is one pop from where the user came from.
  * @param onOpenBackup open [BackupDestination]. Hoisted even though it stays inside this
  *   module, for the reason `progressionDetailGraph` hoists its own intra-slice push: the
  *   controller is `:app`'s, and a feature that navigated itself would need one of its own.
+ * @param onOpenImport open [ImportDestination]. Hoisted for the same reason as [onOpenBackup].
+ * @param onOpenExerciseLibrary open the Library tab, where an import's new custom exercises
+ *   are reviewed. Another feature's screen, so `:app`'s to reach.
  * @param onOpenReminders open [ReminderDestination]. Hoisted for the same reason as
  *   [onOpenBackup]: the controller is `:app`'s.
  * @param onOpenLicences open [OpenSourceLicencesDestination]. Hoisted for the same reason as
@@ -74,6 +91,8 @@ fun NavGraphBuilder.settingsGraph(
     appVersion: String,
     onBack: () -> Unit,
     onOpenBackup: () -> Unit,
+    onOpenImport: () -> Unit,
+    onOpenExerciseLibrary: () -> Unit,
     onOpenReminders: () -> Unit,
     onOpenLicences: () -> Unit,
 ) {
@@ -82,12 +101,20 @@ fun NavGraphBuilder.settingsGraph(
             appVersion = appVersion,
             onBack = onBack,
             onOpenBackup = onOpenBackup,
+            onOpenImport = onOpenImport,
             onOpenReminders = onOpenReminders,
             onOpenLicences = onOpenLicences,
         )
     }
     composable<BackupDestination> {
         BackupRoute(appVersion = appVersion, onBack = onBack)
+    }
+    composable<ImportDestination>(
+        // The whole URI rather than a base path: the destination takes no arguments, and reads
+        // the import's state from the worker rather than from the link.
+        deepLinks = listOf(navDeepLink<ImportDestination>(basePath = DeepLinks.HISTORY_IMPORT)),
+    ) {
+        ImportRoute(onBack = onBack, onOpenExerciseLibrary = onOpenExerciseLibrary)
     }
     composable<ReminderDestination> {
         ReminderRoute(onBack = onBack)

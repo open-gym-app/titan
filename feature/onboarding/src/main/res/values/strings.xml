@@ -66,6 +66,13 @@
     <string name="onboarding_ready_level">Fitness level</string>
     <string name="onboarding_ready_units">Units</string>
     <string name="onboarding_ready_footnote">All three live in Settings, along with everything else.</string>
+
+    <!-- The last step's offer to bring a history from another app (#252), and its button,
+         which finishes onboarding and opens the import. -->
+    <string name="onboarding_ready_import_title">Coming from another app?</string>
+    <string name="onboarding_ready_import_body">Bring your history from Strong, Hevy, FitNotes and more. It is added to Titan, never replaced, and the records it set are worked out again.</string>
+    <string name="onboarding_ready_import_action">Import my history</string>
+
     <!-- How one recap row is read out: "Training goal, Hypertrophy". A label and a value
          announced as two fragments are two facts a swipe apart, which is not the same
          information — the same sentence `MetaGrid` builds for the metadata blocks elsewhere. -->

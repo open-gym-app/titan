@@ -45,6 +45,11 @@
     <string name="onboarding_ready_level">Niveau d’entraînement</string>
     <string name="onboarding_ready_units">Unités</string>
     <string name="onboarding_ready_footnote">Les trois se retrouvent dans les paramètres, avec tout le reste.</string>
+
+    <string name="onboarding_ready_import_title">Vous venez d’une autre application ?</string>
+    <string name="onboarding_ready_import_body">Apportez votre historique depuis Strong, Hevy, FitNotes et d’autres. Il s’ajoute à Titan sans rien remplacer, et ses records sont recalculés.</string>
+    <string name="onboarding_ready_import_action">Importer mon historique</string>
+
     <string name="onboarding_ready_recap_description">%1$s, %2$s</string>
 
     <!-- ── Failures ──────────────────────────────────────────────────────────────── -->

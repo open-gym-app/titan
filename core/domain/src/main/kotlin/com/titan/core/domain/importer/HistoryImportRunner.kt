@@ -1,6 +1,7 @@
 package com.titan.core.domain.importer
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.Serializable
 
 /**
  * Runs an import from another app somewhere that outlives the screen that asked for it.
@@ -54,7 +55,11 @@ interface HistoryImportRunner {
  *
  * @property document where the file is, as the system document picker handed it back — a
  *   `content://` URI, kept as a string because this module has no Android types.
+ *
+ * Serializable because a screen holds a picked file in its saved state while it asks whether to
+ * start, and a process death there should not send the user back through the picker.
  */
+@Serializable
 data class HistoryImportRequest(
     val source: HistoryImportSource,
     val document: String,
