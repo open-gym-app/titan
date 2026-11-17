@@ -1,10 +1,8 @@
 package com.titan.core.domain.importer.jefit
 
-import com.titan.core.domain.importer.ExerciseMatcher
 import com.titan.core.domain.importer.ImportedWorkout
 import com.titan.core.domain.importer.ImportedWorkoutExercise
 import com.titan.core.domain.importer.SourceValues
-import com.titan.core.domain.importer.SuffixedExerciseNames
 import java.time.ZoneId
 
 /**
@@ -78,7 +76,7 @@ internal class JefitWorkouts(
                 log,
                 setRows[log.id].orEmpty(),
                 exercises.isCardio(key),
-                isAssisted(exercise.name),
+                exercises.isAssisted(key),
             )
             if (performed.isNotEmpty()) {
                 draft.exercises += ImportedWorkoutExercise(exercise, performed, notes = notes.remove(key to log.date))
@@ -109,14 +107,6 @@ internal class JefitWorkouts(
         val noon = SourceValues.localDateAtNoon(log.date, zone) ?: return null
         return drafts.getOrPut("day#$noon") { WorkoutDraft(noon) }
     }
-
-    /**
-     * Whether [name] is an assisted variation, whose weight is the counterweight a machine took
-     * off rather than a load: Strong's spelling, "Pull Up (Assisted)", and JEFIT's own,
-     * "Machine Assisted Pull-Up". See [SuffixedExerciseNames.isAssisted].
-     */
-    private fun isAssisted(name: String): Boolean =
-        SuffixedExerciseNames.isAssisted(name) || ASSISTED in ExerciseMatcher.normalised(name).split(' ')
 
     /** One row of WORKOUT SESSIONS. */
     private class Session(row: JefitRow) {
@@ -154,7 +144,6 @@ internal class JefitWorkouts(
     }
 
     private companion object {
-        const val ASSISTED = "assisted"
         const val MILLIS_PER_SECOND = 1_000L
     }
 }

@@ -101,7 +101,8 @@ class JefitParser : HistoryParser {
 
             history.isEmpty && logs.isNotEmpty() && reader.placed == 0 ->
                 ParseResult.Malformed(
-                    "none of the export's ${logs.size} exercise logs has a workout or a date that can be read",
+                    "none of the export's ${logs.size} exercise logs names an exercise " +
+                        "and has a workout or a date that can be read",
                 )
 
             else -> ParseResult.Parsed(history)

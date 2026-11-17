@@ -229,6 +229,12 @@ class JefitParserTest {
         assertEquals(listOf(ImportedSet(reps = 8), ImportedSet(reps = 6)), workouts[0].exercises[4].sets)
         // The wall sit is `0x0` with its seconds in the interval timer.
         assertEquals(listOf(ImportedSet(weight = 0, duration = 75)), workouts[2].exercises[1].sets)
+
+        // The counterweight is dropped unread, so one that does not read costs the set nothing.
+        assertEquals(
+            listOf(ImportedSet(reps = 8), ImportedSet(reps = 6), ImportedSet()),
+            onlySets(logs("42,x,1,\"heavyx8,x6,40xmany\",1,0,2026-10-05,290,Machine Assisted Pull-Up,0,0,0,")),
+        )
     }
 
     @Test
@@ -498,6 +504,11 @@ class JefitParserTest {
 
         assertEquals(listOf(ImportedSet(duration = 62)), sets("0x0,0x0,0x0,0x0,0x62"))
         assertEquals(listOf(ImportedSet(duration = 600, distance = 150_000)), sets("0x80,0x1.5,0x9,0x0,0x600"))
+        // A skipped set, five zeros, says nothing either way: the hold is still a hold.
+        assertEquals(
+            listOf(ImportedSet(duration = 60)),
+            sets("0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x60"),
+        )
         // Five bodyweight sets, with no failed one, or not ending on the most.
         assertEquals(List(5) { ImportedSet(reps = 8, weight = 0) }, sets("0x8,0x8,0x8,0x8,0x8"))
         assertEquals(listOf(10, 10, 8, 5), sets("0x10,0x10,0x8,0x0,0x5").map { it.reps })
