@@ -19,6 +19,7 @@ import com.titan.core.domain.importer.ImportedWorkout
 import com.titan.core.domain.importer.ImportedWorkoutExercise
 import com.titan.core.domain.importer.MAX_IMPORT_SETS
 import com.titan.core.domain.importer.ParseResult
+import com.titan.core.domain.importer.TooManySetsException
 import com.titan.core.domain.integration.FakeExerciseRepository
 import com.titan.core.domain.model.BodyMeasurement
 import com.titan.core.domain.model.EquipmentType
@@ -483,6 +484,31 @@ class ImportHistoryUseCaseTest {
                     maxSourceBytes = 4,
                 ),
             )
+            assertEquals(0, store.transactions)
+        }
+
+    @Test
+    fun `the set limit reaches the parser, and a parse stopped at it is refused with nothing written`() =
+        runBlocking {
+            var limitSeen = 0
+            val stopping = object : HistoryParser {
+                override fun parse(
+                    source: ImportSource,
+                    context: ImportContext,
+                ): ParseResult {
+                    limitSeen = context.maxSets
+                    throw TooManySetsException(context.maxSets)
+                }
+            }
+
+            val outcome = useCase(maxSets = 7)(
+                source = { "a,b,c\n1,2,3\n".byteInputStream() },
+                parser = stopping,
+                context = ImportContext(ZoneOffset.UTC, UnitSystem.METRIC),
+            ).toList().last()
+
+            assertEquals(7, limitSeen)
+            assertEquals(HistoryImportProgress.Failed(HistoryImportError.TooManySets(7)), outcome)
             assertEquals(0, store.transactions)
         }
 

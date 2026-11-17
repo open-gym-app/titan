@@ -81,7 +81,9 @@ data class PlannedWorkout(
  *
  * @property sets complete, validated and numbered, each carrying its own `completedAt`. Their
  *   `sessionExerciseId` is 0, because the row they belong to does not exist yet; the writer fills
- *   it in.
+ *   it in. The planner's list builds each set from the parsed one as it is read rather than
+ *   holding a copy, so a plan costs little more than the history it was made from: see
+ *   [PlannedSets].
  */
 data class PlannedWorkoutExercise(
     val exercise: ExerciseRef,

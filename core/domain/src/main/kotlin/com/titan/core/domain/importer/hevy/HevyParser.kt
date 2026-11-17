@@ -111,7 +111,7 @@ class HevyParser : HistoryParser {
                 WorkoutLayout.of(header)?.let { WorkoutReading(it, context) }
                     ?: MeasurementLayout.of(header)?.let { MeasurementReading(it, context) }
             }
-            reading?.readAll(reader) ?: ParseResult.NotRecognised
+            reading?.readAll(reader, context) ?: ParseResult.NotRecognised
         }
 }
 
@@ -200,6 +200,9 @@ private class WorkoutReading(
     private var current: WorkoutDraft? = null
     private var rows = 0
 
+    override var setCount = 0
+        private set
+
     override fun read(record: List<String>) {
         rows++
         val start = layout[record, START_TIME] ?: return
@@ -224,6 +227,7 @@ private class WorkoutReading(
         block.lastSetIndex = setIndex ?: block.lastSetIndex
         block.note(layout[record, EXERCISE_NOTES])
         block.sets += set(record, block.isAssisted)
+        setCount++
     }
 
     override fun result(): ParseResult =
@@ -421,6 +425,8 @@ private class MeasurementReading(
     private val measurements = mutableListOf<BodyMeasurement>()
     private var rows = 0
     private var datedRows = 0
+
+    override val setCount = 0
 
     override fun read(record: List<String>) {
         rows++
