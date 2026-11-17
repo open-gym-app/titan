@@ -1,0 +1,11 @@
+﻿Date,Exercise,Reps,Weight(kg),Duration(s),Distance(m),Incline,Resistance,isWarmup,Note,multiplier
+2026-09-05 11:01:45 +0000,Rowing,0,0,157,448,0,0,FALSE,,0
+2026-09-05 11:01:45 +0000,Deadlift,10,43.0913264,0,0,0,0,TRUE,,1
+2026-09-05 11:01:45 +0000,Deadlift,5,61.23504277,0,0,0,0,TRUE,,1
+2026-09-05 11:01:45 +0000,Deadlift,5,102.0584046,0,0,0,0,FALSE,,1
+2026-09-05 11:01:45 +0000,Deadlift,5,102.0584046,0,0,0,0,FALSE,,1
+2026-09-05 11:01:45 +0000,Dumbbell Row,10,24,0,0,0,0,FALSE,,2
+2026-09-05 11:01:45 +0000,Dumbbell Row,10,24,0,0,0,0,FALSE,,2
+2026-09-02 11:16:04 +0000,Leg Extension,12,40.82336185,0,0,0,0,FALSE,,1
+2026-09-02 11:16:04 +0000,Leg Extension,12,40.82336185,0,0,0,0,FALSE,,1
+,,,,,,,,,,

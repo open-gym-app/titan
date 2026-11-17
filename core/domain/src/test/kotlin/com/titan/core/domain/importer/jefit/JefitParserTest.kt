@@ -117,6 +117,22 @@ class JefitParserTest {
     }
 
     @Test
+    fun `no Fitbod export is a JEFIT export`() {
+        listOf(
+            "fitbod-export.csv",
+            "fitbod-export-resaved.csv",
+            "fitbod-support-export.csv",
+            "fitbod-damaged.csv",
+        ).forEach { sample ->
+            assertEquals(
+                sample,
+                ParseResult.NotRecognised,
+                ImporterFixtures.read(parser, ImporterFixtures.resource("fitbod/$sample")),
+            )
+        }
+    }
+
+    @Test
     fun `an export with nothing in its sections is an empty history, not a broken file`() {
         assertEquals(
             ImportedHistory(),
