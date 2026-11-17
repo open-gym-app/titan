@@ -30,7 +30,8 @@ interface BackupDao :
     TemplateBackupDao,
     HistoryBackupDao,
     ProgressionBackupDao,
-    GamificationBackupDao {
+    GamificationBackupDao,
+    TitanBackupDao {
 
     /**
      * The single integer [query] selects — a `COUNT(*)` over one table, for an export's total.

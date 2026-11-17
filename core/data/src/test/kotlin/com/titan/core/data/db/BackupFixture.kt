@@ -3,7 +3,9 @@ package com.titan.core.data.db
 import com.titan.core.data.db.entity.AchievementEntity
 import com.titan.core.data.db.entity.CollectedItemEntity
 import com.titan.core.data.db.entity.ExerciseTagEntity
+import com.titan.core.data.db.entity.FoodSeenEntity
 import com.titan.core.data.db.entity.PetEntity
+import com.titan.core.data.db.entity.PetFeedEntity
 import com.titan.core.data.db.entity.PetStateEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
 import com.titan.core.data.db.entity.SessionLootClaimEntity
@@ -210,6 +212,14 @@ private suspend fun TitanDatabase.seedPets() {
                 source = "session_finished",
                 acquiredAt = FINISHED_AT,
             ),
+            // A steak, eaten below.
+            CollectedItemEntity(
+                id = 5,
+                collectibleId = "steak",
+                source = "session_finished",
+                acquiredAt = FINISHED_AT,
+                sessionId = 1,
+            ),
         ),
     )
     backupDao().insertPets(
@@ -231,6 +241,10 @@ private suspend fun TitanDatabase.seedPets() {
             PetEntity(id = 2, speciesId = "from_a_newer_version", hatchedFromItemId = 4, hatchedAt = FINISHED_AT),
         ),
     )
+    seedTitanState()
+}
+
+private suspend fun TitanDatabase.seedTitanState() {
     backupDao().insertPetStates(
         listOf(
             PetStateEntity(1, fuel = 22, energy = 80, spirit = 55, "train", FINISHED_AT, FINISHED_AT + 900_000, null, FINISHED_AT),
@@ -238,6 +252,8 @@ private suspend fun TitanDatabase.seedPets() {
             PetStateEntity(2, fuel = 64, energy = 80, spirit = 55, "fly", FINISHED_AT, null, "train", FINISHED_AT),
         ),
     )
+    backupDao().insertPetFeeds(listOf(PetFeedEntity(collectedItemId = 5, petId = 1, fedAt = FINISHED_AT)))
+    backupDao().insertFoodSeen(listOf(FoodSeenEntity(collectibleId = "steak", seenUpTo = 5)))
 }
 
 /** Every row of [table], as raw column-to-value maps, for an assertion that names no entity type. */

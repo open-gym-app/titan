@@ -12,6 +12,7 @@ import com.titan.core.data.db.dao.CollectedItemDao
 import com.titan.core.data.db.dao.ExerciseDao
 import com.titan.core.data.db.dao.LocalDataDao
 import com.titan.core.data.db.dao.MuscleGroupDao
+import com.titan.core.data.db.dao.PantryDao
 import com.titan.core.data.db.dao.PersonalRecordDao
 import com.titan.core.data.db.dao.PetDao
 import com.titan.core.data.db.dao.PetStateDao
@@ -31,9 +32,11 @@ import com.titan.core.data.db.entity.CollectedItemEntity
 import com.titan.core.data.db.entity.ExerciseEntity
 import com.titan.core.data.db.entity.ExerciseMuscleGroupEntity
 import com.titan.core.data.db.entity.ExerciseTagEntity
+import com.titan.core.data.db.entity.FoodSeenEntity
 import com.titan.core.data.db.entity.MuscleGroupEntity
 import com.titan.core.data.db.entity.PersonalRecordEntity
 import com.titan.core.data.db.entity.PetEntity
+import com.titan.core.data.db.entity.PetFeedEntity
 import com.titan.core.data.db.entity.PetStateEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
 import com.titan.core.data.db.entity.SessionExerciseEntity
@@ -71,11 +74,15 @@ import com.titan.core.data.db.entity.WorkoutTemplateEntity
         CollectedItemEntity::class,
         PetEntity::class,
         PetStateEntity::class,
+        PetFeedEntity::class,
+        FoodSeenEntity::class,
         SessionPetClaimEntity::class,
     ],
     version = 2,
     exportSchema = true,
 )
+// One abstract getter per DAO is what a Room database is, so the count grows with the schema.
+@Suppress("TooManyFunctions")
 abstract class TitanDatabase : RoomDatabase() {
 
     abstract fun exerciseDao(): ExerciseDao
@@ -96,6 +103,7 @@ abstract class TitanDatabase : RoomDatabase() {
     abstract fun collectedItemDao(): CollectedItemDao
     abstract fun petDao(): PetDao
     abstract fun petStateDao(): PetStateDao
+    abstract fun pantryDao(): PantryDao
     abstract fun sessionPetClaimDao(): SessionPetClaimDao
 
     /**
@@ -158,66 +166,75 @@ abstract class TitanDatabase : RoomDatabase() {
          */
         val MIGRATION_1_2: Migration = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
-                    """
-                    CREATE TABLE IF NOT EXISTS `pet` (
-                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                        `species_id` TEXT NOT NULL,
-                        `hatched_from_item_id` INTEGER NOT NULL,
-                        `hatched_at` INTEGER NOT NULL,
-                        `xp` INTEGER NOT NULL,
-                        `strength` INTEGER NOT NULL,
-                        `endurance` INTEGER NOT NULL,
-                        `mobility` INTEGER NOT NULL,
-                        `nickname` TEXT,
-                        `is_active` INTEGER NOT NULL,
-                        FOREIGN KEY(`hatched_from_item_id`) REFERENCES `collected_item`(`id`)
-                            ON UPDATE NO ACTION ON DELETE RESTRICT
-                    )
-                    """.trimIndent(),
-                )
-                db.execSQL(
-                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_pet_hatched_from_item_id` " +
-                        "ON `pet` (`hatched_from_item_id`)",
-                )
-                // The one change to a version 1 table, and an additive one: a nullable column, so
-                // every drop already held reads back with no session.
-                db.execSQL(
-                    "ALTER TABLE `collected_item` ADD COLUMN `session_id` INTEGER " +
-                        "REFERENCES `workout_session`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL",
-                )
-                db.execSQL(
-                    "CREATE INDEX IF NOT EXISTS `index_collected_item_session_id` ON `collected_item` (`session_id`)",
-                )
-                db.execSQL(
-                    """
-                    CREATE TABLE IF NOT EXISTS `pet_state` (
-                        `pet_id` INTEGER NOT NULL,
-                        `fuel` INTEGER NOT NULL,
-                        `energy` INTEGER NOT NULL,
-                        `spirit` INTEGER NOT NULL,
-                        `activity` TEXT NOT NULL,
-                        `activity_started_at` INTEGER NOT NULL,
-                        `activity_ends_at` INTEGER,
-                        `resume_activity` TEXT,
-                        `updated_at` INTEGER NOT NULL,
-                        PRIMARY KEY(`pet_id`),
-                        FOREIGN KEY(`pet_id`) REFERENCES `pet`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
-                    )
-                    """.trimIndent(),
-                )
-                db.execSQL(
-                    """
-                    CREATE TABLE IF NOT EXISTS `session_pet_claim` (
-                        `session_id` INTEGER NOT NULL,
-                        PRIMARY KEY(`session_id`),
-                        FOREIGN KEY(`session_id`) REFERENCES `workout_session`(`id`)
-                            ON UPDATE NO ACTION ON DELETE CASCADE
-                    )
-                    """.trimIndent(),
-                )
+                MIGRATION_1_2_STATEMENTS.forEach(db::execSQL)
             }
         }
+
+        /**
+         * What [MIGRATION_1_2] runs, in order. One change to a version 1 table, and an additive
+         * one: `collected_item` gains a nullable column, so every drop already held reads back
+         * with no session. Everything else is a new table.
+         */
+        private val MIGRATION_1_2_STATEMENTS: List<String> = listOf(
+            """
+                        CREATE TABLE IF NOT EXISTS `pet` (
+                            `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            `species_id` TEXT NOT NULL,
+                            `hatched_from_item_id` INTEGER NOT NULL,
+                            `hatched_at` INTEGER NOT NULL,
+                            `xp` INTEGER NOT NULL,
+                            `strength` INTEGER NOT NULL,
+                            `endurance` INTEGER NOT NULL,
+                            `mobility` INTEGER NOT NULL,
+                            `nickname` TEXT,
+                            `is_active` INTEGER NOT NULL,
+                            FOREIGN KEY(`hatched_from_item_id`) REFERENCES `collected_item`(`id`)
+                                ON UPDATE NO ACTION ON DELETE RESTRICT
+                        )
+            """.trimIndent(),
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_pet_hatched_from_item_id` " +
+                "ON `pet` (`hatched_from_item_id`)",
+            "ALTER TABLE `collected_item` ADD COLUMN `session_id` INTEGER " +
+                "REFERENCES `workout_session`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL",
+            "CREATE INDEX IF NOT EXISTS `index_collected_item_session_id` ON `collected_item` (`session_id`)",
+            """
+                        CREATE TABLE IF NOT EXISTS `pet_state` (
+                            `pet_id` INTEGER NOT NULL,
+                            `fuel` INTEGER NOT NULL,
+                            `energy` INTEGER NOT NULL,
+                            `spirit` INTEGER NOT NULL,
+                            `activity` TEXT NOT NULL,
+                            `activity_started_at` INTEGER NOT NULL,
+                            `activity_ends_at` INTEGER,
+                            `resume_activity` TEXT,
+                            `updated_at` INTEGER NOT NULL,
+                            PRIMARY KEY(`pet_id`),
+                            FOREIGN KEY(`pet_id`) REFERENCES `pet`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                        )
+            """.trimIndent(),
+            """
+                        CREATE TABLE IF NOT EXISTS `pet_feed` (
+                            `collected_item_id` INTEGER NOT NULL,
+                            `pet_id` INTEGER,
+                            `fed_at` INTEGER NOT NULL,
+                            PRIMARY KEY(`collected_item_id`),
+                            FOREIGN KEY(`collected_item_id`) REFERENCES `collected_item`(`id`)
+                                ON UPDATE NO ACTION ON DELETE RESTRICT,
+                            FOREIGN KEY(`pet_id`) REFERENCES `pet`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL
+                        )
+            """.trimIndent(),
+            "CREATE INDEX IF NOT EXISTS `index_pet_feed_pet_id` ON `pet_feed` (`pet_id`)",
+            "CREATE TABLE IF NOT EXISTS `food_seen` " +
+                "(`collectible_id` TEXT NOT NULL, `seen_up_to` INTEGER NOT NULL, PRIMARY KEY(`collectible_id`))",
+            """
+                        CREATE TABLE IF NOT EXISTS `session_pet_claim` (
+                            `session_id` INTEGER NOT NULL,
+                            PRIMARY KEY(`session_id`),
+                            FOREIGN KEY(`session_id`) REFERENCES `workout_session`(`id`)
+                                ON UPDATE NO ACTION ON DELETE CASCADE
+                        )
+            """.trimIndent(),
+        )
 
         /**
          * Every version bump beyond 1 must add its `Migration` here and a matching
