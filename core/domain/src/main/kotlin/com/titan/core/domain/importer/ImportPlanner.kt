@@ -30,10 +30,12 @@ import com.titan.core.domain.validation.SetValidator
  * Where the source's value has an obvious reading in Titan's terms, it is read that way rather
  * than costing the set:
  *
- * - an RPE outside `10..100`, a negative rest, a non-positive heart rate: not recorded;
+ * - an RPE outside `10..100`, and a rest or a heart rate out of `SetValidator`'s bounds: not
+ *   recorded;
  * - a climb or a step count on a set that is not cardio, or out of `SetValidator`'s bounds, and
- *   a workout's calories or rating out of `SessionEffortValidator`'s: not recorded. They describe
- *   the set or the workout; they are not what makes it one;
+ *   a workout's calories or rating out of `SessionEffortValidator`'s: not recorded. Like the
+ *   rest and the heart rate, they describe the set or the workout; they are not what makes it
+ *   one;
  * - zero reps or a zero duration: not recorded, which leaves the set valid if its exercise is not
  *   logged by that dimension, and invalid if it is;
  * - a negative weight: not recorded. Several apps write an assisted pull-up's assistance as a
@@ -88,6 +90,8 @@ object ImportPlanner {
 
     private val CALORIES = SessionEffortValidator.CALORIES_MIN..SessionEffortValidator.CALORIES_MAX
     private val RATINGS = SessionEffortValidator.RATING_MIN..SessionEffortValidator.RATING_MAX
+    private val HEART_RATES = SetValidator.HEART_RATE_MIN_BPM..SetValidator.HEART_RATE_MAX_BPM
+    private val RESTS = SetValidator.REST_MIN_SECONDS..SetValidator.REST_MAX_SECONDS
 
     /** Plans [history] against [baseline]. Pure, and never throws for anything [history] holds. */
     fun plan(
@@ -330,15 +334,15 @@ object ImportPlanner {
                 weight = weight?.takeIf { it > 0L || (it == 0L && type == ExerciseType.STRENGTH) },
                 duration = duration.takeIfPositive(),
                 distance = distance.takeIfPositive(),
-                heartRateAvg = heartRateAvg.takeIfPositive(),
-                heartRateMax = heartRateMax.takeIfPositive(),
+                heartRateAvg = heartRateAvg?.takeIf { it in HEART_RATES },
+                heartRateMax = heartRateMax?.takeIf { it in HEART_RATES },
                 elevationGain = elevationGain
                     ?.takeIf { type == ExerciseType.ENDURANCE }
                     ?.takeIf { it in SetValidator.ELEVATION_GAIN_MIN_CM..SetValidator.ELEVATION_GAIN_MAX_CM },
                 steps = steps
                     ?.takeIf { type == ExerciseType.ENDURANCE }
                     ?.takeIf { it in SetValidator.STEPS_MIN..SetValidator.STEPS_MAX },
-                restAfter = restAfter?.takeIf { it >= 0L },
+                restAfter = restAfter?.takeIf { it in RESTS },
                 rpe = rpe?.takeIf { it in WorkoutSet.RPE_MIN..WorkoutSet.RPE_MAX },
                 setType = setType,
                 completedAt = 0,

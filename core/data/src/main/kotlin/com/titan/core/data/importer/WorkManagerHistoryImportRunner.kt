@@ -6,7 +6,9 @@ import androidx.core.net.toUri
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import androidx.work.await
 import com.titan.core.data.di.IoDispatcher
 import com.titan.core.data.worker.HistoryImportWorker
 import com.titan.core.domain.importer.HistoryImportRequest
@@ -23,6 +25,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -51,14 +55,23 @@ import javax.inject.Singleton
 class WorkManagerHistoryImportRunner @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val notifications: HistoryImportNotifications,
+    private val watchers: HistoryImportWatchers,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : HistoryImportRunner {
 
     private val workManager: WorkManager by lazy { WorkManager.getInstance(context) }
 
+    /**
+     * Serialises [start] and [dismiss]. Each reads the record and then changes it, and a second
+     * call between the two — a double tap on "Run again" — would read the record the first is
+     * about to replace, and enqueue a second import over the first.
+     */
+    private val changes = Mutex()
+
+    /** Counted by [watchers] while it is collected, which is how the worker knows the screen is open. */
     override fun observe(): Flow<HistoryImportRun> =
         flow { emitAll(workManager.getWorkInfosForUniqueWorkFlow(HistoryImportWork.WORK_NAME)) }
-            .map { infos -> HistoryImportWork.runOf(infos.lastOrNull(), HistoryImportWorker.isRunningHere) }
+            .map { infos -> runOf(infos.lastOrNull()) }
             .distinctUntilChanged()
             // The contract is a flow that never fails: a WorkManager that cannot be read has
             // nothing to show, and the screen offers a fresh start rather than a crash.
@@ -67,16 +80,20 @@ class WorkManagerHistoryImportRunner @Inject constructor(
                 emit(HistoryImportRun.None)
             }
             .flowOn(ioDispatcher)
+            .let { watchers.counting(it) }
 
     override suspend fun start(request: HistoryImportRequest) {
         withContext(ioDispatcher) {
-            if (current() is HistoryImportRun.Running) return@withContext
-            holdOnly(request.document)
-            notifications.clearFinished()
-            // `REPLACE`, not `KEEP`: a running import was refused above, so what this replaces is
-            // a finished one or one left `ENQUEUED` by a process that died — which would only
-            // fail as interrupted when it ran.
-            workManager.enqueueUniqueWork(HistoryImportWork.WORK_NAME, ExistingWorkPolicy.REPLACE, workFor(request))
+            changes.withLock {
+                if (current() is HistoryImportRun.Running) return@withLock
+                holdOnly(request.document)
+                notifications.clearFinished()
+                // `REPLACE`, not `KEEP`: a running or queued import was refused above, so what this
+                // replaces is a finished one or a `RUNNING` record a process that died left behind
+                // — which would only fail as interrupted when it ran.
+                workManager.enqueueUniqueWork(HistoryImportWork.WORK_NAME, ExistingWorkPolicy.REPLACE, workFor(request))
+                    .await()
+            }
         }
     }
 
@@ -86,20 +103,26 @@ class WorkManagerHistoryImportRunner @Inject constructor(
 
     override suspend fun dismiss() {
         withContext(ioDispatcher) {
-            if (current() is HistoryImportRun.Running) return@withContext
-            holdOnly(null)
-            notifications.clearFinished()
-            // Finished work is all this app has besides the weekly backup, which is periodic
-            // and never finished, so pruning removes exactly the import's record.
-            workManager.pruneWork()
+            changes.withLock {
+                if (current() is HistoryImportRun.Running) return@withLock
+                holdOnly(null)
+                notifications.clearFinished()
+                // Not running, so anything unfinished is a `RUNNING` record a process that died
+                // left behind: pruning skips unfinished work, and WorkManager would otherwise
+                // re-run it into the same "did not finish" the user has just dismissed.
+                workManager.cancelUniqueWork(HistoryImportWork.WORK_NAME).await()
+                // Finished work is all this app has besides the weekly backup, which is periodic
+                // and never finished, so pruning removes exactly the import's record.
+                workManager.pruneWork().await()
+            }
         }
     }
 
     private suspend fun current(): HistoryImportRun =
-        HistoryImportWork.runOf(
-            workManager.getWorkInfosForUniqueWorkFlow(HistoryImportWork.WORK_NAME).first().lastOrNull(),
-            HistoryImportWorker.isRunningHere,
-        )
+        runOf(workManager.getWorkInfosForUniqueWorkFlow(HistoryImportWork.WORK_NAME).first().lastOrNull())
+
+    private fun runOf(info: WorkInfo?): HistoryImportRun =
+        HistoryImportWork.runOf(info, runsHere = info != null && HistoryImportWorker.startedHere(info.id))
 
     /**
      * Keeps a persisted read grant on [document] and on nothing else. Each step is best-effort:

@@ -68,7 +68,7 @@ class HistoryImportNotifications @Inject constructor(@param:ApplicationContext p
     }
 
     /**
-     * Says the import ended, when the app is not on screen to say it. [succeeded] picks the
+     * Says the import ended, when the import screen is not open to say it. [succeeded] picks the
      * sentence; the screen behind the tap says the rest. Posted only where notifications are
      * allowed; a denied permission costs this line and nothing else.
      */

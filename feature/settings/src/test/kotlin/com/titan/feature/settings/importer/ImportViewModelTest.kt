@@ -203,6 +203,24 @@ class ImportViewModelTest {
             assertFalse(viewModel.uiState.value.confirmingCancel)
         }
 
+    /** The import ended under an open "stop?" question; the next import must not reopen it. */
+    @Test
+    fun `a cancel question the import outlived does not come back over the next one`() =
+        runTest {
+            runner.run.value = HistoryImportRun.Running(REQUEST, HistoryImportProgress.Writing(3, 10))
+            val viewModel = viewModel()
+            collect(viewModel)
+
+            viewModel.onEvent(ImportEvent.CancelRequested)
+            runner.run.value = HistoryImportRun.Completed(REQUEST, REPORT)
+            viewModel.onEvent(ImportEvent.OutcomeDismissed)
+            viewModel.onEvent(ImportEvent.SourceChosen(HistoryImportSource.STRONG))
+            viewModel.onEvent(ImportEvent.FileChosen(REQUEST.document))
+
+            assertTrue(viewModel.uiState.value.stage is ImportStage.Running)
+            assertFalse(viewModel.uiState.value.confirmingCancel)
+        }
+
     @Test
     fun `a cancel while writing reads as nothing imported`() =
         runTest {

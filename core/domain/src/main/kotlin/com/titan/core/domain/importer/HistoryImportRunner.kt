@@ -17,11 +17,13 @@ import kotlinx.serialization.Serializable
  *
  * ### An import the system killed is offered again, not resumed
  *
- * A process killed part way discards the open transaction, so nothing of the history was
- * written. The implementation does not quietly run the import again on its own — it would hold
- * every database write behind it, a set being ticked off included, at a moment the user did not
- * choose — and reports [HistoryImportRun.Interrupted] instead, which the screen turns into "the
- * import did not finish" and a button that runs it again.
+ * A process killed before the history commits discards the open transaction, so nothing of it
+ * was written; one killed while the photos are stored leaves the history in and some photos out.
+ * Either way the same file run again adds only what is missing. The implementation does not
+ * quietly run the import again on its own — it would hold every database write behind it, a set
+ * being ticked off included, at a moment the user did not choose — and reports
+ * [HistoryImportRun.Interrupted] instead, which the screen turns into "the import did not
+ * finish" and a button that runs it again.
  */
 interface HistoryImportRunner {
 
@@ -97,7 +99,8 @@ sealed interface HistoryImportRun {
 
     /**
      * The import was stopped by the system — the app's process killed, the work taken back —
-     * before it finished. Nothing of the history was written; it can be run again.
+     * before it finished. Nothing of the history was written, unless it was already storing the
+     * photos; either way it can be run again, and adds only what is missing.
      */
     data class Interrupted(val request: HistoryImportRequest) : HistoryImportRun
 

@@ -9,8 +9,8 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.titan.core.data.di.IoDispatcher
 import com.titan.core.data.importer.HistoryImportNotifications
+import com.titan.core.data.importer.HistoryImportWatchers
 import com.titan.core.data.importer.HistoryImportWork
-import com.titan.core.data.notification.AppForegroundState
 import com.titan.core.domain.backup.ImportSource
 import com.titan.core.domain.importer.HistoryImportError
 import com.titan.core.domain.importer.HistoryImportProgress
@@ -28,7 +28,8 @@ import kotlinx.coroutines.withContext
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.time.ZoneId
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * An import from another app, run where leaving the screen cannot cancel it (#252).
@@ -48,8 +49,9 @@ import java.util.concurrent.atomic.AtomicInteger
  * start, at a moment they did not choose, holding every database write behind it — a set being
  * ticked off included. So a run that is not the first attempt ([runAttemptCount] above zero)
  * does nothing and fails as *interrupted*, which the screen turns into "the import did not
- * finish" and an offer to run it again. Nothing was written by the attempt that died: its
- * transaction went with its process.
+ * finish" and an offer to run it again. An attempt that died before its commit wrote nothing —
+ * its transaction went with its process — and one that died storing photos left the history in
+ * and some photos out; either way, running the same file again adds only what is missing.
  *
  * ### What it reports, and how often
  *
@@ -66,7 +68,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * @property parsers which parser reads the source the user picked.
  * @property userPreferencesRepository the unit system a figure with no unit is read in.
  * @property notifications the progress notification and the line saying it ended.
- * @property foregroundState whether that line is needed: on screen, the import screen says it.
+ * @property watchers whether that line is needed: with the import screen open, the screen says it.
  * @property ioDispatcher where the import is collected. The parse blocks, and `CoroutineWorker`
  *   runs on WorkManager's own executor rather than a dispatcher this module chose.
  */
@@ -78,7 +80,7 @@ class HistoryImportWorker @AssistedInject constructor(
     private val parsers: HistoryParsers,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val notifications: HistoryImportNotifications,
-    private val foregroundState: AppForegroundState,
+    private val watchers: HistoryImportWatchers,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : CoroutineWorker(appContext, parameters) {
 
@@ -89,20 +91,16 @@ class HistoryImportWorker @AssistedInject constructor(
             )
         if (runAttemptCount > 0) return Result.failure(HistoryImportWork.interruptedOutput())
 
-        RUNNING.incrementAndGet()
-        try {
-            val outcome = withContext(ioDispatcher) { runImport(request) }
-            announce(outcome)
-            return when (outcome) {
-                is HistoryImportProgress.Complete -> Result.success(HistoryImportWork.reportOutput(outcome.report))
+        STARTED_HERE.add(id)
+        val outcome = withContext(ioDispatcher) { runImport(request) }
+        announce(outcome)
+        return when (outcome) {
+            is HistoryImportProgress.Complete -> Result.success(HistoryImportWork.reportOutput(outcome.report))
 
-                is HistoryImportProgress.Failed -> Result.failure(HistoryImportWork.failureOutput(outcome.error))
+            is HistoryImportProgress.Failed -> Result.failure(HistoryImportWork.failureOutput(outcome.error))
 
-                // `runImport` returns only the two terminals.
-                else -> Result.failure(HistoryImportWork.failureOutput(HistoryImportError.StorageFailure("no outcome")))
-            }
-        } finally {
-            RUNNING.decrementAndGet()
+            // `runImport` returns only the two terminals.
+            else -> Result.failure(HistoryImportWork.failureOutput(HistoryImportError.StorageFailure("no outcome")))
         }
     }
 
@@ -154,9 +152,13 @@ class HistoryImportWorker @AssistedInject constructor(
         }
     }
 
-    /** Says how the import ended, unless the app is on screen to say it itself. */
-    private suspend fun announce(outcome: HistoryImportProgress) {
-        if (foregroundState.isInForeground()) return
+    /**
+     * Says how the import ended, unless the import screen is open to say it itself. Not "unless
+     * the app is in the foreground": the running screen tells the user they can leave it, and one
+     * who went back to their workouts would otherwise never hear that it ended.
+     */
+    private fun announce(outcome: HistoryImportProgress) {
+        if (watchers.anyone) return
         notifications.showFinished(
             succeeded = outcome is HistoryImportProgress.Complete,
             workoutsImported = (outcome as? HistoryImportProgress.Complete)?.report?.workoutsImported ?: 0,
@@ -218,13 +220,18 @@ class HistoryImportWorker @AssistedInject constructor(
     companion object {
 
         /**
-         * How many import workers are running in this process: at most one, since the work is
-         * unique. Read by the runner to tell a `RUNNING` record this process is behind from one
-         * left by a process that died — see `HistoryImportWork.runOf`.
+         * The work whose first attempt began in this process. Read by the runner to tell a
+         * `RUNNING` record this process is behind from one left by a process that died — see
+         * `HistoryImportWork.runOf`.
+         *
+         * Never emptied, rather than counted down when [doWork] returns: WorkManager records the
+         * outcome only after that, and a record read in between — still `RUNNING`, its phase
+         * published, no worker left — would otherwise read as interrupted for the moment before
+         * the report arrives. One id per import started, for the life of the process.
          */
-        private val RUNNING = AtomicInteger(0)
+        private val STARTED_HERE: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
 
-        /** Whether an import worker is running in this process right now. */
-        val isRunningHere: Boolean get() = RUNNING.get() > 0
+        /** Whether the import [id] names started in this process, so its record is this process's. */
+        fun startedHere(id: UUID): Boolean = id in STARTED_HERE
     }
 }

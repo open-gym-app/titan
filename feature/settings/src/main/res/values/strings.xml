@@ -485,7 +485,7 @@
     <string name="import_try_again">Try again</string>
     <string name="import_choose_another_app">Choose another app</string>
     <string name="import_interrupted_title">The import did not finish</string>
-    <string name="import_interrupted_body">Titan was closed while importing from %1$s, so nothing was imported. You can run it again with the same file.</string>
+    <string name="import_interrupted_body">Titan was closed while importing from %1$s, before the import finished. Whatever it had not saved was left out; running it again with the same file is safe and adds only what is missing.</string>
     <string name="import_run_again">Run it again</string>
     <string name="import_not_now">Not now</string>
     <string name="import_stopped_title">Import stopped</string>
