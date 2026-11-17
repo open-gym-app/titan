@@ -267,6 +267,11 @@ class FitbodParserTest {
             ),
             chinUps.sets,
         )
+        // The assistance is never recorded, so assistance that does not read costs nothing.
+        assertEquals(
+            listOf(ImportedSet(reps = 7, duration = 0, distance = 0)),
+            onlySets(export("2026-10-01 18:00:00 +0000,Assisted Chin Up, 7,lots,0.0,0.0,0.0,0.0,false,, 0.0")),
+        )
     }
 
     @Test
