@@ -67,6 +67,44 @@ enum class SourceWeightUnit(private val milligrams: Double) {
 }
 
 /**
+ * A weight as a cell writes it, the unit after the number — `64.5kg`, `142 lbs`, `95.5KG` — or with
+ * no unit at all, `80`.
+ *
+ * Most exports put a weight's unit in the header, but a few write it into every cell instead, and
+ * the cell is then the only place the unit is said. That makes it evidence about more than the one
+ * figure: an export that writes a body weight as `64.5kg` is telling the parser which unit its user
+ * had chosen.
+ *
+ * @property value the number, as written.
+ * @property unit the unit written after it, or null when there was none.
+ */
+data class WeightFigure(
+    val value: Double,
+    val unit: SourceWeightUnit?,
+) {
+    /** [value] in milligrams: in [unit], or in [fallback] when the cell named none. */
+    fun milligrams(fallback: SourceWeightUnit): Long = (unit ?: fallback).toMilligrams(value)
+
+    companion object {
+
+        /** Everything up to the first letter, and the word that starts there. */
+        private val FIGURE = Regex("([^\\p{L}]*?)\\s*(\\p{L}[\\p{L}.]*)?")
+
+        /**
+         * [text] as a figure and its unit, or null when it is blank, its number does not read as
+         * [SourceValues.decimal] reads one, or what follows the number is not a weight unit.
+         */
+        fun parse(text: String?): WeightFigure? {
+            val match = FIGURE.matchEntire(text?.trim().orEmpty()) ?: return null
+            val value = SourceValues.decimal(match.groupValues[1]) ?: return null
+            val label = match.groupValues[2]
+            if (label.isEmpty()) return WeightFigure(value, unit = null)
+            return SourceWeightUnit.parse(label)?.let { WeightFigure(value, it) }
+        }
+    }
+}
+
+/**
  * The unit a source wrote a distance in, and the one conversion from it to Titan's centimetres.
  *
  * The weight's counterpart, for the same reasons; see [SourceWeightUnit].
