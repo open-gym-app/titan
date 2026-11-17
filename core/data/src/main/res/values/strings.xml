@@ -21,6 +21,11 @@
     <string name="notification_channel_progression">Streaks and rewards</string>
     <string name="notification_channel_progression_description">New levels, completed quests and loot.</string>
 
+    <!-- The import from another app's progress notification: required of a foreground worker, so a
+         channel of its own rather than a NotificationKind (see HistoryImportNotifications). -->
+    <string name="notification_channel_history_import">Importing from another app</string>
+    <string name="notification_channel_history_import_description">Shows how far an import has got while it runs, and says when it is done.</string>
+
     <!-- The rest countdown, as it reads from a lock screen. Two words and a number, because
          what it is for is a glance from across a bench: the countdown itself is drawn by the
          platform from the deadline, so none of this repeats it. -->
@@ -152,5 +157,21 @@
     <string name="default_template_bike">Bike</string>
     <string name="default_template_row">Row</string>
     <string name="default_template_stretch">Stretch &amp; mobility</string>
+
+    <!-- The import from another app, while it runs and when it ends with the app off screen.
+         Counts arrive already formatted in the device's digits, hence %1$s rather than %1$d. -->
+    <string name="history_import_notification_title">Importing your training history</string>
+    <string name="history_import_notification_reading">Reading the file…</string>
+    <string name="history_import_notification_writing">Saving workouts: %1$s of %2$s</string>
+    <string name="history_import_notification_photos">Storing photos: %1$s of %2$s</string>
+    <string name="history_import_notification_cancel">Cancel</string>
+    <string name="history_import_notification_stop_photos">Stop photos</string>
+    <string name="history_import_notification_done">Import finished</string>
+    <plurals name="history_import_notification_done_workouts">
+        <item quantity="one">%1$s workout added to your history.</item>
+        <item quantity="other">%1$s workouts added to your history.</item>
+    </plurals>
+    <string name="history_import_notification_failed">Import didn’t finish</string>
+    <string name="history_import_notification_failed_body">Nothing was imported. Open Titan to see why and try again.</string>
 
 </resources>

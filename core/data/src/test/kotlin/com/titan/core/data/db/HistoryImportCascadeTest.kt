@@ -1,29 +1,6 @@
 package com.titan.core.data.db
 
-import com.titan.core.data.mapper.BodyMeasurementMapper
-import com.titan.core.data.mapper.ExerciseMapper
-import com.titan.core.data.mapper.MuscleGroupLinkMapper
-import com.titan.core.data.mapper.PersonalRecordMapper
-import com.titan.core.data.mapper.SessionExerciseMapper
-import com.titan.core.data.mapper.SessionMapper
-import com.titan.core.data.mapper.TagMapper
-import com.titan.core.data.mapper.TemplateExerciseMapper
-import com.titan.core.data.mapper.TemplateMapper
-import com.titan.core.data.mapper.WorkoutSetMapper
-import com.titan.core.data.repository.BodyMeasurementRepositoryImpl
-import com.titan.core.data.repository.CollectedItemRepositoryImpl
-import com.titan.core.data.repository.ExerciseRepositoryImpl
-import com.titan.core.data.repository.GamificationRepositoryImpl
-import com.titan.core.data.repository.HistoryImportRepositoryImpl
-import com.titan.core.data.repository.PersonalRecordRepositoryImpl
-import com.titan.core.data.repository.ProgressionRepositoryImpl
-import com.titan.core.data.repository.QuestRepositoryImpl
-import com.titan.core.data.repository.SessionRepositoryImpl
-import com.titan.core.data.repository.TemplateRepositoryImpl
-import com.titan.core.domain.backup.BackupLock
 import com.titan.core.domain.backup.ImportSource
-import com.titan.core.domain.gamification.DropRates
-import com.titan.core.domain.gamification.DropTableEvaluator
 import com.titan.core.domain.importer.HistoryImportError
 import com.titan.core.domain.importer.HistoryImportProgress
 import com.titan.core.domain.importer.HistoryImportReport
@@ -40,23 +17,8 @@ import com.titan.core.domain.importer.ParseResult
 import com.titan.core.domain.model.BodyMeasurement
 import com.titan.core.domain.model.PlannedSet
 import com.titan.core.domain.model.PrType
-import com.titan.core.domain.model.ProgressPhoto
 import com.titan.core.domain.model.UnitSystem
-import com.titan.core.domain.random.RandomSource
-import com.titan.core.domain.repository.PhotoSource
-import com.titan.core.domain.repository.ProgressPhotoRepository
 import com.titan.core.domain.time.Clock
-import com.titan.core.domain.usecase.AchievementTriggerUseCase
-import com.titan.core.domain.usecase.AwardXpUseCase
-import com.titan.core.domain.usecase.ImportHistoryUseCase
-import com.titan.core.domain.usecase.LootRollUseCase
-import com.titan.core.domain.usecase.PrDetectionUseCase
-import com.titan.core.domain.usecase.QuestCompletionUseCase
-import com.titan.core.domain.usecase.QuestProgressUseCase
-import com.titan.core.domain.usecase.SessionCompletionPipeline
-import com.titan.core.domain.usecase.SessionLifecycleLock
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.flow.toList
@@ -80,106 +42,15 @@ import java.time.ZoneOffset
  */
 class HistoryImportCascadeTest : RoomTestBase() {
 
-    private val sessions by lazy {
-        SessionRepositoryImpl(
-            database = db,
-            sessionMapper = SessionMapper(),
-            sessionExerciseMapper = SessionExerciseMapper(),
-            setMapper = WorkoutSetMapper(),
-        )
-    }
-
-    private val exercises by lazy {
-        ExerciseRepositoryImpl(
-            exerciseDao = db.exerciseDao(),
-            muscleGroupDao = db.muscleGroupDao(),
-            exerciseMapper = ExerciseMapper(),
-            tagMapper = TagMapper(),
-            muscleGroupLinkMapper = MuscleGroupLinkMapper(),
-        )
-    }
-
-    private val records by lazy {
-        PersonalRecordRepositoryImpl(
-            personalRecordDao = db.personalRecordDao(),
-            personalRecordMapper = PersonalRecordMapper(),
-        )
-    }
-
-    private val gamification by lazy {
-        GamificationRepositoryImpl(
-            userProgressDao = db.userProgressDao(),
-            achievementDao = db.achievementDao(),
-            sessionXpClaimDao = db.sessionXpClaimDao(),
-            sessionLootClaimDao = db.sessionLootClaimDao(),
-        )
-    }
-
-    private val quests by lazy { QuestRepositoryImpl(questCompletionDao = db.questCompletionDao()) }
-
     private val preferences = InMemoryUserPreferencesRepository()
 
-    private val pipeline by lazy {
-        val awardXp = AwardXpUseCase(gamificationRepository = gamification)
-        SessionCompletionPipeline(
-            detectPersonalRecords = PrDetectionUseCase(
-                sessionRepository = sessions,
-                exerciseRepository = exercises,
-                personalRecordRepository = records,
-                userPreferencesRepository = preferences,
-            ),
-            awardXp = awardXp,
-            triggerAchievements = AchievementTriggerUseCase(gamificationRepository = gamification, awardXp = awardXp),
-            completeQuests = QuestCompletionUseCase(
-                questProgress = QuestProgressUseCase(
-                    progressionRepository = ProgressionRepositoryImpl(
-                        setDao = db.workoutSetDao(),
-                        sessionDao = db.workoutSessionDao(),
-                        setMapper = WorkoutSetMapper(),
-                    ),
-                    personalRecordRepository = records,
-                    questRepository = quests,
-                ),
-                questRepository = quests,
-                awardXp = awardXp,
-            ),
-            // Never drops, as in `SessionCompletionCascadeTest`: a die roll is not this suite's
-            // subject, and an assertion that depended on one would be a flake.
-            rollLoot = LootRollUseCase(
-                dropTable = DropTableEvaluator(RandomSource { DropRates.TOTAL_WEIGHT - 1 }, emptyList()),
-                collectedItemRepository = CollectedItemRepositoryImpl(collectedItemDao = db.collectedItemDao()),
-                gamificationRepository = gamification,
-            ),
-            sessionRepository = sessions,
-            personalRecordRepository = records,
-            gamificationRepository = gamification,
-            userPreferencesRepository = preferences,
-        )
-    }
+    private val stack by lazy { HistoryImportStack(db, preferences, Clock { NOW }) }
 
-    private val importHistory by lazy {
-        ImportHistoryUseCase(
-            historyImportRepository = HistoryImportRepositoryImpl(db),
-            exerciseRepository = exercises,
-            sessionRepository = sessions,
-            templateRepository = TemplateRepositoryImpl(
-                templateDao = db.workoutTemplateDao(),
-                templateMapper = TemplateMapper(),
-                templateExerciseMapper = TemplateExerciseMapper(),
-            ),
-            bodyMeasurementRepository = BodyMeasurementRepositoryImpl(
-                bodyMeasurementDao = db.bodyMeasurementDao(),
-                bodyMeasurementMapper = BodyMeasurementMapper(),
-            ),
-            // Photos are the store's own concern, and `ProgressPhotoRepositoryImplTest` drives the
-            // real one over real images; here an in-memory one keeps this suite about the history.
-            progressPhotoRepository = InMemoryPhotos(),
-            completeSession = pipeline,
-            clock = Clock { NOW },
-            backupLock = BackupLock(),
-            sessionLock = SessionLifecycleLock(),
-        )
-    }
+    private val sessions get() = stack.sessions
+
+    private val records get() = stack.records
+
+    private val importHistory get() = stack.importHistory
 
     private var benchId = 0L
 
@@ -392,27 +263,5 @@ class HistoryImportCascadeTest : RoomTestBase() {
         const val NOW = 100 * DAY
         const val KG_100 = 100_000_000L
         const val KG_110 = 110_000_000L
-    }
-}
-
-/** A photo store holding nothing but what it is given, for a suite that is not about photos. */
-private class InMemoryPhotos : ProgressPhotoRepository {
-
-    private val photos = MutableStateFlow<List<ProgressPhoto>>(emptyList())
-
-    override fun getAll(): Flow<List<ProgressPhoto>> = photos
-
-    override suspend fun add(
-        source: PhotoSource,
-        takenAt: Long,
-        preferImageTime: Boolean,
-    ): Long {
-        val id = photos.value.size + 1L
-        photos.value += ProgressPhoto(id = id, takenAt = takenAt, path = "/photos/$id.jpg", createdAt = takenAt)
-        return id
-    }
-
-    override suspend fun delete(id: Long) {
-        photos.value = photos.value.filterNot { it.id == id }
     }
 }

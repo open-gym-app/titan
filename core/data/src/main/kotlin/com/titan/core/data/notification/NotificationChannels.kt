@@ -6,6 +6,7 @@ import android.media.RingtoneManager
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationManagerCompat
 import com.titan.core.data.R
+import com.titan.core.data.importer.HistoryImportNotifications
 import com.titan.core.domain.notification.NotificationKind
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -30,6 +31,11 @@ import javax.inject.Singleton
  * | [NotificationKind.SESSION] | Low, silent | A reminder about an open workout, not an event. |
  * | [NotificationKind.PROGRESSION] | Default | Good news; it can wait for the phone to be picked up. |
  *
+ * One more channel is not a kind: the import from another app's progress notification
+ * ([HistoryImportNotifications]), which Android requires of a foreground worker, so there is no
+ * setting to turn it off and nothing for `NotificationKind` to store. It is created here with the
+ * others all the same, so this stays the one place a channel comes into being.
+ *
  * ### Registered at every start, not once
  *
  * [register] runs on every launch from `TitanApplication`. Creating a channel that already
@@ -46,12 +52,15 @@ import javax.inject.Singleton
  * derived from an enum name a refactor would happily change.
  */
 @Singleton
-class NotificationChannels @Inject constructor(@param:ApplicationContext private val context: Context) {
+class NotificationChannels @Inject constructor(
+    @param:ApplicationContext private val context: Context,
+    private val historyImport: HistoryImportNotifications,
+) {
 
     /** Creates or updates every channel. Safe to call on each launch; see the class note. */
     fun register() {
         NotificationManagerCompat.from(context)
-            .createNotificationChannelsCompat(NotificationKind.entries.map(::channelFor))
+            .createNotificationChannelsCompat(NotificationKind.entries.map(::channelFor) + historyImport.channel())
     }
 
     private fun channelFor(kind: NotificationKind): NotificationChannelCompat =

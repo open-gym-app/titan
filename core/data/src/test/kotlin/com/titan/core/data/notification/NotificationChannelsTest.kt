@@ -4,6 +4,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioAttributes
 import androidx.test.core.app.ApplicationProvider
+import com.titan.core.data.importer.HistoryImportNotifications
 import com.titan.core.domain.notification.NotificationKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -32,17 +33,17 @@ class NotificationChannelsTest {
 
     @Test
     fun `every kind gets a channel`() {
-        NotificationChannels(context).register()
+        channels().register()
 
         assertEquals(
-            NotificationKind.entries.map { it.channelId }.toSet(),
+            NotificationKind.entries.map { it.channelId }.toSet() + HistoryImportNotifications.CHANNEL_ID,
             manager.notificationChannels.map { it.id }.toSet(),
         )
     }
 
     @Test
     fun `each channel carries the importance its kind was given`() {
-        NotificationChannels(context).register()
+        channels().register()
 
         val importances = manager.notificationChannels.associate { it.id to it.importance }
 
@@ -50,11 +51,12 @@ class NotificationChannelsTest {
         assertEquals(NotificationManager.IMPORTANCE_HIGH, importances["rest_timer"])
         assertEquals(NotificationManager.IMPORTANCE_LOW, importances["session"])
         assertEquals(NotificationManager.IMPORTANCE_DEFAULT, importances["progression"])
+        assertEquals(NotificationManager.IMPORTANCE_LOW, importances["history_import"])
     }
 
     @Test
     fun `only the rest timer makes a noise`() {
-        NotificationChannels(context).register()
+        channels().register()
 
         val restTimer = manager.getNotificationChannel("rest_timer")
         assertTrue("the rest timer must vibrate", restTimer.shouldVibrate())
@@ -65,11 +67,16 @@ class NotificationChannelsTest {
         val session = manager.getNotificationChannel("session")
         assertFalse(session.shouldVibrate())
         assertNull(session.sound)
+
+        // The import's progress is on screen for minutes, and the user started it.
+        val historyImport = manager.getNotificationChannel("history_import")
+        assertFalse(historyImport.shouldVibrate())
+        assertNull(historyImport.sound)
     }
 
     @Test
     fun `the rest timer's sound is a notification rather than an alarm`() {
-        NotificationChannels(context).register()
+        channels().register()
 
         // The one place the ringer distinction can be honoured. The alarm stream is not muted
         // by the ringer switch, so `USAGE_ALARM` would have this half of the alert playing a
@@ -82,7 +89,7 @@ class NotificationChannelsTest {
 
     @Test
     fun `every channel says what it is, in words a user could act on`() {
-        NotificationChannels(context).register()
+        channels().register()
 
         manager.notificationChannels.forEach { channel ->
             assertTrue("${channel.id} needs a name", channel.name.isNotBlank())
@@ -92,7 +99,7 @@ class NotificationChannelsTest {
 
     @Test
     fun `registering again changes nothing the user has set`() {
-        val channels = NotificationChannels(context)
+        val channels = channels()
         channels.register()
 
         // What the user does in system settings: turn the rest timer down. The app has no way
@@ -108,6 +115,8 @@ class NotificationChannelsTest {
             NotificationManager.IMPORTANCE_LOW,
             manager.getNotificationChannel("rest_timer").importance,
         )
-        assertEquals(NotificationKind.entries.size, manager.notificationChannels.size)
+        assertEquals(NotificationKind.entries.size + 1, manager.notificationChannels.size)
     }
+
+    private fun channels() = NotificationChannels(context, HistoryImportNotifications(context))
 }

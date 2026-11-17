@@ -1,6 +1,7 @@
 package com.titan.core.data.di
 
 import com.titan.core.data.backup.WorkManagerAutoBackupScheduler
+import com.titan.core.data.importer.WorkManagerHistoryImportRunner
 import com.titan.core.data.repository.AutoBackupRepositoryImpl
 import com.titan.core.data.repository.BackupRepositoryImpl
 import com.titan.core.data.repository.ExerciseRepositoryImpl
@@ -16,6 +17,7 @@ import com.titan.core.data.repository.TemplateDraftRepositoryImpl
 import com.titan.core.data.repository.TemplateRepositoryImpl
 import com.titan.core.data.repository.UserPreferencesRepositoryImpl
 import com.titan.core.domain.backup.AutoBackupScheduler
+import com.titan.core.domain.importer.HistoryImportRunner
 import com.titan.core.domain.repository.AutoBackupRepository
 import com.titan.core.domain.repository.BackupRepository
 import com.titan.core.domain.repository.ExerciseRepository
@@ -118,6 +120,11 @@ class RepositoryBindingsTest {
     @Inject
     lateinit var autoBackupScheduler: Provider<AutoBackupScheduler>
 
+    // The same again for the import from another app: nothing reaches it until the import screen
+    // opens, and resolving it touches no WorkManager — see `WorkManagerHistoryImportRunner`.
+    @Inject
+    lateinit var historyImportRunner: Provider<HistoryImportRunner>
+
     @Before
     fun inject() {
         hilt.inject()
@@ -140,6 +147,12 @@ class RepositoryBindingsTest {
         assertTrue(progressPhotoRepository.get() is ProgressPhotoRepositoryImpl)
         assertTrue(historyImportRepository.get() is HistoryImportRepositoryImpl)
         assertTrue(autoBackupScheduler.get() is WorkManagerAutoBackupScheduler)
+        assertTrue(historyImportRunner.get() is WorkManagerHistoryImportRunner)
+    }
+
+    @Test
+    fun `the import runner is one shared instance, so there is one WorkManager handle`() {
+        assertSame(historyImportRunner.get(), historyImportRunner.get())
     }
 
     @Test
