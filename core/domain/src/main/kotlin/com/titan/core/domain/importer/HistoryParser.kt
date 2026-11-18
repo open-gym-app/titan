@@ -192,8 +192,11 @@ internal fun readInTwoPasses(
  *
  * Sized against the history the app commits to holding rather than against what parses quickly.
  * `LargeHistoryBenchmarkTest`'s power user has 120,000 sets, and a CSV export spends about a
- * hundred bytes a set — so twelve megabytes, and this leaves well over twice that. The bytes are
- * read as a stream and never held; what bounds the memory an import holds is [MAX_IMPORT_SETS].
+ * hundred bytes a set — so twelve megabytes, and this leaves well over twice that. A file of rows
+ * is read as a stream and not held, and what bounds the memory its import holds is
+ * [MAX_IMPORT_SETS]. A file of sections whose tables refer to each other (JEFIT's) is held whole
+ * before a set is read, packed ([com.titan.core.domain.importer.csv.CsvSections]), so for that one
+ * this cap is what bounds the file's share of the memory.
  */
 const val MAX_SOURCE_BYTES: Long = 32L * 1024 * 1024
 
@@ -212,7 +215,8 @@ const val NO_SET_LIMIT: Int = Int.MAX_VALUE
  * [PlannedWorkoutExercise]), so 500,000 sets stay near 60 MB. [MAX_SOURCE_BYTES] would not bound
  * that on its own: a file of very short rows fits more than a million sets under it. An
  * `OutOfMemoryError` is not something the import catches, so a parser stops as soon as it has read
- * one set too many ([ImportContext.maxSets]), before the rest of the file is held.
+ * one set too many ([ImportContext.maxSets]), before it builds the sets that would follow. A
+ * parser that reads rows as they arrive stops before the rest of the file is read at all.
  */
 const val MAX_IMPORT_SETS: Int = 500_000
 
