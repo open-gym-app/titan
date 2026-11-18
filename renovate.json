@@ -147,6 +147,16 @@
       "allowedVersions": "<0.10.0"
     },
     {
+      "description": "CI runs Gradle with `--warning-mode fail`, and Gradle 9.9 deprecates `Configuration.setVisible`, which the detekt Gradle plugin (2.0.0-alpha.6, the latest) still calls, so every job fails on a warning that is not ours to fix. The wrapper is held below 9.9 until a detekt release stops calling it.",
+      "matchDepNames": [
+        "gradle"
+      ],
+      "matchManagers": [
+        "gradle-wrapper"
+      ],
+      "allowedVersions": "<9.9.0"
+    },
+    {
       "description": "The Compose BOM is the single source of truth for every androidx.compose artifact (they are declared without a version.ref on purpose). Renovate has nothing to pin on them, but this states the intent so a future contributor does not add one.",
       "matchPackageNames": [
         "androidx.compose:compose-bom"
