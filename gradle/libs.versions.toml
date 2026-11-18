@@ -73,7 +73,7 @@ sonarqube = "7.5.0.8588"
 # 17 throughout (see `app/build.gradle.kts`). `13.2.1` is the newest release still compiled
 # for 17, and carries the same `produceLibraries()` / `LibrariesContainer` API as every
 # release since. Re-check this pin before bumping past it.
-aboutlibraries = "15.3.0"
+aboutlibraries = "13.2.1"
 # The Gradle plugin is on its own pin because the two constraints pull apart. `13.2.1`'s
 # plugin registers its resource task through AGP's legacy variant API (`AppExtension`,
 # `registerGeneratedResFolders`), which AGP 9 no longer exposes: on this project it logs
@@ -86,7 +86,10 @@ aboutlibraries = "15.3.0"
 aboutlibrariesPlugin = "15.3.0"
 # Roborazzi's preview-scanning support delegates to this; it is a separate project on its
 # own release train, so it carries its own version rather than sharing `roborazzi`.
-composablePreviewScanner = "0.10.0"
+# Held at 0.9.x: Roborazzi 1.78 calls `ComposablePreview.invoke(Composer, int)`, which 0.10.0
+# no longer has, so every scanned preview test dies with `NoSuchMethodError`. Move it only
+# together with a Roborazzi release built against the newer scanner.
+composablePreviewScanner = "0.9.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
