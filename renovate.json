@@ -32,12 +32,10 @@
   },
   "updateInternalDeps": true,
   "cloneSubmodules": true,
-  "dependencyDashboardAutoclose": true,
-  "dependencyDashboardLabels": [
-    "type:chore",
-    "priority:1",
-    "source:bot"
-  ],
+  "dependencyDashboard": {
+    "autoclose": true,
+    "labels": ["type:chore", "priority:1", "source:bot"]
+  },
   "customManagers": [
     {
       "customType": "regex",
