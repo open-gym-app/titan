@@ -1,6 +1,7 @@
 package com.titan.core.domain.importer.jefit
 
 import com.titan.core.domain.importer.ImportContext
+import com.titan.core.domain.importer.ImportPlanner
 import com.titan.core.domain.importer.ImportedWorkout
 import com.titan.core.domain.importer.ImportedWorkoutExercise
 import com.titan.core.domain.importer.SourceValues
@@ -53,15 +54,15 @@ internal class JefitWorkouts(
     var placed = 0
         private set
 
-    /** The sets [read] found of each exercise that count reps, and that are timed without them. */
-    private val shapes = HashMap<JefitExerciseKey, IntArray>()
+    /** The shapes of the sets [read] found of each exercise. */
+    private val shapes = HashMap<JefitExerciseKey, ImportPlanner.ShapeTally>()
 
     /**
      * Whether the sets [read] found of [key] are mostly timed rather than counted: a hold or a
-     * piece of cardio. The planner judges an exercise's type by the same rule, so a routine plans
-     * such an exercise in time rather than in reps; see [JefitRoutines].
+     * piece of cardio. The planner judges an exercise's type with the same tally, so a routine
+     * plans such an exercise in time rather than in reps; see [JefitRoutines].
      */
-    fun isTimed(key: JefitExerciseKey): Boolean = shapes[key]?.let { (counted, timed) -> timed > counted } ?: false
+    fun isTimed(key: JefitExerciseKey): Boolean = shapes[key]?.isTimed ?: false
 
     /**
      * The workouts [logs] make, in the order their first log appears.
@@ -87,13 +88,8 @@ internal class JefitWorkouts(
                 setCount += performed.size
                 context.checkSetCount(setCount)
                 draft.exercises += ImportedWorkoutExercise(exercise, performed, notes = notes.remove(key to log.date))
-                val shape = shapes.getOrPut(key) { IntArray(2) }
-                performed.forEach { set ->
-                    when {
-                        (set.reps ?: 0) > 0 -> shape[0]++
-                        (set.duration ?: 0) > 0 -> shape[1]++
-                    }
-                }
+                val shape = shapes.getOrPut(key, ImportPlanner::ShapeTally)
+                performed.forEach { set -> shape.add(set.reps, set.duration, set.distance) }
             }
         }
         return drafts.values.filter { it.exercises.isNotEmpty() }.map(WorkoutDraft::toWorkout)

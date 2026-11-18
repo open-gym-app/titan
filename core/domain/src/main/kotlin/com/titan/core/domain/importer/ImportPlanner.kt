@@ -120,9 +120,11 @@ object ImportPlanner {
 
     /**
      * [inferType]'s evidence, counted as the sets go by rather than kept: the planner sees every
-     * set of the history, and a shape held for each would be a copy of the history's size.
+     * set of the history, and a shape held for each would be a copy of the history's size. A
+     * parser that has to know the type before the planner does (JEFIT's routines) counts with
+     * this too, so the two cannot judge one exercise differently.
      */
-    private class ShapeTally {
+    internal class ShapeTally {
         private var counted = 0
         private var timed = 0
         private var distance = false
@@ -138,6 +140,9 @@ object ImportPlanner {
             }
             this.distance = this.distance || distance.isPositive()
         }
+
+        /** Whether more of the sets are timed than counted: [type] is not [ExerciseType.STRENGTH]. */
+        val isTimed: Boolean get() = timed > counted
 
         fun type(): ExerciseType =
             when {
@@ -338,9 +343,24 @@ object ImportPlanner {
                 notes = cleanNotes(line.notes),
                 supersetGroup = line.supersetGroup,
                 source = line.sets,
-                kept = if (validCount == valid.size) null else valid.indices.filter { valid[it] }.toIntArray(),
+                kept = if (validCount == valid.size) null else keptIndices(valid, validCount),
                 type = type,
             )
+        }
+
+        /**
+         * The indices of [valid] that are true, [count] of them, written straight into the array
+         * rather than boxed into a list first: the planner does this for every line with a refused
+         * set, and the point of [PlannedSets] is not to allocate per set.
+         */
+        private fun keptIndices(
+            valid: BooleanArray,
+            count: Int,
+        ): IntArray {
+            val kept = IntArray(count)
+            var next = 0
+            valid.forEachIndexed { index, isValid -> if (isValid) kept[next++] = index }
+            return kept
         }
 
         /** One exercise of a workout as [planLine] judged it, before the workout numbers its sets. */

@@ -305,7 +305,10 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
             )
 
             // Guards the guard: a refused or duplicate-skipped import would be fast and prove nothing.
-            assertEquals(IMPORTED_WORKOUTS, (progress.last() as HistoryImportProgress.Complete).report.workoutsImported)
+            val complete = checkNotNull(progress.last() as? HistoryImportProgress.Complete) {
+                "the import did not complete: ${progress.last()}"
+            }
+            assertEquals(IMPORTED_WORKOUTS, complete.report.workoutsImported)
             assertTrue("the import took ${elapsedMs}ms against ${allowedMs}ms", elapsedMs < allowedMs)
         }
 

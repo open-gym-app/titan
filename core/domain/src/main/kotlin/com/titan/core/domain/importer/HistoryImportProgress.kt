@@ -68,9 +68,9 @@ sealed interface HistoryImportError {
     data class TooLarge(val limitBytes: Long) : HistoryImportError
 
     /**
-     * The file holds more than [limitSets] sets, and was not read past them. The byte cap alone
-     * does not bound memory, which follows the number of sets, so a file of very short rows is
-     * refused here instead of exhausting the heap — see [MAX_IMPORT_SETS].
+     * The history holds more than [limitSets] sets, and none past them was built. The byte cap
+     * alone does not bound memory, which follows the number of sets, so a file of very short rows
+     * is refused here instead of exhausting the heap — see [MAX_IMPORT_SETS].
      */
     data class TooManySets(val limitSets: Int) : HistoryImportError
 
