@@ -5,20 +5,20 @@
 jdk = "17"
 jdkVendor = "ADOPTIUM"
 agp = "9.5.1"
-kotlin = "2.3.20"
+kotlin = "2.4.21"
 ksp = "2.3.9"
-coreKtx = "1.16.0"
+coreKtx = "1.19.1"
 lifecycle = "2.11.0"
 # Compiled against the Android 37 APIs, as is lifecycle 2.11.0 above — both need
 # `AndroidSdk.COMPILE` (and `:app`'s `compileSdk`) at 37 to be consumable at all.
 androidxHilt = "1.4.0"
-activityCompose = "1.12.3"
+activityCompose = "1.13.0"
 # The splash screen (#207): Android 12's system splash, and the same icon-on-a-colour window
 # drawn by the library itself on API 26–30, from one theme.
 splashscreen = "1.2.0"
 composeBom = "2026.05.00"
 # 2.8+ is the floor for type-safe `composable<Route>` destinations; see docs/ARCHITECTURE.md.
-navigation = "2.9.8"
+navigation = "2.10.2"
 # Coil and Hilt move together, and the pairing is load-bearing rather than tidiness. Coil
 # 3.5.0 is compiled with Kotlin 2.4; Hilt bundles its own kotlin-metadata-jvm, and 2.59.2's
 # read at most metadata 2.3.0 — so that Coil against that Hilt failed
@@ -29,40 +29,40 @@ navigation = "2.9.8"
 # renovate.json groups them into one PR for this reason.
 coil = "3.5.0"
 hilt = "2.60.1"
-room = "2.8.4"
+room = "2.8.5"
 # Preferences DataStore, for the user settings store. 1.3.x is alpha-only; the
 # `androidx.datastore.preferences.core` API this uses has not moved since 1.1.
-datastore = "1.2.1"
+datastore = "1.3.0"
 # WorkManager, for the weekly auto-backup (#181). Deferrable, constraint-gated background
 # work only: a backup does not care whether it runs at 03:00 or at 09:00 on Sunday, it cares
 # that it eventually runs and survives a reboot. The reminders of #39 are the opposite call
 # for the opposite reason and use an exact alarm — see `WorkManagerAutoBackupScheduler`.
-work = "2.11.2"
-paging = "3.3.6"
+work = "2.12.0"
+paging = "3.5.3"
 # Macrobenchmark: the on-device measurements of #42, and the Baseline Profile generator that
 # writes `app/src/main/baselineProfiles/baseline-prof.txt`. Deliberately the runtime only, not
 # the `androidx.baselineprofile` Gradle plugin — see `benchmark/build.gradle.kts` for why the
 # variants it would create are wired by hand instead.
-benchmark = "1.4.1"
+benchmark = "1.5.0"
 # UiAutomator drives the app from outside its process, which is the only way a benchmark can
 # touch a release build - there is no Compose test rule on the other side of the APK boundary.
-uiautomator = "2.4.0"
+uiautomator = "2.4.1"
 # Installs the committed Baseline Profile on first run for the platform versions that do not
 # do it themselves. Without it in `:app`, a profile in the APK is dead weight below API 31.
 profileinstaller = "1.4.1"
 coroutines = "1.11.0"
-serialization = "1.11.0"
+serialization = "1.13.0"
 junit = "4.13.2"
 junitExt = "1.3.0"
-espresso = "3.6.1"
+espresso = "3.7.0"
 detekt = "2.0.0-alpha.6"
-mockk = "1.14.11"
+mockk = "1.14.12"
 turbine = "1.2.1"
-robolectric = "4.14.1"
+robolectric = "4.17"
 androidxTestCore = "1.7.0"
-jacoco = "0.8.13"
-roborazzi = "1.71.0"
-sonarqube = "7.4.0.8496"
+jacoco = "0.8.16"
+roborazzi = "1.78.0"
+sonarqube = "7.5.0.8588"
 # Generates the open source licences screen (#208) from the dependency graph at build time.
 # Applied to `:app` only — it scans the module it is applied to, and `:app` is the module
 # every other one is reachable from. Not Google's `oss-licenses-plugin`: that one pulls in
@@ -73,7 +73,7 @@ sonarqube = "7.4.0.8496"
 # 17 throughout (see `app/build.gradle.kts`). `13.2.1` is the newest release still compiled
 # for 17, and carries the same `produceLibraries()` / `LibrariesContainer` API as every
 # release since. Re-check this pin before bumping past it.
-aboutlibraries = "13.2.1"
+aboutlibraries = "15.3.0"
 # The Gradle plugin is on its own pin because the two constraints pull apart. `13.2.1`'s
 # plugin registers its resource task through AGP's legacy variant API (`AppExtension`,
 # `registerGeneratedResFolders`), which AGP 9 no longer exposes: on this project it logs
@@ -83,10 +83,10 @@ aboutlibraries = "13.2.1"
 # jar itself is Java 11 bytecode, so it runs on the JDK 17 daemon — only the *runtime*
 # artifacts went to 21. The JSON the plugin writes has carried the same keys since v10, so
 # a newer plugin feeding the older runtime is a supported pairing.
-aboutlibrariesPlugin = "14.2.1"
+aboutlibrariesPlugin = "15.3.0"
 # Roborazzi's preview-scanning support delegates to this; it is a separate project on its
 # own release train, so it carries its own version rather than sharing `roborazzi`.
-composablePreviewScanner = "0.9.2"
+composablePreviewScanner = "0.10.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
