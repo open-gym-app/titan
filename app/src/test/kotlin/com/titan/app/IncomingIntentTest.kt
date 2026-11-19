@@ -2,8 +2,8 @@ package com.titan.app
 
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import androidx.core.net.toUri
-import androidx.core.os.bundleOf
 import androidx.navigation.NavController
 import androidx.test.core.app.ApplicationProvider
 import com.titan.core.ui.state.SCREEN_STATE_KEY
@@ -125,7 +125,9 @@ class IncomingIntentTest {
             )
             .putExtra(
                 NavController.KEY_DEEP_LINK_EXTRAS,
-                bundleOf(SCREEN_STATE_KEY to """{"pendingRestoreUri":"content://elsewhere/backup.json"}"""),
+                Bundle().apply {
+                    putString(SCREEN_STATE_KEY, """{"pendingRestoreUri":"content://elsewhere/backup.json"}""")
+                },
             )
 
     private companion object {

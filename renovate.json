@@ -125,6 +125,38 @@
       "groupName": "hilt and coil"
     },
     {
+      "description": "The build toolchain is JDK 17 (`jdk` in gradle/libs.versions.toml, which every module's toolchain reads), and CI must run the same JDK the toolchain asks for. Bumping `java-version` alone only changes the JDK Gradle itself runs on; it is a deliberate project decision, made together with the catalogue, not a routine update.",
+      "matchDatasources": [
+        "java-version"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "`aboutlibraries` 14.0.0 and later compile the Android runtime artifacts to Java 21 bytecode, which the JDK 17 Robolectric tests cannot load. The comment at the catalogue entry has the full story; the Gradle plugin is on its own pin and is not held back.",
+      "matchPackageNames": [
+        "com.mikepenz:aboutlibraries-core{/,}**",
+        "com.mikepenz:aboutlibraries-compose-m3{/,}**"
+      ],
+      "allowedVersions": "<14.0.0"
+    },
+    {
+      "description": "Roborazzi calls into ComposablePreviewScanner by binary signature, and 0.10.0 removed the `ComposablePreview.invoke(Composer, int)` that Roborazzi 1.78 links against, so every scanned preview test fails with `NoSuchMethodError`. The scanner is held below 0.10.0 until a Roborazzi release is built against it.",
+      "matchPackageNames": [
+        "io.github.sergio-sastre.ComposablePreviewScanner{/,}**"
+      ],
+      "allowedVersions": "<0.10.0"
+    },
+    {
+      "description": "CI runs Gradle with `--warning-mode fail`, and Gradle 9.9 deprecates `Configuration.setVisible`, which the detekt Gradle plugin (2.0.0-alpha.6, the latest) still calls, so every job fails on a warning that is not ours to fix. The wrapper is held below 9.9 until a detekt release stops calling it.",
+      "matchDepNames": [
+        "gradle"
+      ],
+      "matchManagers": [
+        "gradle-wrapper"
+      ],
+      "allowedVersions": "<9.9.0"
+    },
+    {
       "description": "The Compose BOM is the single source of truth for every androidx.compose artifact (they are declared without a version.ref on purpose). Renovate has nothing to pin on them, but this states the intent so a future contributor does not add one.",
       "matchPackageNames": [
         "androidx.compose:compose-bom"
