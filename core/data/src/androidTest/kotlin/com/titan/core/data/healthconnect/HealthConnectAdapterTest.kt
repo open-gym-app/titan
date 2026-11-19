@@ -69,7 +69,7 @@ class HealthConnectAdapterTest {
             HealthConnectClient.getOrCreate(context).deleteRecords(
                 ExerciseSessionRecord::class,
                 recordIdsList = emptyList(),
-                clientRecordIdsList = listOf(clientRecordIdFor(sessionId)),
+                clientRecordIdsList = listOf(clientRecordIdFor(sessionId, start)),
             )
         }
     }
@@ -106,7 +106,7 @@ class HealthConnectAdapterTest {
                         Instant.ofEpochMilli(start + 1),
                     ),
                 ),
-            ).records.filter { it.metadata.clientRecordId == clientRecordIdFor(sessionId) }
+            ).records.filter { it.metadata.clientRecordId == clientRecordIdFor(sessionId, start) }
 
             assertEquals(1, records.size)
             assertEquals("Push day, renamed", records.single().title)

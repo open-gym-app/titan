@@ -22,11 +22,61 @@ class RenameSessionUseCaseTest {
     private val sessions = FakeSessionRepository()
     private val state = FakeSessionStateRepository()
     private val startSession = StartSessionUseCase(sessions, state, clock)
-    private val renameSession = RenameSessionUseCase(sessions)
+    private val healthConnectSync = RecordingHealthConnectSyncScheduler()
+    private val renameSession = RenameSessionUseCase(sessions, healthConnectSync)
 
     private suspend fun startNamed(name: String? = "Push day"): Long = startSession(name = name).getOrThrow().sessionId
 
     private suspend fun stored(sessionId: Long): WorkoutSession? = sessions.getById(sessionId).first()
+
+    /** A session closed out, as the finish leaves it. */
+    private suspend fun startFinished(): Long {
+        val sessionId = startNamed()
+        val session = checkNotNull(stored(sessionId))
+        sessions.update(session.copy(completedAt = 9_000L, isInProgress = false))
+        return sessionId
+    }
+
+    @Test
+    fun `renaming a finished session queues its Health Connect record to be written again`() =
+        runTest {
+            val sessionId = startFinished()
+
+            renameSession(sessionId, "Leg day").getOrThrow()
+
+            assertEquals(listOf(sessionId), healthConnectSync.requested)
+        }
+
+    @Test
+    fun `renaming a session still running queues nothing`() =
+        runTest {
+            // Its record is written when it finishes, under whatever it is called by then.
+            val sessionId = startNamed()
+
+            renameSession(sessionId, "Leg day").getOrThrow()
+
+            assertEquals(emptyList<Long>(), healthConnectSync.requested)
+        }
+
+    @Test
+    fun `a rename that changes nothing queues nothing`() =
+        runTest {
+            val sessionId = startFinished()
+
+            renameSession(sessionId, " Push day ").getOrThrow()
+
+            assertEquals(emptyList<Long>(), healthConnectSync.requested)
+        }
+
+    @Test
+    fun `a queue that refuses the request leaves the rename saved`() =
+        runTest {
+            val sessionId = startFinished()
+            healthConnectSync.failure = IllegalStateException("WorkManager is not initialised")
+
+            assertEquals("Leg day", renameSession(sessionId, "Leg day").getOrThrow())
+            assertEquals("Leg day", stored(sessionId)?.name)
+        }
 
     @Test
     fun `renaming writes the new name`() =

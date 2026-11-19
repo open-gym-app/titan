@@ -18,7 +18,8 @@ class SyncToHealthConnectUseCaseTest {
 
     private val healthConnect = FakeHealthConnect()
     private val sessions = FakeHealthConnectSessionRepository()
-    private val sync = SyncToHealthConnectUseCase(healthConnect, sessions)
+    private val clock = MutableClock(now = 4_700_000L)
+    private val sync = SyncToHealthConnectUseCase(healthConnect, sessions, clock)
 
     private fun finished(
         id: Long = 7L,
@@ -59,13 +60,29 @@ class SyncToHealthConnectUseCaseTest {
                 title = "Push day",
                 notes = "felt strong",
             )
-            assertEquals(listOf(FakeHealthConnect.Write(7L, 4_600_005L, expected)), healthConnect.written)
+            assertEquals(listOf(FakeHealthConnect.Write(7L, 4_700_000L, expected)), healthConnect.written)
         }
 
     @Test
-    fun `the record is versioned by the row's updated_at so a later write wins`() =
+    fun `the record is versioned by the time of the write so a later write wins`() =
         runTest {
+            // A rename or a note leaves `updated_at` alone, so the row's own stamp would give the
+            // rewrite the same version as the write it has to replace.
             finished()
+
+            sync(7L)
+            clock.advance(60_000L)
+            sync(7L)
+
+            assertEquals(listOf(4_700_000L, 4_760_000L), healthConnect.written.map { it.version })
+        }
+
+    @Test
+    fun `the version is never below the row's updated_at`() =
+        runTest {
+            // A clock that reads earlier than the row was last stamped.
+            finished()
+            clock.now = 1_000L
 
             sync(7L)
 

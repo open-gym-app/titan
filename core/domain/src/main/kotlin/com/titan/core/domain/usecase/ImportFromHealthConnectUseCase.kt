@@ -54,15 +54,18 @@ class ImportFromHealthConnectUseCase(
 ) {
 
     suspend operator fun invoke(): Result<HealthConnectImport> {
-        val availability = healthConnect.availability()
-        if (availability != HealthConnectAvailability.AVAILABLE) {
-            return Result.failure(HealthConnectError.Unavailable(availability))
-        }
-
         // `runCatching` for a provider's failure, with the one thing it gets wrong put right: a
         // cancellation is not a failure, and a caller whose scope has gone must not be told the
-        // call came back.
-        return runCatching { import() }.getOrElse { failure ->
+        // call came back. The availability check is inside it too — it asks the package
+        // manager, which can throw, and the screen is promised a `Result`, not an exception.
+        return runCatching {
+            val availability = healthConnect.availability()
+            if (availability != HealthConnectAvailability.AVAILABLE) {
+                Result.failure(HealthConnectError.Unavailable(availability))
+            } else {
+                import()
+            }
+        }.getOrElse { failure ->
             if (failure is CancellationException) throw failure
             Result.failure(failure)
         }
