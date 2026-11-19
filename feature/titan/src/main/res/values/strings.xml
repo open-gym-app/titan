@@ -35,7 +35,11 @@
     <string name="titan_tab_habitat">Habitat</string>
     <string name="titan_hint_food">Earned by training: finished workouts drop food. Tap an item to feed %1$s.</string>
     <string name="titan_hint_gear">Gear is cosmetic: it changes how %1$s looks, never how strong it is. Achievements and level-ups bring new pieces.</string>
-    <string name="titan_hint_habitat">Places unlock activities. Achievements and level-ups open new ones.</string>
+    <string name="titan_hint_habitat">Habitats change the backdrop behind %1$s. Achievements and level-ups open new ones.</string>
+    <string name="titan_slot_empty">Empty</string>
+    <string name="titan_slot_nothing">Nothing to wear here yet. Achievements and level-ups bring new pieces.</string>
+    <string name="titan_habitat_here">Here</string>
+    <string name="titan_habitat_go">Go</string>
     <string name="titan_gear_wear">Wear</string>
     <string name="titan_none_title">No titan yet</string>
     <string name="titan_none_body">A titan is a companion that grows with your training. Eggs sometimes drop when you finish a workout.</string>

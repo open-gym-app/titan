@@ -22,6 +22,15 @@ interface LoadoutRepository {
         gearKey: String,
     )
 
+    /**
+     * Draws [petId]'s stage on [placeKey], stored under
+     * [com.titan.core.domain.model.TitanPlace.LOADOUT_SLOT] beside the gear.
+     */
+    suspend fun setHabitat(
+        petId: Long,
+        placeKey: String,
+    )
+
     /** Empties [slot] on [petId]. */
     suspend fun takeOff(
         petId: Long,

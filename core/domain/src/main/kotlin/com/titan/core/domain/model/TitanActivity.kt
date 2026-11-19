@@ -4,14 +4,14 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
 /**
- * A place in the titan's habitat.
+ * A habitat: a background the titan's stage can be drawn on. **Purely visual** — the titan does
+ * the same things wherever it is drawn.
  *
- * Four are owned from hatch and enable the activities that need them; the other four come with an
- * achievement or drop on a level-up, and **once owned, are kept**. What the four later places
- * enable is not decided yet (#290), so today they enable nothing — [enables] is derived from
- * [TitanActivity.place], so giving one an activity is a line in that table.
+ * Four are owned from hatch; the other four come with an achievement or drop on a level-up, and
+ * **once owned, are kept**. The user picks one of the owned ones for each titan; it is stored in
+ * the titan's loadout under [LOADOUT_SLOT].
  *
- * @property key the stable id a stored unlock names. Pinned by a test.
+ * @property key the stable id a stored unlock and a stored choice name. Pinned by a test.
  */
 enum class TitanPlace(
     override val key: String,
@@ -28,10 +28,16 @@ enum class TitanPlace(
     SUMMIT("summit", UnlockCondition.Achievement("hundred_sessions")),
     ;
 
-    /** The activities that happen here. */
-    val enables: List<TitanActivity> get() = TitanActivity.entries.filter { it.place == this }
-
     companion object {
+
+        /** The loadout slot the chosen habitat is stored under, beside the gear slots. */
+        const val LOADOUT_SLOT = "habitat"
+
+        /** What the stage is drawn on until the user picks something else. */
+        val DEFAULT: TitanPlace = TRACK
+
+        /** The habitat [key] names, or null for a key this build does not know. */
+        fun byKey(key: String?): TitanPlace? = entries.firstOrNull { it.key == key }
 
         /** The places every titan has from hatch. */
         val STARTING: Set<TitanPlace> = entries.filter { it.condition == UnlockCondition.FromHatch }.toSet()
@@ -45,49 +51,34 @@ enum class TitanPlace(
 }
 
 /**
- * Something the titan does, as data: where it happens, how long it lasts and what finishing it is
- * worth. **The titan picks every one itself**; the user never chooses for it.
+ * Something the titan does, as data: how long it lasts and what finishing it is worth. **The
+ * titan picks every one itself**, and how long it keeps at it, so the user never chooses for it.
  *
  * @property key the stable id a stored state names. **Part of the storage contract**, pinned by a
  *   test; an unknown key reads back as [IDLE] (see [fromKey]).
- * @property place where it happens, or null for anywhere.
- * @property duration how long it lasts.
+ * @property shortest the least time it lasts.
+ * @property duration the most time it lasts. Each time the titan starts it, the length is drawn
+ *   between [shortest] and this.
  * @property spiritOnFinish what finishing it adds to spirit.
+ * @property exercise whether it is exercise, which a hungry titan does not do.
  * @property selfChosen whether the titan picks it on its own. [EAT] is entered by a feed (#289),
  *   so it is not.
  */
 enum class TitanActivity(
     val key: String,
-    val place: TitanPlace?,
+    val shortest: Duration,
     val duration: Duration?,
     val spiritOnFinish: Int,
+    val exercise: Boolean,
     val selfChosen: Boolean,
 ) {
-    IDLE("idle", place = null, duration = 10.minutes, spiritOnFinish = 0, selfChosen = true),
-    WALK(
-        "walk",
-        place = TitanPlace.TRACK,
-        duration = 12.minutes,
-        spiritOnFinish = 3,
-        selfChosen = true,
-    ),
-    RUN("run", place = TitanPlace.TRACK, duration = 8.minutes, spiritOnFinish = 2, selfChosen = true),
-    SWIM(
-        "swim",
-        place = TitanPlace.POOL,
-        duration = 20.minutes,
-        spiritOnFinish = 2,
-        selfChosen = true,
-    ),
-    TRAIN(
-        "train",
-        place = TitanPlace.RACK,
-        duration = 15.minutes,
-        spiritOnFinish = 2,
-        selfChosen = true,
-    ),
-    REST("rest", place = null, duration = 30.minutes, spiritOnFinish = 0, selfChosen = true),
-    EAT("eat", place = null, duration = 2.minutes, spiritOnFinish = 0, selfChosen = false),
+    IDLE("idle", 1.minutes, 20.minutes, spiritOnFinish = 0, exercise = false, selfChosen = true),
+    WALK("walk", 3.minutes, 25.minutes, spiritOnFinish = 3, exercise = true, selfChosen = true),
+    RUN("run", 2.minutes, 15.minutes, spiritOnFinish = 2, exercise = true, selfChosen = true),
+    SWIM("swim", 4.minutes, 30.minutes, spiritOnFinish = 2, exercise = true, selfChosen = true),
+    TRAIN("train", 3.minutes, 25.minutes, spiritOnFinish = 2, exercise = true, selfChosen = true),
+    REST("rest", 5.minutes, 45.minutes, spiritOnFinish = 0, exercise = false, selfChosen = true),
+    EAT("eat", 2.minutes, 2.minutes, spiritOnFinish = 0, exercise = false, selfChosen = false),
     ;
 
     companion object {

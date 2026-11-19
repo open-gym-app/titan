@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -48,6 +49,7 @@ import com.titan.core.ui.component.TitanCard
 import com.titan.core.ui.component.TitanDialog
 import com.titan.core.ui.component.TitanTabRow
 import com.titan.core.ui.component.titan.TitanEffectChip
+import com.titan.core.ui.component.titan.TitanHabitat
 import com.titan.core.ui.component.titan.TitanIcons
 import com.titan.core.ui.component.titan.TitanItemState
 import com.titan.core.ui.component.titan.TitanItemTile
@@ -154,13 +156,6 @@ private fun StageCard(
 ) {
     val status = stringResource(state.activity.status())
     val note = stringResource(state.activity.note())
-    val noteLine = state.minutesLeft?.let {
-        stringResource(
-            UiR.string.badge_with_qualifier,
-            note,
-            pluralStringResource(UiR.plurals.titan_minutes_left, it, it),
-        )
-    } ?: note
     TitanCard {
         Column(
             modifier = Modifier.padding(TitanTheme.spacing.card),
@@ -179,16 +174,23 @@ private fun StageCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            TitanSprite(
-                activity = state.activity,
-                head = state.head,
-                face = state.face,
-                contentDescription = stringResource(R.string.titan_stage_description, name, status),
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(STAGE_HEIGHT.dp)
-                    .background(MaterialTheme.colorScheme.background, MaterialTheme.shapes.small),
-            )
+                    .clip(MaterialTheme.shapes.small)
+                    .background(MaterialTheme.colorScheme.background),
+                contentAlignment = Alignment.Center,
+            ) {
+                TitanHabitat(state.habitat, Modifier.matchParentSize())
+                TitanSprite(
+                    activity = state.activity,
+                    head = state.head,
+                    face = state.face,
+                    contentDescription = stringResource(R.string.titan_stage_description, name, status),
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.lg),
@@ -196,7 +198,7 @@ private fun StageCard(
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(status, style = MaterialTheme.typography.titleMedium)
                     Text(
-                        noteLine,
+                        note,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -246,27 +248,99 @@ private fun Supplies(
             selectedIndex = state.tab.ordinal,
             onSelect = { onEvent(TitanTabEvent.SelectTab(SuppliesTab.entries[it])) },
         )
-        val tiles: List<@Composable (Modifier) -> Unit> = when (state.tab) {
-            SuppliesTab.FOOD -> state.pantry.map { entry -> { modifier -> FoodTile(entry, onEvent, modifier) } }
-            SuppliesTab.GEAR -> state.gear.map { entry -> { modifier -> GearTile(entry, onEvent, modifier) } }
-            SuppliesTab.HABITAT -> state.places.map { place -> { modifier -> PlaceTile(place, modifier) } }
-        }
-        tiles.chunked(COLUMNS_SUPPLIES).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md)) {
-                row.forEach { tile -> tile(Modifier.weight(1f)) }
-                repeat(COLUMNS_SUPPLIES - row.size) { Box(Modifier.weight(1f)) }
-            }
+        when (state.tab) {
+            SuppliesTab.FOOD -> TileGrid(
+                state.pantry.map { entry -> { modifier -> FoodTile(entry, onEvent, modifier) } },
+            )
+
+            SuppliesTab.GEAR -> GearSlots(state, onEvent)
+
+            SuppliesTab.HABITAT -> TileGrid(
+                state.places.map { place ->
+                    { modifier -> PlaceTile(place, chosen = place == state.habitat, onEvent, modifier) }
+                },
+            )
         }
         Text(
             when (state.tab) {
                 SuppliesTab.FOOD -> stringResource(R.string.titan_hint_food, name)
                 SuppliesTab.GEAR -> stringResource(R.string.titan_hint_gear, name)
-                SuppliesTab.HABITAT -> stringResource(R.string.titan_hint_habitat)
+                SuppliesTab.HABITAT -> stringResource(R.string.titan_hint_habitat, name)
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+@Composable
+private fun TileGrid(
+    tiles: List<@Composable (Modifier) -> Unit>,
+    columns: Int = COLUMNS_SUPPLIES,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md)) {
+        tiles.chunked(columns).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md)) {
+                row.forEach { tile -> tile(Modifier.weight(1f)) }
+                repeat(columns - row.size) { Box(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+/**
+ * Every slot of the titan's body, with what it wears there; under them, the pieces the titan owns
+ * for the open slot.
+ */
+@Composable
+private fun GearSlots(
+    state: TitanTabUiState.Titan,
+    onEvent: (TitanTabEvent) -> Unit,
+) {
+    val open = state.slots.first { it.slot == state.slot }
+    Column(verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.lg)) {
+        TileGrid(
+            state.slots.map { entry ->
+                { modifier -> SlotTile(entry, selected = entry.slot == state.slot, onEvent, modifier) }
+            },
+            columns = COLUMNS_SLOTS,
+        )
+        SectionHeading(open.slot.label())
+        if (open.owned.isEmpty()) {
+            Text(
+                stringResource(R.string.titan_slot_nothing),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            TileGrid(open.owned.map { entry -> { modifier -> GearTile(entry, onEvent, modifier) } })
+        }
+    }
+}
+
+@Composable
+private fun SlotTile(
+    entry: SlotEntry,
+    selected: Boolean,
+    onEvent: (TitanTabEvent) -> Unit,
+    modifier: Modifier,
+) {
+    val detail = entry.worn?.label() ?: stringResource(R.string.titan_slot_empty)
+    TitanItemTile(
+        icon = entry.worn?.let { TitanIcons.of(it) } ?: TitanIcons.of(entry.slot),
+        name = entry.slot.label(),
+        detail = detail,
+        spokenDetail = detail,
+        state = when {
+            selected -> TitanItemState.WORN
+            entry.worn == null -> TitanItemState.EMPTY
+            else -> TitanItemState.STOCKED
+        },
+        container = MaterialTheme.colorScheme.surfaceContainerHighest,
+        content = MaterialTheme.colorScheme.onSurface,
+        onClick = { onEvent(TitanTabEvent.SelectSlot(entry.slot)) },
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -322,19 +396,21 @@ private fun GearTile(
 @Composable
 private fun PlaceTile(
     place: TitanPlace,
+    chosen: Boolean,
+    onEvent: (TitanTabEvent) -> Unit,
     modifier: Modifier,
 ) {
     val tint = TitanTheme.vital(TitanVital.SPIRIT)
-    val detail = stringResource(UiR.string.titan_owned)
+    val detail = stringResource(if (chosen) R.string.titan_habitat_here else R.string.titan_habitat_go)
     TitanItemTile(
         icon = TitanIcons.of(place),
         name = place.label(),
         detail = detail,
         spokenDetail = detail,
-        state = TitanItemState.STOCKED,
+        state = if (chosen) TitanItemState.WORN else TitanItemState.STOCKED,
         container = tint.container,
         content = tint.content,
-        onClick = {},
+        onClick = { onEvent(TitanTabEvent.SelectHabitat(place)) },
         modifier = modifier,
     )
 }
@@ -458,3 +534,4 @@ private fun TitanActivity.note(): Int =
 
 private const val STAGE_HEIGHT = 190
 private const val COLUMNS_SUPPLIES = 4
+private const val COLUMNS_SLOTS = 3

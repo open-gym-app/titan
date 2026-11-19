@@ -5,6 +5,8 @@ import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import com.titan.core.domain.gamification.PetNicknameResult
 import com.titan.core.domain.model.CollectedItem
+import com.titan.core.domain.model.Gear
+import com.titan.core.domain.model.GearSlot
 import com.titan.core.domain.model.Pet
 import com.titan.core.domain.model.PetStats
 import com.titan.core.domain.model.TitanActivity
@@ -187,17 +189,55 @@ class TitanTabViewModelTest {
             pets.pets.value = listOf(brick())
             viewModel().uiState.test {
                 val state = awaitUntil<TitanTabUiState.Titan>()
-                assertEquals(listOf("headband", "crown"), state.gear.map { it.gear.key })
+                assertEquals(listOf("headband", "crown"), state.ownedGear())
                 assertEquals(listOf("track", "rack", "pool", "ring"), state.places.map { it.key })
 
                 unlocks.unlock(setOf("cape", "dojo"), at = NOW)
                 achievements.held.value += "four_week_streak"
-                val after = awaitUntil<TitanTabUiState.Titan> { it.places.size == 6 && it.gear.size == 3 }
-                assertEquals(listOf("headband", "crown", "cape"), after.gear.map { it.gear.key })
+                val after = awaitUntil<TitanTabUiState.Titan> { it.places.size == 6 && it.ownedGear().size == 3 }
+                assertEquals(listOf("headband", "crown", "cape"), after.ownedGear())
                 assertTrue(after.places.containsAll(listOf(TitanPlace.SAUNA, TitanPlace.DOJO)))
                 cancelAndIgnoreRemainingEvents()
             }
         }
+
+    @Test
+    fun `every slot is listed, an empty one as empty, and the open slot is kept`() =
+        runTest(dispatcher) {
+            pets.pets.value = listOf(brick())
+            val vm = viewModel()
+            vm.uiState.test {
+                val state = awaitUntil<TitanTabUiState.Titan>()
+                assertEquals(GearSlot.entries, state.slots.map { it.slot })
+                assertEquals(GearSlot.HEAD, state.slot)
+                assertTrue(state.slots.all { it.worn == null })
+
+                vm.onEvent(TitanTabEvent.ToggleGear("crown"))
+                val worn = awaitUntil<TitanTabUiState.Titan> { s -> s.slots.first().worn != null }
+                assertEquals(Gear.CROWN, worn.slots.first { it.slot == GearSlot.HEAD }.worn)
+
+                vm.onEvent(TitanTabEvent.SelectSlot(GearSlot.BACK))
+                assertEquals(GearSlot.BACK, awaitUntil<TitanTabUiState.Titan> { it.slot == GearSlot.BACK }.slot)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `the stage starts on the track, and a picked habitat is drawn and stored`() =
+        runTest(dispatcher) {
+            pets.pets.value = listOf(brick())
+            val vm = viewModel()
+            vm.uiState.test {
+                assertEquals(TitanPlace.TRACK, awaitUntil<TitanTabUiState.Titan>().habitat)
+
+                vm.onEvent(TitanTabEvent.SelectHabitat(TitanPlace.POOL))
+                awaitUntil<TitanTabUiState.Titan> { it.habitat == TitanPlace.POOL }
+                assertEquals("pool", loadout.rows.value["habitat"])
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    private fun TitanTabUiState.Titan.ownedGear() = slots.flatMap { it.owned }.map { it.gear.key }
 
     private suspend inline fun <reified S : TitanTabUiState> ReceiveTurbine<TitanTabUiState>.awaitUntil(
         crossinline accept: (S) -> Boolean = { true },

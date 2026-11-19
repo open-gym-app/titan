@@ -146,6 +146,13 @@ class FakeLoadout : LoadoutRepository {
         rows.value += slot.key to gearKey
     }
 
+    override suspend fun setHabitat(
+        petId: Long,
+        placeKey: String,
+    ) {
+        rows.value += "habitat" to placeKey
+    }
+
     override suspend fun takeOff(
         petId: Long,
         slotKey: String,

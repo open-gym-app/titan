@@ -411,6 +411,12 @@
     <string name="time_picker_cancel">Annuler</string>
 
     <!-- ── The titan ────────────────────────────────────────────────────────────── -->
+    <string name="titan_slot_head">Tête</string>
+    <string name="titan_slot_face">Visage</string>
+    <string name="titan_slot_hands">Mains</string>
+    <string name="titan_slot_neck">Cou</string>
+    <string name="titan_slot_back">Dos</string>
+    <string name="titan_slot_chest">Torse</string>
     <string name="titan_vital_fuel">Carburant</string>
     <string name="titan_vital_spirit">Moral</string>
     <string name="titan_vital_value">%1$d / %2$d</string>

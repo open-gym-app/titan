@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.res.stringResource
 import com.titan.core.domain.model.Gear
+import com.titan.core.domain.model.GearSlot
 import com.titan.core.domain.model.TitanActivity
 import com.titan.core.domain.model.TitanPlace
 import com.titan.core.domain.model.TitanVital
@@ -53,6 +54,21 @@ fun Gear.label(): String =
             Gear.CAPE -> R.string.titan_gear_cape
             Gear.SCARF -> R.string.titan_gear_scarf
             Gear.MEDAL -> R.string.titan_gear_medal
+        },
+    )
+
+/** The slot's name, in sentence case. */
+@Composable
+@ReadOnlyComposable
+fun GearSlot.label(): String =
+    stringResource(
+        when (this) {
+            GearSlot.HEAD -> R.string.titan_slot_head
+            GearSlot.FACE -> R.string.titan_slot_face
+            GearSlot.HANDS -> R.string.titan_slot_hands
+            GearSlot.NECK -> R.string.titan_slot_neck
+            GearSlot.BACK -> R.string.titan_slot_back
+            GearSlot.CHEST -> R.string.titan_slot_chest
         },
     )
 

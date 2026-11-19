@@ -11,6 +11,7 @@ import com.titan.core.domain.model.FeedEffect
 import com.titan.core.domain.model.FeedResult
 import com.titan.core.domain.model.Gear
 import com.titan.core.domain.model.GearEntry
+import com.titan.core.domain.model.GearSlot
 import com.titan.core.domain.model.PantryEntry
 import com.titan.core.domain.model.Pet
 import com.titan.core.domain.model.TitanPlace
@@ -76,6 +77,7 @@ class TitanTabViewModel @Inject constructor(
     private val lastEffect = MutableStateFlow<FeedEffect?>(null)
     private val hatching = MutableStateFlow(false)
     private val tab = savedStateHandle.getStateFlow(TAB_KEY, SuppliesTab.FOOD.name)
+    private val slot = savedStateHandle.getStateFlow(SLOT_KEY, GearSlot.HEAD.name)
     private val renameDraft = savedStateHandle.getStateFlow<String?>(RENAME_KEY, null)
     private val renameRefusal = MutableStateFlow<PetNicknameResult?>(null)
 
@@ -92,6 +94,10 @@ class TitanTabViewModel @Inject constructor(
                 val result = feed(petId, event.foodId)
                 lastEffect.value = (result as? FeedResult.Fed)?.effect
             }
+
+            is TitanTabEvent.SelectSlot -> savedStateHandle[SLOT_KEY] = event.slot.name
+
+            is TitanTabEvent.SelectHabitat -> act { petId -> loadoutRepository.setHabitat(petId, event.place.key) }
 
             is TitanTabEvent.ToggleGear -> act { petId ->
                 lastEffect.value = null
@@ -172,8 +178,13 @@ class TitanTabViewModel @Inject constructor(
             owned,
             loadoutRepository.observeLoadout(pet.id),
         ) { pantry, unlocked, loadout -> Triple(pantry, unlocked, loadout) }
-        val chrome = combine(tab, lastEffect, renameDraft, renameRefusal) { tab, effect, draft, refusal ->
-            Chrome(SuppliesTab.valueOf(tab), effect, draft?.let { TitanTabUiState.RenameState(it, refusal) })
+        val chrome = combine(tab, slot, lastEffect, renameDraft, renameRefusal) { tab, slot, effect, draft, refusal ->
+            Chrome(
+                tab = SuppliesTab.valueOf(tab),
+                slot = GearSlot.valueOf(slot),
+                effect = effect,
+                rename = draft?.let { TitanTabUiState.RenameState(it, refusal) },
+            )
         }
         return combine(state, supplies, chrome) { titan, (pantry, unlocked, loadout), chrome ->
             build(pet, titan, pantry, unlocked, loadout, chrome)
@@ -188,29 +199,37 @@ class TitanTabViewModel @Inject constructor(
         unlocked: Owned,
         loadout: Map<String, String>,
         chrome: Chrome,
-    ): TitanTabUiState.Titan =
-        TitanTabUiState.Titan(
+    ): TitanTabUiState.Titan {
+        // Nothing locked is shown: what the user sees is what the titan has.
+        val gear = Gear.entries.filter { it.isOwned(unlocked.dropped, unlocked.achievements) }
+        val places = TitanPlace.entries.filter { it.isOwned(unlocked.dropped, unlocked.achievements) }
+        return TitanTabUiState.Titan(
             petId = pet.id,
             speciesId = pet.speciesId,
             name = pet.nickname,
             level = pet.level,
             power = TitanRules.power(pet.level, pet.stats),
             activity = state.activity,
-            minutesLeft = state.endsAt?.let { ((it - state.updatedAt) / MINUTE_MILLIS).toInt() }?.takeIf { it >= 1 },
             vitals = state.vitals,
             alert = TitanRules.alertFor(state.vitals),
             head = loadout["head"],
             face = loadout["face"],
             tab = chrome.tab,
             pantry = pantry,
-            // Nothing locked is shown: what the user sees is what the titan has.
-            gear = Gear.entries
-                .filter { it.isOwned(unlocked.dropped, unlocked.achievements) }
-                .map { GearEntry(it, worn = loadout[it.slot.key] == it.key) },
-            places = TitanPlace.entries.filter { it.isOwned(unlocked.dropped, unlocked.achievements) },
+            slots = GearSlot.entries.map { slot ->
+                SlotEntry(
+                    slot = slot,
+                    worn = loadout[slot.key]?.let(Gear::byKey)?.takeIf { it in gear },
+                    owned = gear.filter { it.slot == slot }.map { GearEntry(it, worn = loadout[slot.key] == it.key) },
+                )
+            },
+            slot = chrome.slot,
+            places = places,
+            habitat = TitanPlace.byKey(loadout[TitanPlace.LOADOUT_SLOT])?.takeIf { it in places } ?: TitanPlace.DEFAULT,
             lastEffect = chrome.effect,
             rename = chrome.rename,
         )
+    }
 
     private fun ticker(): Flow<Unit> =
         flow {
@@ -228,6 +247,7 @@ class TitanTabViewModel @Inject constructor(
 
     private data class Chrome(
         val tab: SuppliesTab,
+        val slot: GearSlot,
         val effect: FeedEffect?,
         val rename: TitanTabUiState.RenameState?,
     )
@@ -235,7 +255,7 @@ class TitanTabViewModel @Inject constructor(
     private companion object {
         const val TAB_KEY = "titan_supplies_tab"
         const val RENAME_KEY = "titan_rename_draft"
+        const val SLOT_KEY = "titan_gear_slot"
         const val STOP_TIMEOUT_MILLIS = 5_000L
-        const val MINUTE_MILLIS = 60_000L
     }
 }

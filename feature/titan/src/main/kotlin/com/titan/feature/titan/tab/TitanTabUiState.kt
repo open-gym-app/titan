@@ -3,7 +3,9 @@ package com.titan.feature.titan.tab
 import com.titan.core.domain.gamification.PetNicknameResult
 import com.titan.core.domain.model.CollectedItem
 import com.titan.core.domain.model.FeedEffect
+import com.titan.core.domain.model.Gear
 import com.titan.core.domain.model.GearEntry
+import com.titan.core.domain.model.GearSlot
 import com.titan.core.domain.model.PantryEntry
 import com.titan.core.domain.model.TitanActivity
 import com.titan.core.domain.model.TitanPlace
@@ -30,12 +32,13 @@ sealed interface TitanTabUiState {
      * The active titan. It picks what it does itself; the tab only shows it.
      *
      * @property name the nickname, or null to show the species' name.
-     * @property minutesLeft how long the current activity has to run, or null when it ends on a
-     *   condition (rest) or is nearly over.
      * @property alert the one vital to flag, if any.
      * @property lastEffect what the last feed did, shown as a chip until the next action.
-     * @property gear the gear the titan owns: nothing locked is shown.
-     * @property places the places the titan owns.
+     * @property slots every slot gear can go in, with what is worn there and what the titan owns
+     *   for it. Nothing locked is shown.
+     * @property slot the slot the gear tab has open.
+     * @property places the habitats the titan owns.
+     * @property habitat the one its stage is drawn on.
      */
     data class Titan(
         val petId: Long,
@@ -44,15 +47,16 @@ sealed interface TitanTabUiState {
         val level: Int,
         val power: Int,
         val activity: TitanActivity,
-        val minutesLeft: Int?,
         val vitals: TitanVitals,
         val alert: TitanVital?,
         val head: String?,
         val face: String?,
         val tab: SuppliesTab,
         val pantry: List<PantryEntry>,
-        val gear: List<GearEntry>,
+        val slots: List<SlotEntry>,
+        val slot: GearSlot,
         val places: List<TitanPlace>,
+        val habitat: TitanPlace,
         val lastEffect: FeedEffect? = null,
         val rename: RenameState? = null,
     ) : TitanTabUiState
@@ -68,11 +72,25 @@ sealed interface TitanTabUiState {
     )
 }
 
+/**
+ * One slot of the titan's body as the gear tab draws it.
+ *
+ * @property worn what is on it, if anything.
+ * @property owned the pieces the titan owns for it.
+ */
+data class SlotEntry(
+    val slot: GearSlot,
+    val worn: Gear?,
+    val owned: List<GearEntry>,
+)
+
 /** What the Titan tab can be asked to do. */
 sealed interface TitanTabEvent {
     data class SelectTab(val tab: SuppliesTab) : TitanTabEvent
     data class Feed(val foodId: String) : TitanTabEvent
+    data class SelectSlot(val slot: GearSlot) : TitanTabEvent
     data class ToggleGear(val gearKey: String) : TitanTabEvent
+    data class SelectHabitat(val place: TitanPlace) : TitanTabEvent
     data class Hatch(val collectedItemId: Long) : TitanTabEvent
     data object StartRename : TitanTabEvent
     data class EditRename(val draft: String) : TitanTabEvent

@@ -4,7 +4,6 @@ import com.titan.core.domain.model.Collectible
 import com.titan.core.domain.model.FeedEffect
 import com.titan.core.domain.model.PetStats
 import com.titan.core.domain.model.TitanActivity
-import com.titan.core.domain.model.TitanPlace
 import com.titan.core.domain.model.TitanState
 import com.titan.core.domain.model.TitanVital
 import com.titan.core.domain.model.TitanVitals
@@ -27,10 +26,10 @@ import kotlin.random.Random
  *
  * ### The titan picks for itself
  *
- * When an activity ends, the titan chooses its next one from where it can go. Nobody chooses for
- * it. A hungry titan only rests or idles until it is fed. The draw is seeded by the caller's seed
- * **and the moment of the choice**, so the same state and time give the same answer on every
- * read.
+ * When an activity ends, the titan chooses its next one, and how long it keeps at it, at random.
+ * Nobody chooses for it. A hungry titan only rests or idles until it is fed. The draw is seeded by
+ * the caller's seed **and the moment of the choice**, so the same state and time give the same
+ * answer on every read.
  *
  * The rates are starting defaults; the canvas gives costs but no rates.
  */
@@ -96,13 +95,11 @@ object TitanRules {
      * returns the state as it is: time does not run backwards here, and nothing is undone.
      *
      * @param seed what the titan's own choices are drawn from, mixed with each choice's moment.
-     * @param places where the titan can go.
      */
     fun advance(
         state: TitanState,
         to: Long,
         seed: Long,
-        places: Set<TitanPlace> = TitanPlace.STARTING,
     ): TitanState {
         var current = state
         while (true) {
@@ -110,7 +107,7 @@ object TitanRules {
             val nextTick = (Math.floorDiv(now, TICK_MILLIS) + 1) * TICK_MILLIS
             val end = current.endsAt?.coerceAtLeast(now)
             current = when {
-                end != null && end < nextTick && end <= to -> finish(current, at = end, seed, places)
+                end != null && end < nextTick && end <= to -> finish(current, at = end, seed)
                 nextTick <= to -> tick(current, at = nextTick)
                 else -> return if (to > now) current.copy(updatedAt = to) else current
             }
@@ -184,29 +181,19 @@ object TitanRules {
         state: TitanState,
         at: Long,
         seed: Long,
-        places: Set<TitanPlace>,
     ): TitanState {
         val vitals = state.vitals.plus(TitanVital.SPIRIT, state.activity.spiritOnFinish)
         val resume = state.resumeActivity
         if (state.activity == TitanActivity.EAT && resume != null) {
             return start(vitals, resume, at, resume = null)
         }
-        return start(vitals, next(vitals, at, seed, places), at, resume = null)
-    }
-
-    private fun next(
-        vitals: TitanVitals,
-        at: Long,
-        seed: Long,
-        places: Set<TitanPlace>,
-    ): TitanActivity {
+        val random = Random(seed xor (at * SEED_MIX))
         val hungry = vitals.fuel < HUNGRY_BELOW
-        val open = TitanActivity.entries.filter { activity ->
-            activity.selfChosen &&
-                (activity.place == null || activity.place in places) &&
-                (!hungry || activity.place == null)
-        }
-        return open[Random(seed xor (at * SEED_MIX)).nextInt(open.size)]
+        val open = TitanActivity.entries.filter { it.selfChosen && !(hungry && it.exercise) }
+        val activity = open[random.nextInt(open.size)]
+        val shortest = activity.shortest.inWholeMilliseconds
+        val longest = activity.duration?.inWholeMilliseconds ?: shortest
+        return start(vitals, activity, at, resume = null, length = random.nextLong(shortest, longest + 1))
     }
 
     private fun start(
@@ -214,12 +201,13 @@ object TitanRules {
         activity: TitanActivity,
         at: Long,
         resume: TitanActivity?,
+        length: Long? = activity.duration?.inWholeMilliseconds,
     ): TitanState =
         TitanState(
             vitals = vitals,
             activity = activity,
             startedAt = at,
-            endsAt = activity.duration?.let { at + it.inWholeMilliseconds },
+            endsAt = length?.let { at + it },
             resumeActivity = resume,
             updatedAt = at,
         )

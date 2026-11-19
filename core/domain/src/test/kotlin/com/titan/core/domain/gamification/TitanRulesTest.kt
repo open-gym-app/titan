@@ -127,14 +127,20 @@ class TitanRulesTest {
     }
 
     @Test
-    fun `the titan never chooses a place it does not have, or a meal`() {
-        val places = setOf(TitanPlace.TRACK)
+    fun `the titan never chooses a meal, and draws each length within the activity's range`() {
+        val lengths = mutableSetOf<Long>()
         repeat(200) { seed ->
-            val state = TitanRules.advance(TitanRules.starting(0), to = 6 * HOUR, seed = seed.toLong(), places)
+            val state = TitanRules.advance(TitanRules.starting(0), to = 6 * HOUR, seed = seed.toLong())
             val chosen = state.activity
-            assertTrue("$chosen at seed $seed", chosen.place == null || chosen.place in places)
             assertTrue(chosen != TitanActivity.EAT)
+            val length = state.endsAt!! - state.startedAt
+            assertTrue(
+                "$chosen lasts $length at seed $seed",
+                length in chosen.shortest.inWholeMilliseconds..chosen.duration!!.inWholeMilliseconds,
+            )
+            lengths += length
         }
+        assertTrue("lengths vary, ${lengths.size} distinct", lengths.size > 50)
     }
 
     @Test

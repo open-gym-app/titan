@@ -35,7 +35,11 @@
     <string name="titan_tab_habitat">Habitat</string>
     <string name="titan_hint_food">Ganha treinando: cada treino concluído rende comida. Toque em um item para alimentar %1$s.</string>
     <string name="titan_hint_gear">O equipamento é estético: muda a aparência de %1$s, nunca a força. Conquistas e subidas de nível trazem peças novas.</string>
-    <string name="titan_hint_habitat">Lugares desbloqueiam atividades. Conquistas e subidas de nível abrem novos.</string>
+    <string name="titan_hint_habitat">Os habitats mudam o cenário atrás de %1$s. Conquistas e subidas de nível abrem novos.</string>
+    <string name="titan_slot_empty">Vazio</string>
+    <string name="titan_slot_nothing">Nada para vestir aqui ainda. Conquistas e subidas de nível trazem peças novas.</string>
+    <string name="titan_habitat_here">Aqui</string>
+    <string name="titan_habitat_go">Ir</string>
     <string name="titan_gear_wear">Usar</string>
     <string name="titan_none_title">Nenhum titã ainda</string>
     <string name="titan_none_body">Um titã é um companheiro que cresce com seu treino. Às vezes cai um ovo quando você conclui um treino.</string>

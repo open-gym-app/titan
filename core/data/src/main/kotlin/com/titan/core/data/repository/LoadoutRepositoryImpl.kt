@@ -3,6 +3,7 @@ package com.titan.core.data.repository
 import com.titan.core.data.db.dao.LoadoutDao
 import com.titan.core.data.db.entity.PetLoadoutEntity
 import com.titan.core.domain.model.GearSlot
+import com.titan.core.domain.model.TitanPlace
 import com.titan.core.domain.repository.LoadoutRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -18,6 +19,11 @@ class LoadoutRepositoryImpl @Inject constructor(private val dao: LoadoutDao) : L
         slot: GearSlot,
         gearKey: String,
     ) = dao.upsert(PetLoadoutEntity(petId = petId, slot = slot.key, gear = gearKey))
+
+    override suspend fun setHabitat(
+        petId: Long,
+        placeKey: String,
+    ) = dao.upsert(PetLoadoutEntity(petId = petId, slot = TitanPlace.LOADOUT_SLOT, gear = placeKey))
 
     override suspend fun takeOff(
         petId: Long,

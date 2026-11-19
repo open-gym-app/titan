@@ -35,7 +35,11 @@
     <string name="titan_tab_habitat">Habitat</string>
     <string name="titan_hint_food">Gagnée en s’entraînant : chaque séance terminée en rapporte. Touchez un aliment pour nourrir %1$s.</string>
     <string name="titan_hint_gear">L’équipement est esthétique : il change l’apparence de %1$s, jamais sa force. Les succès et les montées de niveau en apportent de nouveaux.</string>
-    <string name="titan_hint_habitat">Les lieux débloquent des activités. Les succès et les montées de niveau en ouvrent de nouveaux.</string>
+    <string name="titan_hint_habitat">Les habitats changent le décor derrière %1$s. Les succès et les montées de niveau en ouvrent de nouveaux.</string>
+    <string name="titan_slot_empty">Vide</string>
+    <string name="titan_slot_nothing">Rien à porter ici pour l’instant. Les succès et les montées de niveau apportent de nouvelles pièces.</string>
+    <string name="titan_habitat_here">Ici</string>
+    <string name="titan_habitat_go">Y aller</string>
     <string name="titan_gear_wear">Porter</string>
     <string name="titan_none_title">Pas encore de titan</string>
     <string name="titan_none_body">Un titan est un compagnon qui grandit avec votre entraînement. Un œuf tombe parfois à la fin d’une séance.</string>

@@ -132,6 +132,13 @@ class WearGearUseCaseTest {
             rows.value += petId to (of(petId) + (slot.key to gearKey))
         }
 
+        override suspend fun setHabitat(
+            petId: Long,
+            placeKey: String,
+        ) {
+            rows.value += petId to (of(petId) + ("habitat" to placeKey))
+        }
+
         override suspend fun takeOff(
             petId: Long,
             slotKey: String,

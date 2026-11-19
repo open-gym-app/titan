@@ -6,6 +6,7 @@ import com.titan.core.domain.gamification.Collectibles
 import com.titan.core.domain.model.CollectedItem
 import com.titan.core.domain.model.Gear
 import com.titan.core.domain.model.GearEntry
+import com.titan.core.domain.model.GearSlot
 import com.titan.core.domain.model.PantryEntry
 import com.titan.core.domain.model.ThemePreference
 import com.titan.core.domain.model.TitanActivity
@@ -25,7 +26,6 @@ internal fun previewTitan(tab: SuppliesTab = SuppliesTab.FOOD) =
         level = 14,
         power = 48,
         activity = TitanActivity.TRAIN,
-        minutesLeft = 3,
         vitals = TitanVitals(fuel = 22, spirit = 55),
         alert = TitanVital.FUEL,
         head = "headband",
@@ -34,12 +34,19 @@ internal fun previewTitan(tab: SuppliesTab = SuppliesTab.FOOD) =
         pantry = Collectibles.FOOD.mapIndexed { i, food ->
             PantryEntry(food, count = PREVIEW_STOCK[i], isNew = food.id == "steak", newestFrom = null)
         },
-        gear = listOf(
-            GearEntry(Gear.HEADBAND, worn = true),
-            GearEntry(Gear.CROWN, worn = false),
-        ),
-        places = TitanPlace.STARTING.toList(),
+        slots = GearSlot.entries.map { slot ->
+            SlotEntry(
+                slot = slot,
+                worn = Gear.HEADBAND.takeIf { slot == GearSlot.HEAD },
+                owned = PREVIEW_GEAR.filter { it.slot == slot }.map { GearEntry(it, worn = it == Gear.HEADBAND) },
+            )
+        },
+        slot = GearSlot.HEAD,
+        places = TitanPlace.STARTING.toList() + TitanPlace.SAUNA,
+        habitat = TitanPlace.RACK,
     )
+
+private val PREVIEW_GEAR = listOf(Gear.HEADBAND, Gear.CROWN, Gear.CAPE)
 
 @Preview(name = "Titan tab", widthDp = 390, heightDp = 1200)
 @Composable

@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.unit.dp
 import com.titan.core.domain.model.Gear
+import com.titan.core.domain.model.GearSlot
 import com.titan.core.domain.model.TitanActivity
 import com.titan.core.domain.model.TitanPlace
 import com.titan.core.domain.model.TitanVital
@@ -45,6 +46,9 @@ object TitanIcons {
 
     /** The icon for [gear]. */
     fun of(gear: Gear): ImageVector = gearIcons.getValue(gear)
+
+    /** The icon for an empty [slot]: the part of the body it goes on. */
+    fun of(slot: GearSlot): ImageVector = slotIcons.getValue(slot)
 
     /** The icon for [place]. */
     fun of(place: TitanPlace): ImageVector = places.getValue(place)
@@ -89,6 +93,17 @@ object TitanIcons {
             Gear.CAPE to icon("M7 4h10l3 16H4zM12 4v16"),
             Gear.SCARF to icon("M6 6h12v4H6zM14 10v9l3-2v-7"),
             Gear.MEDAL to icon("M8 3l4 7 4-7M12 18a4 4 0 1 0 0-8a4 4 0 0 0 0 8z"),
+        )
+    }
+
+    private val slotIcons by lazy {
+        mapOf(
+            GearSlot.HEAD to icon("M12 4a6 6 0 1 0 0 12a6 6 0 0 0 0-12zM9 20h6"),
+            GearSlot.FACE to icon("M12 3a8 9 0 1 0 0 18a8 9 0 0 0 0-18zM9 10v1M15 10v1M9 15c2 1.5 4 1.5 6 0"),
+            GearSlot.HANDS to icon("M7 20v-8l-2-3M7 12V5M10 11V3.5M13 11V4.5M16 12V7M16 12c0 5-2 8-6 8H7"),
+            GearSlot.NECK to icon("M8 3v6c0 2 1.5 3 4 3s4-1 4-3V3M5 21c1-5 3.5-7 7-7s6 2 7 7"),
+            GearSlot.BACK to icon("M8 4h8l3 16H5zM12 8v8"),
+            GearSlot.CHEST to icon("M4 7l4-3h8l4 3-2 3-2-1v11H8V9l-2 1z"),
         )
     }
 

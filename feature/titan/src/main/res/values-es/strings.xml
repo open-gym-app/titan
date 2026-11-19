@@ -35,7 +35,11 @@
     <string name="titan_tab_habitat">Hábitat</string>
     <string name="titan_hint_food">Se gana entrenando: cada entrenamiento terminado da comida. Toca un alimento para dárselo a %1$s.</string>
     <string name="titan_hint_gear">El equipo es estético: cambia el aspecto de %1$s, nunca su fuerza. Los logros y las subidas de nivel traen piezas nuevas.</string>
-    <string name="titan_hint_habitat">Los lugares desbloquean actividades. Los logros y las subidas de nivel abren otros nuevos.</string>
+    <string name="titan_hint_habitat">Los hábitats cambian el fondo detrás de %1$s. Los logros y las subidas de nivel abren otros nuevos.</string>
+    <string name="titan_slot_empty">Vacío</string>
+    <string name="titan_slot_nothing">Nada que ponerse aquí todavía. Los logros y las subidas de nivel traen piezas nuevas.</string>
+    <string name="titan_habitat_here">Aquí</string>
+    <string name="titan_habitat_go">Ir</string>
     <string name="titan_gear_wear">Poner</string>
     <string name="titan_none_title">Aún no tienes titán</string>
     <string name="titan_none_body">Un titán es un compañero que crece con tu entrenamiento. A veces cae un huevo al terminar un entrenamiento.</string>

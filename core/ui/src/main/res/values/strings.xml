@@ -644,6 +644,12 @@
 
     <!-- The companion's vocabulary, shared by the tab, the dock, the feed sheet
          and the inventory. Written in sentence case: the components uppercase the mono labels. -->
+    <string name="titan_slot_head">Head</string>
+    <string name="titan_slot_face">Face</string>
+    <string name="titan_slot_hands">Hands</string>
+    <string name="titan_slot_neck">Neck</string>
+    <string name="titan_slot_back">Back</string>
+    <string name="titan_slot_chest">Chest</string>
     <string name="titan_vital_fuel">Fuel</string>
     <string name="titan_vital_spirit">Spirit</string>
     <string name="titan_vital_value">%1$d / %2$d</string>
