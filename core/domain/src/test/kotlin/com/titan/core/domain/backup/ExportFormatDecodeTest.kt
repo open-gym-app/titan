@@ -388,7 +388,7 @@ class ExportFormatDecodeTest {
 
     @Test
     fun `a version 1 document restores as this version, with the tables it never had empty`() {
-        val versionOne = sampleDocument().copy(sessionPetClaim = emptyList(), pet = emptyList())
+        val versionOne = sampleDocument().copy(sessionPetClaim = emptyList(), pet = emptyList(), petState = emptyList())
 
         val decoded = ExportFormat.decode(source(documentAtVersion(1, versionOne)))
 
@@ -401,7 +401,9 @@ class ExportFormatDecodeTest {
         val decoded = ExportFormat.decode(source(documentAtVersion(1, sampleDocument())))
 
         assertEquals(
-            ExportFormat.Decoded.Success(sampleDocument().copy(sessionPetClaim = emptyList(), pet = emptyList())),
+            ExportFormat.Decoded.Success(
+                sampleDocument().copy(sessionPetClaim = emptyList(), pet = emptyList(), petState = emptyList()),
+            ),
             decoded,
         )
     }

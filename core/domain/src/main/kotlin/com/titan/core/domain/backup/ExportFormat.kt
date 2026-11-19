@@ -13,6 +13,7 @@ import com.titan.core.domain.backup.model.ImportError
 import com.titan.core.domain.backup.model.MuscleGroupRow
 import com.titan.core.domain.backup.model.PersonalRecordRow
 import com.titan.core.domain.backup.model.PetRow
+import com.titan.core.domain.backup.model.PetStateRow
 import com.titan.core.domain.backup.model.PreferencesPayload
 import com.titan.core.domain.backup.model.QuestCompletionRow
 import com.titan.core.domain.backup.model.SessionExerciseRow
@@ -137,6 +138,7 @@ object ExportFormat {
             is QuestCompletionRow -> json.encodeToString(QuestCompletionRow.serializer(), row)
             is CollectedItemRow -> json.encodeToString(CollectedItemRow.serializer(), row)
             is PetRow -> json.encodeToString(PetRow.serializer(), row)
+            is PetStateRow -> json.encodeToString(PetStateRow.serializer(), row)
         }
 
     /**

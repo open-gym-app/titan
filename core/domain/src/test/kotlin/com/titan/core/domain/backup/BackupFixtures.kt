@@ -10,6 +10,7 @@ import com.titan.core.domain.backup.model.ExportDocument
 import com.titan.core.domain.backup.model.MuscleGroupRow
 import com.titan.core.domain.backup.model.PersonalRecordRow
 import com.titan.core.domain.backup.model.PetRow
+import com.titan.core.domain.backup.model.PetStateRow
 import com.titan.core.domain.backup.model.PlateStockPayload
 import com.titan.core.domain.backup.model.PreferencesPayload
 import com.titan.core.domain.backup.model.QuestCompletionRow
@@ -98,6 +99,11 @@ fun sampleDocument(
         ),
         collectedItem = sampleCollectedItems(),
         pet = samplePets(),
+        petState = listOf(
+            PetStateRow(1, fuel = 22, energy = 80, spirit = 55, "train", FINISHED_AT, FINISHED_AT + 900_000, null, FINISHED_AT),
+            // An activity this build has never heard of, kept as written.
+            PetStateRow(2, fuel = 64, energy = 80, spirit = 55, "fly", FINISHED_AT, null, "train", FINISHED_AT),
+        ),
     )
 
 private fun sampleCollectedItems() =

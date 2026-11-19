@@ -9,10 +9,12 @@ import com.titan.core.domain.repository.PetRepository
 import com.titan.core.domain.repository.ProgressionRepository
 import com.titan.core.domain.repository.QuestRepository
 import com.titan.core.domain.repository.SessionRepository
+import com.titan.core.domain.repository.TitanStateRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
 import com.titan.core.domain.time.Clock
 import com.titan.core.domain.usecase.AchievementTriggerUseCase
 import com.titan.core.domain.usecase.AwardXpUseCase
+import com.titan.core.domain.usecase.ChooseActivityUseCase
 import com.titan.core.domain.usecase.GrowPetUseCase
 import com.titan.core.domain.usecase.HatchEggUseCase
 import com.titan.core.domain.usecase.LootRollUseCase
@@ -176,4 +178,8 @@ object GamificationUseCaseModule {
             petRepository = petRepository,
             clock = clock,
         )
+
+    @Provides
+    fun provideChooseActivityUseCase(titanStateRepository: TitanStateRepository): ChooseActivityUseCase =
+        ChooseActivityUseCase(titanStateRepository)
 }

@@ -92,6 +92,9 @@ enum class BackupTable(val tableName: String) {
 
     /** Needs `collected_item`: a pet names the drop row of the egg it hatched from. */
     PET("pet"),
+
+    /** Needs `pet`. One row per pet: its vitals and current activity. */
+    PET_STATE("pet_state"),
     ;
 
     companion object {

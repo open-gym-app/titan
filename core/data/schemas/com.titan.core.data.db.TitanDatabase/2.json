@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 2,
-    "identityHash": "1e29fde2a13368239080a43cfc5570c1",
+    "identityHash": "0037ca15769f37eb82c9cfa128282505",
     "entities": [
       {
         "tableName": "exercise",
@@ -1525,6 +1525,83 @@
         ]
       },
       {
+        "tableName": "pet_state",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`pet_id` INTEGER NOT NULL, `fuel` INTEGER NOT NULL, `energy` INTEGER NOT NULL, `spirit` INTEGER NOT NULL, `activity` TEXT NOT NULL, `activity_started_at` INTEGER NOT NULL, `activity_ends_at` INTEGER, `resume_activity` TEXT, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`pet_id`), FOREIGN KEY(`pet_id`) REFERENCES `pet`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "petId",
+            "columnName": "pet_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fuel",
+            "columnName": "fuel",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "energy",
+            "columnName": "energy",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "spirit",
+            "columnName": "spirit",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "activity",
+            "columnName": "activity",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "activityStartedAt",
+            "columnName": "activity_started_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "activityEndsAt",
+            "columnName": "activity_ends_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "resumeActivity",
+            "columnName": "resume_activity",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "pet_id"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "pet",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "pet_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
         "tableName": "session_pet_claim",
         "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`session_id` INTEGER NOT NULL, PRIMARY KEY(`session_id`), FOREIGN KEY(`session_id`) REFERENCES `workout_session`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
@@ -1558,7 +1635,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '1e29fde2a13368239080a43cfc5570c1')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0037ca15769f37eb82c9cfa128282505')"
     ]
   }
 }

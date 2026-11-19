@@ -348,13 +348,33 @@ class HostileBackupTest : RoomTestBase() {
         }
 
     @Test
+    fun `a restored pet state with vitals out of range is clamped on its way in`() =
+        runBlocking {
+            val progress = restore { document ->
+                document.copy(
+                    petState = document.petState.map { it.copy(fuel = -40, energy = 900, spirit = Int.MAX_VALUE) },
+                )
+            }
+
+            assertComplete(progress)
+            val rows = db.backupDao().readPetStates(limit = 10, offset = 0)
+            assertEquals(listOf(0, 0), rows.map { it.fuel })
+            assertEquals(listOf(100, 100), rows.map { it.energy })
+            assertEquals(listOf(100, 100), rows.map { it.spirit })
+            assertEquals("an unknown activity is kept as written", "fly", rows.last().activity)
+        }
+
+    @Test
     fun `a restored pet numbered below one is refused and changes nothing`() =
         runBlocking {
             db.seedEveryTable()
             val before = db.dumpEverything()
 
             val progress = restoreOver { document ->
-                document.copy(pet = document.pet.map { if (it.id == 2L) it.copy(id = 0) else it })
+                document.copy(
+                    pet = document.pet.map { if (it.id == 2L) it.copy(id = 0) else it },
+                    petState = document.petState.map { if (it.petId == 2L) it.copy(petId = 0) else it },
+                )
             }
 
             assertRefused(progress, "pet.id 0 is outside the accepted range")

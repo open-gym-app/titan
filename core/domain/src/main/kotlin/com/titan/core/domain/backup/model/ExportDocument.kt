@@ -70,6 +70,7 @@ data class ExportDocument(
     @SerialName("quest_completion") val questCompletion: List<QuestCompletionRow> = emptyList(),
     @SerialName("collected_item") val collectedItem: List<CollectedItemRow> = emptyList(),
     @SerialName("pet") val pet: List<PetRow> = emptyList(),
+    @SerialName("pet_state") val petState: List<PetStateRow> = emptyList(),
 ) {
 
     /**
@@ -103,6 +104,7 @@ data class ExportDocument(
             BackupTable.QUEST_COMPLETION -> questCompletion
             BackupTable.COLLECTED_ITEM -> collectedItem
             BackupTable.PET -> pet
+            BackupTable.PET_STATE -> petState
         }
 
     /** How many rows the whole document holds, across every table. What a progress bar divides by. */
@@ -121,7 +123,8 @@ data class ExportDocument(
          * restoring, an up-converter listed there; until one is written, a reader refuses
          * every version but its own, older ones included.
          *
-         * Version 2 added the Titans milestone's tables: `pet` and `session_pet_claim`. A version 1 file still restores, through
+         * Version 2 added the Titans milestone's tables: `pet`, `pet_state` and
+         * `session_pet_claim`. A version 1 file still restores, through
          * [com.titan.core.domain.backup.SchemaUpgrade].
          */
         const val SCHEMA_VERSION: Int = 2
