@@ -1,0 +1,210 @@
+package com.titan.core.domain.gamification
+
+import com.titan.core.domain.model.ChooseActivityResult
+import com.titan.core.domain.model.PetStats
+import com.titan.core.domain.model.TitanActivity
+import com.titan.core.domain.model.TitanPlace
+import com.titan.core.domain.model.TitanState
+import com.titan.core.domain.model.TitanVital
+import com.titan.core.domain.model.TitanVitals
+import kotlin.random.Random
+
+/**
+ * How the titan's state moves, as pure functions over named rates.
+ *
+ * ### Time passes without a worker
+ *
+ * There is no background job and no alarm. A state is stored with the moment it describes, and
+ * [advance] carries it to "now" when something reads it.
+ *
+ * ### Ticks are on the clock, not on the read
+ *
+ * Decay and refill happen at **absolute** quarter-hour boundaries ([TICK_MILLIS] since the
+ * epoch), and an activity ends at its own stored time. So the events between two moments do not
+ * depend on when anybody looked: advancing a→c is exactly advancing a→b then b→c, for any b,
+ * which is what lets the dock and the tab read the same titan at different moments and agree.
+ *
+ * ### The titan picks for itself
+ *
+ * When an activity ends, the titan chooses its next one from what it can afford and where it can
+ * go. The draw is seeded by the caller's seed **and the moment of the choice**, so the same
+ * state and time give the same answer on every read.
+ *
+ * The rates are starting defaults; the canvas gives costs but no rates.
+ */
+object TitanRules {
+
+    /** How often decay and refill happen: every quarter hour, on the clock. */
+    const val TICK_MILLIS: Long = 15 * 60 * 1000L
+
+    /** Fuel lost per tick. Four an hour: a full titan gets hungry in about a day. */
+    const val FUEL_PER_TICK = 1
+
+    /** Decay never takes fuel below this. The titan just rests more. No death, no guilt. */
+    const val FUEL_FLOOR = 10
+
+    /** Spirit is lost once every this many ticks: one an hour. */
+    const val SPIRIT_DECAY_EVERY_TICKS = 4
+
+    /** Energy regained per tick while resting. */
+    const val REST_ENERGY_PER_TICK = 5
+
+    /** Energy regained per tick while idle. */
+    const val IDLE_ENERGY_PER_TICK = 1
+
+    /** Under this much energy the titan rests rather than choosing something to do. */
+    const val MIN_ENERGY_TO_PLAY = TitanVitals.LOW_BELOW
+
+    /** The state a newly hatched titan starts in at [now]. */
+    fun starting(now: Long): TitanState = start(TitanVitals.START, TitanActivity.IDLE, at = now, resume = null)
+
+    /**
+     * The single vital to raise an alert for: the **lowest**, and only if it is low.
+     *
+     * Ties resolve in [TitanVital]'s declaration order — fuel, then energy, then spirit — which
+     * is also the order of what the user can do about them.
+     */
+    fun alertFor(vitals: TitanVitals): TitanVital? = TitanVital.entries.minBy { vitals[it] }.takeIf { vitals.isLow(it) }
+
+    /**
+     * [state] carried forward to [to].
+     *
+     * A [to] at or before the state's own moment — a clock set back, a read from the past —
+     * returns the state as it is: time does not run backwards here, and nothing is undone.
+     *
+     * @param seed what the titan's own choices are drawn from, mixed with each choice's moment.
+     * @param places where the titan can go.
+     */
+    fun advance(
+        state: TitanState,
+        to: Long,
+        seed: Long,
+        places: Set<TitanPlace> = TitanPlace.STARTING,
+    ): TitanState {
+        var current = state
+        while (true) {
+            val now = current.updatedAt
+            val nextTick = (Math.floorDiv(now, TICK_MILLIS) + 1) * TICK_MILLIS
+            val end = current.endsAt?.coerceAtLeast(now)
+            current = when {
+                end != null && end < nextTick && end <= to -> finish(current, at = end, seed, places)
+                nextTick <= to -> tick(current, at = nextTick, seed, places)
+                else -> return if (to > now) current.copy(updatedAt = to) else current
+            }
+        }
+    }
+
+    /**
+     * The user asks the titan to do [activity] instead, at [now].
+     *
+     * [state] must already be advanced to [now]. Refused, with its reason and nothing changed,
+     * when it cannot afford it or does not have the place.
+     */
+    fun choose(
+        state: TitanState,
+        activity: TitanActivity,
+        now: Long,
+        places: Set<TitanPlace> = TitanPlace.STARTING,
+    ): ChooseActivityResult =
+        when {
+            state.activity == activity -> ChooseActivityResult.Chosen(state)
+            !activity.selfChosen -> ChooseActivityResult.NotChoosable
+            activity.place != null && activity.place !in places -> ChooseActivityResult.PlaceLocked(activity.place)
+            activity.energyCost > state.vitals.energy -> ChooseActivityResult.NotAffordable(activity.energyCost)
+            else -> ChooseActivityResult.Chosen(start(state.vitals, activity, at = now, resume = null))
+        }
+
+    /**
+     * The titan's power: one figure, derived from what training has built.
+     *
+     * Twice its level plus a tenth of its three stats together. Derived from training alone, so
+     * a past week's power can be recomputed from history (#292).
+     */
+    fun power(
+        level: Int,
+        stats: PetStats,
+    ): Int {
+        val total = stats.strength.toLong() + stats.endurance + stats.mobility
+        return (2L * level + total / POWER_STAT_DIVISOR).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+    }
+
+    private fun tick(
+        state: TitanState,
+        at: Long,
+        seed: Long,
+        places: Set<TitanPlace>,
+    ): TitanState {
+        var vitals = state.vitals
+        if (vitals.fuel > FUEL_FLOOR) {
+            vitals = vitals.plus(TitanVital.FUEL, -FUEL_PER_TICK).let {
+                if (it.fuel < FUEL_FLOOR) it.copy(fuel = FUEL_FLOOR) else it
+            }
+        }
+        if (Math.floorMod(Math.floorDiv(at, TICK_MILLIS), SPIRIT_DECAY_EVERY_TICKS.toLong()) == 0L) {
+            vitals = vitals.plus(TitanVital.SPIRIT, -1)
+        }
+        when (state.activity) {
+            TitanActivity.REST -> vitals = vitals.plus(TitanVital.ENERGY, REST_ENERGY_PER_TICK)
+            TitanActivity.IDLE -> vitals = vitals.plus(TitanVital.ENERGY, IDLE_ENERGY_PER_TICK)
+            else -> Unit
+        }
+        val ticked = state.copy(vitals = vitals, updatedAt = at)
+        return if (ticked.activity == TitanActivity.REST && vitals.energy >= TitanVitals.MAX) {
+            finish(ticked, at, seed, places)
+        } else {
+            ticked
+        }
+    }
+
+    private fun finish(
+        state: TitanState,
+        at: Long,
+        seed: Long,
+        places: Set<TitanPlace>,
+    ): TitanState {
+        val vitals = state.vitals.plus(TitanVital.SPIRIT, state.activity.spiritOnFinish)
+        val resume = state.resumeActivity
+        if (state.activity == TitanActivity.EAT && resume != null) {
+            // Back to what it was doing, without paying for it twice.
+            return start(vitals, resume, at, resume = null, charge = false)
+        }
+        return start(vitals, next(vitals, at, seed, places), at, resume = null)
+    }
+
+    private fun next(
+        vitals: TitanVitals,
+        at: Long,
+        seed: Long,
+        places: Set<TitanPlace>,
+    ): TitanActivity {
+        if (vitals.energy < MIN_ENERGY_TO_PLAY) return TitanActivity.REST
+        val affordable = TitanActivity.entries.filter { activity ->
+            activity.selfChosen &&
+                activity != TitanActivity.REST &&
+                activity.energyCost <= vitals.energy &&
+                (activity.place == null || activity.place in places)
+        }
+        return affordable[Random(seed xor (at * SEED_MIX)).nextInt(affordable.size)]
+    }
+
+    private fun start(
+        vitals: TitanVitals,
+        activity: TitanActivity,
+        at: Long,
+        resume: TitanActivity?,
+        charge: Boolean = true,
+    ): TitanState =
+        TitanState(
+            vitals = if (charge) vitals.plus(TitanVital.ENERGY, -activity.energyCost) else vitals,
+            activity = activity,
+            startedAt = at,
+            endsAt = activity.duration?.let { at + it.inWholeMilliseconds },
+            resumeActivity = resume,
+            updatedAt = at,
+        )
+
+    private const val POWER_STAT_DIVISOR = 10L
+
+    /** An odd constant, so that consecutive moments seed far-apart generators. */
+    private const val SEED_MIX = -0x61c8864680b583ebL
+}
