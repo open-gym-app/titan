@@ -1,6 +1,10 @@
 package com.titan.core.data.mapper
 
+import com.titan.core.data.db.entity.FoodSeenEntity
+import com.titan.core.data.db.entity.PetFeedEntity
 import com.titan.core.data.db.entity.PetStateEntity
+import com.titan.core.domain.backup.model.FoodSeenRow
+import com.titan.core.domain.backup.model.PetFeedRow
 import com.titan.core.domain.backup.model.PetStateRow
 import com.titan.core.domain.model.TitanActivity
 import com.titan.core.domain.model.TitanState
@@ -60,3 +64,12 @@ fun PetStateRow.toEntity(): PetStateEntity =
         resumeActivity = resumeActivity,
         updatedAt = updatedAt,
     )
+
+fun PetFeedEntity.toRow(): PetFeedRow = PetFeedRow(collectedItemId = collectedItemId, petId = petId, fedAt = fedAt)
+
+fun PetFeedRow.toEntity(): PetFeedEntity =
+    PetFeedEntity(collectedItemId = collectedItemId, petId = petId, fedAt = fedAt)
+
+fun FoodSeenEntity.toRow(): FoodSeenRow = FoodSeenRow(collectibleId = collectibleId, seenUpTo = seenUpTo)
+
+fun FoodSeenRow.toEntity(): FoodSeenEntity = FoodSeenEntity(collectibleId = collectibleId, seenUpTo = seenUpTo)

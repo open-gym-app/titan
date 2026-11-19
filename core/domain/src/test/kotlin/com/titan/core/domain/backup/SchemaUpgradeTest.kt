@@ -23,6 +23,8 @@ class SchemaUpgradeTest {
             sessionPetClaim = emptyList(),
             pet = emptyList(),
             petState = emptyList(),
+            petFeed = emptyList(),
+            foodSeen = emptyList(),
         )
 
         val upgraded = SchemaUpgrade.toCurrent(versionOne)
@@ -37,6 +39,8 @@ class SchemaUpgradeTest {
         assertTrue(upgraded.pet.isEmpty())
         assertTrue(upgraded.sessionPetClaim.isEmpty())
         assertTrue(upgraded.petState.isEmpty())
+        assertTrue(upgraded.petFeed.isEmpty())
+        assertTrue(upgraded.foodSeen.isEmpty())
     }
 
     @Test

@@ -8,6 +8,7 @@ import com.titan.core.data.db.dao.BodyMeasurementDao
 import com.titan.core.data.db.dao.CollectedItemDao
 import com.titan.core.data.db.dao.ExerciseDao
 import com.titan.core.data.db.dao.MuscleGroupDao
+import com.titan.core.data.db.dao.PantryDao
 import com.titan.core.data.db.dao.PersonalRecordDao
 import com.titan.core.data.db.dao.PetDao
 import com.titan.core.data.db.dao.PetStateDao
@@ -126,6 +127,10 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun providePetStateDao(db: TitanDatabase): PetStateDao = db.petStateDao()
+
+    @Provides
+    @Singleton
+    fun providePantryDao(db: TitanDatabase): PantryDao = db.pantryDao()
 
     @Provides
     @Singleton

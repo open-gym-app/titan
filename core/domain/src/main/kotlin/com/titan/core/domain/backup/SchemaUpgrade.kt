@@ -38,6 +38,8 @@ internal object SchemaUpgrade {
                 sessionPetClaim = emptyList(),
                 pet = emptyList(),
                 petState = emptyList(),
+                petFeed = emptyList(),
+                foodSeen = emptyList(),
             )
 
             else -> throw IllegalArgumentException("no up-converter from version ${document.schemaVersion}")

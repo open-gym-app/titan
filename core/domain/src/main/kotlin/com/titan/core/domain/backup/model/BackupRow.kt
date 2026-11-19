@@ -372,3 +372,25 @@ data class PetStateRow(
     @SerialName("resume_activity") val resumeActivity: String?,
     @SerialName("updated_at") val updatedAt: Long,
 ) : BackupRow
+
+/**
+ * A row of `pet_feed`: one food drop eaten. [collectedItemId] is unique — an item is eaten once —
+ * and must name a `collected_item` in the same document. [petId] is null when the pet that ate
+ * it is gone.
+ */
+@Serializable
+data class PetFeedRow(
+    @SerialName("collected_item_id") val collectedItemId: Long,
+    @SerialName("pet_id") val petId: Long?,
+    @SerialName("fed_at") val fedAt: Long,
+) : BackupRow
+
+/**
+ * A row of `food_seen`: the newest drop of a food the user has looked at, which is what decides
+ * whether the food reads as new. Not validated against this build's foods.
+ */
+@Serializable
+data class FoodSeenRow(
+    @SerialName("collectible_id") val collectibleId: String,
+    @SerialName("seen_up_to") val seenUpTo: Long,
+) : BackupRow
