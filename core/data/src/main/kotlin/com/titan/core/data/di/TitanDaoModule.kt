@@ -1,6 +1,7 @@
 package com.titan.core.data.di
 
 import com.titan.core.data.db.TitanDatabase
+import com.titan.core.data.db.dao.LoadoutDao
 import com.titan.core.data.db.dao.PantryDao
 import com.titan.core.data.db.dao.PetDao
 import com.titan.core.data.db.dao.PetStateDao
@@ -36,4 +37,8 @@ object TitanDaoModule {
     @Provides
     @Singleton
     fun provideSessionPetClaimDao(db: TitanDatabase): SessionPetClaimDao = db.sessionPetClaimDao()
+
+    @Provides
+    @Singleton
+    fun provideLoadoutDao(db: TitanDatabase): LoadoutDao = db.loadoutDao()
 }

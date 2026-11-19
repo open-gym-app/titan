@@ -6,6 +6,7 @@ import com.titan.core.data.db.entity.ExerciseTagEntity
 import com.titan.core.data.db.entity.FoodSeenEntity
 import com.titan.core.data.db.entity.PetEntity
 import com.titan.core.data.db.entity.PetFeedEntity
+import com.titan.core.data.db.entity.PetLoadoutEntity
 import com.titan.core.data.db.entity.PetStateEntity
 import com.titan.core.data.db.entity.PetUnlockEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
@@ -254,6 +255,9 @@ private suspend fun TitanDatabase.seedTitanState() {
         ),
     )
     backupDao().insertPetFeeds(listOf(PetFeedEntity(collectedItemId = 5, petId = 1, fedAt = FINISHED_AT)))
+    backupDao().insertPetLoadouts(
+        listOf(PetLoadoutEntity(1, "head", "headband"), PetLoadoutEntity(2, "tail", "a_newer_gear")),
+    )
     backupDao().insertFoodSeen(listOf(FoodSeenEntity(collectibleId = "steak", seenUpTo = 5)))
     backupDao().insertPetUnlocks(
         // In key order, which is the order an export reads them back in.

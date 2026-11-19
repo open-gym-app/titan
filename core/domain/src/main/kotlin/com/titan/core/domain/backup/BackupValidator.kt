@@ -250,6 +250,12 @@ object BackupValidator {
             )
             ?: unique(BackupTable.FOOD_SEEN, "collectible_id", document.foodSeen.map { it.collectibleId })
             ?: unique(BackupTable.PET_UNLOCK, "key", document.petUnlock.map { it.key })
+            ?: unique(BackupTable.PET_LOADOUT, "(pet_id, slot)", document.petLoadout.map { it.petId to it.slot })
+            ?: references(
+                PET_LOADOUT_TO_PET,
+                document.pet.mapTo(mutableSetOf()) { it.id },
+                document.petLoadout.map { it.petId },
+            )
             ?: unique(BackupTable.PET_STATE, "pet_id", document.petState.map { it.petId })
             ?: references(
                 PET_STATE_TO_PET,
@@ -557,6 +563,8 @@ object BackupValidator {
         ForeignKey(BackupTable.PET_FEED, "collected_item_id", BackupTable.COLLECTED_ITEM)
     private val PET_FEED_TO_PET =
         ForeignKey(BackupTable.PET_FEED, "pet_id", BackupTable.PET)
+    private val PET_LOADOUT_TO_PET =
+        ForeignKey(BackupTable.PET_LOADOUT, "pet_id", BackupTable.PET)
     private val PET_STATE_TO_PET =
         ForeignKey(BackupTable.PET_STATE, "pet_id", BackupTable.PET)
     private val PET_TO_COLLECTED_ITEM =

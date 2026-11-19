@@ -23,13 +23,13 @@ class EvaluateUnlocksUseCaseTest {
         }
 
     @Test
-    fun `ten spars won unlock the dojo, once`() =
+    fun `ten spars won unlock the dojo and the scarf, once`() =
         runTest {
             spars = 10
 
-            assertEquals(setOf("dojo"), evaluate(at = 1))
+            assertEquals(setOf("dojo", "scarf"), evaluate(at = 1))
             assertEquals(emptySet<String>(), evaluate(at = 2))
-            assertEquals(mapOf("dojo" to 1L), unlocks.unlocked)
+            assertEquals(mapOf("dojo" to 1L, "scarf" to 1L), unlocks.unlocked)
         }
 
     @Test
@@ -41,7 +41,7 @@ class EvaluateUnlocksUseCaseTest {
             spars = 0
             evaluate(at = 2)
 
-            assertEquals(setOf("dojo"), unlocks.unlocked.keys)
+            assertEquals(setOf("dojo", "scarf"), unlocks.unlocked.keys)
         }
 
     @Test
@@ -50,7 +50,7 @@ class EvaluateUnlocksUseCaseTest {
             ranOnce(km = 60)
             ranOnce(km = 40)
 
-            assertEquals(setOf("trail"), evaluate(at = 1))
+            assertEquals(setOf("trail", "cap"), evaluate(at = 1))
         }
 
     @Test

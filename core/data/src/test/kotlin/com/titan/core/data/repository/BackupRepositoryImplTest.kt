@@ -18,6 +18,7 @@ import com.titan.core.domain.backup.model.FoodSeenRow
 import com.titan.core.domain.backup.model.MuscleGroupRow
 import com.titan.core.domain.backup.model.PersonalRecordRow
 import com.titan.core.domain.backup.model.PetFeedRow
+import com.titan.core.domain.backup.model.PetLoadoutRow
 import com.titan.core.domain.backup.model.PetRow
 import com.titan.core.domain.backup.model.PetStateRow
 import com.titan.core.domain.backup.model.PetUnlockRow
@@ -277,7 +278,7 @@ class BackupRepositoryImplTest : RoomTestBase() {
  * [ExportDocument] with [table]'s rows replaced by [rows].
  *
  * A test-only inverse of `ExportDocument.rows`, so a document can be assembled from paged reads
- * without twenty-five `copy` calls at the call site. Its `when` is exhaustive over [BackupTable]
+ * without twenty-six `copy` calls at the call site. Its `when` is exhaustive over [BackupTable]
  * for the same reason that one is: a table added and not handled here does not compile.
  */
 private fun ExportDocument.withRows(
@@ -307,6 +308,7 @@ private fun ExportDocument.withRows(
         BackupTable.COLLECTED_ITEM -> copy(collectedItem = rows.filterIsInstance<CollectedItemRow>())
         BackupTable.PET -> copy(pet = rows.filterIsInstance<PetRow>())
         BackupTable.PET_STATE -> copy(petState = rows.filterIsInstance<PetStateRow>())
+        BackupTable.PET_LOADOUT -> copy(petLoadout = rows.filterIsInstance<PetLoadoutRow>())
         BackupTable.PET_FEED -> copy(petFeed = rows.filterIsInstance<PetFeedRow>())
         BackupTable.FOOD_SEEN -> copy(foodSeen = rows.filterIsInstance<FoodSeenRow>())
         BackupTable.PET_UNLOCK -> copy(petUnlock = rows.filterIsInstance<PetUnlockRow>())

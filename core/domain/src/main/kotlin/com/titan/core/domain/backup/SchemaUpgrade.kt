@@ -38,6 +38,7 @@ internal object SchemaUpgrade {
                 sessionPetClaim = emptyList(),
                 pet = emptyList(),
                 petState = emptyList(),
+                petLoadout = emptyList(),
                 petFeed = emptyList(),
                 foodSeen = emptyList(),
                 petUnlock = emptyList(),

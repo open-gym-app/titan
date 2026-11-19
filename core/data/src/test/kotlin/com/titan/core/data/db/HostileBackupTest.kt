@@ -374,6 +374,7 @@ class HostileBackupTest : RoomTestBase() {
                 document.copy(
                     pet = document.pet.map { if (it.id == 2L) it.copy(id = 0) else it },
                     petState = document.petState.map { if (it.petId == 2L) it.copy(petId = 0) else it },
+                    petLoadout = document.petLoadout.map { if (it.petId == 2L) it.copy(petId = 0) else it },
                 )
             }
 
