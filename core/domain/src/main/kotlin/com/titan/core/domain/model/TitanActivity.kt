@@ -4,22 +4,43 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
 /**
- * A place in the titan's habitat, which an activity may need. These are the four a titan owns
- * from the moment it hatches; the places it unlocks later join them (#290).
+ * A place in the titan's habitat. "Places unlock activities. Streaks, distance and sparring open
+ * new ones."
+ *
+ * Four are owned from hatch and enable the activities that need them; the other four unlock with
+ * the user's training and, **once earned, are kept**: a streak can break, the sauna does not
+ * close. What the four later places enable is not decided yet (#290), so today they enable
+ * nothing — [enables] is derived from [TitanActivity.place], so giving one an activity is a line
+ * in that table.
  *
  * @property key the stable id a stored unlock names. Pinned by a test.
  */
-enum class TitanPlace(val key: String) {
-    TRACK("track"),
-    RACK("rack"),
-    POOL("pool"),
-    RING("ring"),
+enum class TitanPlace(
+    override val key: String,
+    override val condition: UnlockCondition,
+) : Unlockable {
+    TRACK("track", UnlockCondition.FromHatch),
+    RACK("rack", UnlockCondition.FromHatch),
+    POOL("pool", UnlockCondition.FromHatch),
+    RING("ring", UnlockCondition.FromHatch),
+    SAUNA("sauna", UnlockCondition.StreakWeeks(weeks = 8)),
+    TRAIL("trail", UnlockCondition.DistanceKm(kilometres = 100)),
+    DOJO("dojo", UnlockCondition.SparsWon(count = 10)),
+
+    /** "Legend rank": the user's `LevelTitles.LEGEND`, from level 100. */
+    SUMMIT("summit", UnlockCondition.Level(level = 100)),
     ;
+
+    /** The activities that happen here. */
+    val enables: List<TitanActivity> get() = TitanActivity.entries.filter { it.place == this }
 
     companion object {
 
         /** The places every titan has from hatch. */
-        val STARTING: Set<TitanPlace> = entries.toSet()
+        val STARTING: Set<TitanPlace> = entries.filter { it.condition == UnlockCondition.FromHatch }.toSet()
+
+        /** The places a set of stored unlock keys and the starting ones add up to. */
+        fun owned(unlocked: Set<String>): Set<TitanPlace> = STARTING + entries.filter { it.key in unlocked }
     }
 }
 

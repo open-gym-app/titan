@@ -394,6 +394,7 @@ class ExportFormatDecodeTest {
             petState = emptyList(),
             petFeed = emptyList(),
             foodSeen = emptyList(),
+            petUnlock = emptyList(),
         )
 
         val decoded = ExportFormat.decode(source(documentAtVersion(1, versionOne)))
@@ -414,6 +415,7 @@ class ExportFormatDecodeTest {
                     petState = emptyList(),
                     petFeed = emptyList(),
                     foodSeen = emptyList(),
+                    petUnlock = emptyList(),
                 ),
             ),
             decoded,

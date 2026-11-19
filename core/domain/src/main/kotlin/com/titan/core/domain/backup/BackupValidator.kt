@@ -249,6 +249,7 @@ object BackupValidator {
                 document.petFeed.map { it.petId },
             )
             ?: unique(BackupTable.FOOD_SEEN, "collectible_id", document.foodSeen.map { it.collectibleId })
+            ?: unique(BackupTable.PET_UNLOCK, "key", document.petUnlock.map { it.key })
             ?: unique(BackupTable.PET_STATE, "pet_id", document.petState.map { it.petId })
             ?: references(
                 PET_STATE_TO_PET,
@@ -306,6 +307,7 @@ object BackupValidator {
             Column(BackupTable.COLLECTED_ITEM, "acquired_at") { document.collectedItem.map { it.acquiredAt } },
             Column(BackupTable.PET, "hatched_at") { document.pet.map { it.hatchedAt } },
             Column(BackupTable.PET_FEED, "fed_at") { document.petFeed.map { it.fedAt } },
+            Column(BackupTable.PET_UNLOCK, "unlocked_at") { document.petUnlock.map { it.unlockedAt } },
             Column(BackupTable.PET_STATE, "activity_started_at") { document.petState.map { it.activityStartedAt } },
             Column(BackupTable.PET_STATE, "activity_ends_at") { document.petState.map { it.activityEndsAt } },
             Column(BackupTable.PET_STATE, "updated_at") { document.petState.map { it.updatedAt } },

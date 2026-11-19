@@ -40,6 +40,7 @@ internal object SchemaUpgrade {
                 petState = emptyList(),
                 petFeed = emptyList(),
                 foodSeen = emptyList(),
+                petUnlock = emptyList(),
             )
 
             else -> throw IllegalArgumentException("no up-converter from version ${document.schemaVersion}")

@@ -3,9 +3,11 @@ package com.titan.core.data.mapper
 import com.titan.core.data.db.entity.FoodSeenEntity
 import com.titan.core.data.db.entity.PetFeedEntity
 import com.titan.core.data.db.entity.PetStateEntity
+import com.titan.core.data.db.entity.PetUnlockEntity
 import com.titan.core.domain.backup.model.FoodSeenRow
 import com.titan.core.domain.backup.model.PetFeedRow
 import com.titan.core.domain.backup.model.PetStateRow
+import com.titan.core.domain.backup.model.PetUnlockRow
 import com.titan.core.domain.model.TitanActivity
 import com.titan.core.domain.model.TitanState
 import com.titan.core.domain.model.TitanVitals
@@ -73,3 +75,7 @@ fun PetFeedRow.toEntity(): PetFeedEntity =
 fun FoodSeenEntity.toRow(): FoodSeenRow = FoodSeenRow(collectibleId = collectibleId, seenUpTo = seenUpTo)
 
 fun FoodSeenRow.toEntity(): FoodSeenEntity = FoodSeenEntity(collectibleId = collectibleId, seenUpTo = seenUpTo)
+
+fun PetUnlockEntity.toRow(): PetUnlockRow = PetUnlockRow(key = key, unlockedAt = unlockedAt)
+
+fun PetUnlockRow.toEntity(): PetUnlockEntity = PetUnlockEntity(key = key, unlockedAt = unlockedAt)
