@@ -325,8 +325,7 @@ private fun PlaceTile(
     modifier: Modifier,
 ) {
     val tint = TitanTheme.vital(TitanVital.SPIRIT)
-    val detail = place.enables.takeIf { it.isNotEmpty() }?.map { it.label() }?.joinToString(" · ")
-        ?: stringResource(UiR.string.titan_owned)
+    val detail = stringResource(UiR.string.titan_owned)
     TitanItemTile(
         icon = TitanIcons.of(place),
         name = place.label(),
