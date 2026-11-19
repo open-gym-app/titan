@@ -58,6 +58,7 @@ import com.titan.feature.settings.navigation.BackupDestination
 import com.titan.feature.settings.navigation.OpenSourceLicencesDestination
 import com.titan.feature.settings.navigation.ReminderDestination
 import com.titan.feature.settings.navigation.settingsGraph
+import com.titan.feature.titan.navigation.titanGraph
 
 /**
  * The whole app graph — and the only place in the codebase where two features appear in the
@@ -122,7 +123,7 @@ fun TitanNavHost(
     DisposableEffect(activity, navController) {
         val provider = activity as? OnNewIntentProvider
         val listener = Consumer<Intent> { intent ->
-            intent.consumeDeepLink()?.let(navController::openDeepLink)
+            intent.consumeDeepLink()?.let(appState::openDeepLink)
         }
         provider?.addOnNewIntentListener(listener)
         onDispose { provider?.removeOnNewIntentListener(listener) }
@@ -130,7 +131,7 @@ fun TitanNavHost(
 
     // After the first composition, so the graph exists to match the link against.
     LaunchedEffect(launchLink, navController) {
-        launchLink?.let(navController::openDeepLink)
+        launchLink?.let(appState::openDeepLink)
     }
 
     // The exercise picker's answer, on its way back to whoever opened it.
@@ -326,6 +327,10 @@ fun TitanNavHost(
                         appState.navigateToTopLevelDestination(TopLevelDestination.SESSIONS)
                     },
                 ),
+            )
+            titanGraph(
+                // The inventory (#298) lands with its own issue; until then the link does nothing.
+                onOpenInventory = {},
             )
         }
 
@@ -591,7 +596,8 @@ internal fun Intent.consumeDeepLink(): Uri? {
 }
 
 /**
- * Open [uri], leaving the tabs underneath it.
+ * Open [uri], leaving the tabs underneath it. For a link that names a tab itself, see
+ * [TitanAppState.openDeepLink], which never reaches here.
  *
  * ### Why this exists rather than `NavController.handleDeepLink`
  *

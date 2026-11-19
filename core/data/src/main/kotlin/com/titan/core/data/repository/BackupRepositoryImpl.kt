@@ -144,6 +144,8 @@ class BackupRepositoryImpl @Inject constructor(
 
                 BackupTable.SESSION_LOOT_CLAIM -> dao.readLootClaims(limit, offset).map { it.toRow() }
 
+                BackupTable.SESSION_PET_CLAIM -> dao.readPetClaims(limit, offset).map { it.toRow() }
+
                 BackupTable.USER_PROGRESS -> dao.readUserProgress(limit, offset).map { it.toRow() }
 
                 BackupTable.ACHIEVEMENT -> dao.readAchievements(limit, offset).map { it.toRow() }
@@ -151,6 +153,18 @@ class BackupRepositoryImpl @Inject constructor(
                 BackupTable.QUEST_COMPLETION -> dao.readQuestCompletions(limit, offset).map { it.toRow() }
 
                 BackupTable.COLLECTED_ITEM -> dao.readCollectedItems(limit, offset).map { it.toRow() }
+
+                BackupTable.PET -> dao.readPets(limit, offset).map { it.toRow() }
+
+                BackupTable.PET_STATE -> dao.readPetStates(limit, offset).map { it.toRow() }
+
+                BackupTable.PET_LOADOUT -> dao.readPetLoadouts(limit, offset).map { it.toRow() }
+
+                BackupTable.PET_FEED -> dao.readPetFeeds(limit, offset).map { it.toRow() }
+
+                BackupTable.FOOD_SEEN -> dao.readFoodSeen(limit, offset).map { it.toRow() }
+
+                BackupTable.PET_UNLOCK -> dao.readPetUnlocks(limit, offset).map { it.toRow() }
             }
         }
 
@@ -223,10 +237,17 @@ class BackupRepositoryImpl @Inject constructor(
                 BackupTable.BODY_MEASUREMENT -> dao.deleteBodyMeasurements()
                 BackupTable.SESSION_XP_CLAIM -> dao.deleteXpClaims()
                 BackupTable.SESSION_LOOT_CLAIM -> dao.deleteLootClaims()
+                BackupTable.SESSION_PET_CLAIM -> dao.deletePetClaims()
                 BackupTable.USER_PROGRESS -> dao.deleteUserProgress()
                 BackupTable.ACHIEVEMENT -> dao.deleteAchievements()
                 BackupTable.QUEST_COMPLETION -> dao.deleteQuestCompletions()
                 BackupTable.COLLECTED_ITEM -> dao.deleteCollectedItems()
+                BackupTable.PET -> dao.deletePets()
+                BackupTable.PET_STATE -> dao.deletePetStates()
+                BackupTable.PET_LOADOUT -> dao.deletePetLoadouts()
+                BackupTable.PET_FEED -> dao.deletePetFeeds()
+                BackupTable.FOOD_SEEN -> dao.deleteFoodSeen()
+                BackupTable.PET_UNLOCK -> dao.deletePetUnlocks()
             }
         }
     }
@@ -275,6 +296,7 @@ class BackupRepositoryImpl @Inject constructor(
             document.sessionLootClaim,
             dao::insertLootClaims,
         ) { it.toEntity() }
+        into.table(BackupTable.SESSION_PET_CLAIM, document.sessionPetClaim, dao::insertPetClaims) { it.toEntity() }
         into.table(BackupTable.USER_PROGRESS, document.userProgress, dao::insertUserProgress) { it.toEntity() }
         into.table(BackupTable.ACHIEVEMENT, document.achievement, dao::insertAchievements) { it.toEntity() }
         into.table(
@@ -287,6 +309,20 @@ class BackupRepositoryImpl @Inject constructor(
             document.collectedItem,
             dao::insertCollectedItems,
         ) { it.toEntity() }
+        insertTitans(document, into)
+    }
+
+    /** The Titans milestone's tables, in [BackupTable]'s order: they follow the drops they name. */
+    private suspend fun insertTitans(
+        document: ExportDocument,
+        into: Insertion,
+    ) {
+        into.table(BackupTable.PET, document.pet, dao::insertPets) { it.toEntity() }
+        into.table(BackupTable.PET_STATE, document.petState, dao::insertPetStates) { it.toEntity() }
+        into.table(BackupTable.PET_LOADOUT, document.petLoadout, dao::insertPetLoadouts) { it.toEntity() }
+        into.table(BackupTable.PET_FEED, document.petFeed, dao::insertPetFeeds) { it.toEntity() }
+        into.table(BackupTable.FOOD_SEEN, document.foodSeen, dao::insertFoodSeen) { it.toEntity() }
+        into.table(BackupTable.PET_UNLOCK, document.petUnlock, dao::insertPetUnlocks) { it.toEntity() }
     }
 
     /**
@@ -296,6 +332,7 @@ class BackupRepositoryImpl @Inject constructor(
      * every table, and a helper that took it and returned it would put the same local on both
      * ends of nineteen assignments, where dropping one is a silent progress bug.
      */
+
     private class Insertion(private val report: suspend (BackupTable, Long) -> Unit) {
 
         private var written = 0L

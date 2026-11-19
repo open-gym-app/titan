@@ -4,6 +4,7 @@ import com.titan.core.domain.model.CollectedItem
 import com.titan.core.domain.repository.CollectedItemRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import java.time.Instant
 
@@ -48,6 +49,7 @@ class FakeCollectedItemRepository : CollectedItemRepository {
         collectibleId: String,
         source: String,
         acquiredAt: Instant,
+        sessionId: Long?,
     ) {
         failNext?.let {
             failNext = null
@@ -62,4 +64,14 @@ class FakeCollectedItemRepository : CollectedItemRepository {
             acquiredAt = acquiredAt,
         )
     }
+
+    /** Drop rows a pet has hatched from, which [observeUnhatchedEggs] leaves out. */
+    val hatched = MutableStateFlow<Set<Long>>(emptySet())
+
+    override suspend fun find(id: Long): CollectedItem? = drops.value.firstOrNull { it.id == id }
+
+    override fun observeUnhatchedEggs(): Flow<List<CollectedItem>> =
+        combine(drops, hatched) { held, gone ->
+            held.filter { it.collectibleId == "pet_egg" && it.id !in gone }.sortedBy { it.acquiredAt }
+        }
 }

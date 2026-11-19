@@ -45,6 +45,7 @@ class GamificationRepositoryImplTest : RoomTestBase() {
             achievementDao = db.achievementDao(),
             sessionXpClaimDao = db.sessionXpClaimDao(),
             sessionLootClaimDao = db.sessionLootClaimDao(),
+            sessionPetClaimDao = db.sessionPetClaimDao(),
         )
     }
 

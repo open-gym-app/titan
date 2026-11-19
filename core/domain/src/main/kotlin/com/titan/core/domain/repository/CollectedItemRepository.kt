@@ -66,5 +66,17 @@ interface CollectedItemRepository {
         collectibleId: String,
         source: String,
         acquiredAt: Instant,
+        sessionId: Long?,
     )
+
+    /** The drop row [id] names, or null if there is none. */
+    suspend fun find(id: Long): CollectedItem?
+
+    /**
+     * The pet eggs no pet has hatched from yet, oldest drop first.
+     *
+     * "Hatched" is derived — an egg is unhatched while no pet names its row — and never a column
+     * on the drop: the drop happened, and the row that records it does not change.
+     */
+    fun observeUnhatchedEggs(): Flow<List<CollectedItem>>
 }

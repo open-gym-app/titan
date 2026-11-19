@@ -262,6 +262,7 @@ dependencies {
     implementation(project(":feature:history"))
     implementation(project(":feature:progression"))
     implementation(project(":feature:settings"))
+    implementation(project(":feature:titan"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

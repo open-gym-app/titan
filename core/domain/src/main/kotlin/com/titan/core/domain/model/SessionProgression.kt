@@ -54,6 +54,14 @@ package com.titan.core.domain.model
  *   recap treats all three the same, because none of them is a drop to show. The catalogue
  *   value rather than the stored row: the rarity a celebration styles on is what the roll
  *   decided, and nothing is read back to learn it.
+ * @property foodDropped the food the session paid, in the order drawn — empty with no titan to
+ *   feed, on a re-run, and when the loot step failed (see [failures]).
+ * @property pet what the session did to the active pet, or **null** — which covers four
+ *   answers: no active pet, a session with no paid set, a re-run whose claim was already spent,
+ *   and a pet step that threw (see [failures]). None of them is a gain to show. The figures were
+ *   produced inside the write that persisted them, so nothing re-reads the pet to learn them.
+ * @property unlocked the places and gear the session's level-ups dropped for the titan, by key —
+ *   empty on a re-run, whose awards are already claimed.
  * @property failures the steps that threw, in the order they were attempted.
  */
 data class SessionProgression(
@@ -64,6 +72,9 @@ data class SessionProgression(
     val achievementsUnlocked: List<AchievementUnlock> = emptyList(),
     val questsCompleted: List<QuestCompletion> = emptyList(),
     val lootDropped: Collectible? = null,
+    val foodDropped: List<Collectible> = emptyList(),
+    val pet: PetGrowth? = null,
+    val unlocked: Set<String> = emptySet(),
     val failures: List<SessionProgressionFailure> = emptyList(),
 ) {
 
@@ -161,4 +172,13 @@ enum class SessionProgressionStep {
      * [com.titan.core.domain.usecase.LootRollUseCase].
      */
     LOOT,
+
+    /**
+     * The active pet grows from the session's sets. Last, and reads none of the figures the
+     * steps above write, so a failed step above does not take it down.
+     */
+    PET,
+
+    /** One random place or piece of gear per level the session gained, for a titan's owner. Last. */
+    UNLOCKS,
 }

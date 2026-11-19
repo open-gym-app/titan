@@ -50,9 +50,9 @@ class ExportFormatDecodeTest {
         )
     }
 
-    /** Older is refused too. That is the compatibility rule, not an oversight — see [ImportError]. */
+    /** Older is refused too, unless an up-converter was written for it — see [SchemaUpgrade]. */
     @Test
-    fun `an older schema version is refused as well`() {
+    fun `an older schema version with no up-converter is refused as well`() {
         val decoded = ExportFormat.decode(source(documentAtVersion(0)))
 
         assertEquals(
@@ -92,12 +92,20 @@ class ExportFormatDecodeTest {
     /** The right version and the wrong shape: refused on the shape, once the version has passed. */
     @Test
     fun `a document at this version whose envelope is wrong is malformed`() {
-        assertMalformed(ExportFormat.decode(source("""{"schema_version":1,"exported_at":"yesterday"}""")))
+        assertMalformed(
+            ExportFormat.decode(
+                source("""{"schema_version":${ExportDocument.SCHEMA_VERSION},"exported_at":"yesterday"}"""),
+            ),
+        )
     }
 
     @Test
     fun `a document with no preferences is malformed`() {
-        assertMalformed(ExportFormat.decode(source("""{"schema_version":1,"exported_at":1,"app_version":"x"}""")))
+        assertMalformed(
+            ExportFormat.decode(
+                source("""{"schema_version":${ExportDocument.SCHEMA_VERSION},"exported_at":1,"app_version":"x"}"""),
+            ),
+        )
     }
 
     @Test
@@ -128,7 +136,7 @@ class ExportFormatDecodeTest {
     @Test
     fun `a missing table reads back as no rows`() {
         val preferences = json.encodeToString(PreferencesPayload.serializer(), samplePreferences())
-        val minimal = """{"schema_version":1,"exported_at":1,"app_version":"x","preferences":$preferences}"""
+        val minimal = """{"schema_version":${ExportDocument.SCHEMA_VERSION},"exported_at":1,"app_version":"x","preferences":$preferences}"""
 
         val document = (ExportFormat.decode(source(minimal)) as ExportFormat.Decoded.Success).document
 
@@ -378,6 +386,44 @@ class ExportFormatDecodeTest {
         return sample.copy(workoutSet = sample.workoutSet + filler)
     }
 
+    @Test
+    fun `a version 1 document restores as this version, with the tables it never had empty`() {
+        val versionOne = sampleDocument().copy(
+            sessionPetClaim = emptyList(),
+            pet = emptyList(),
+            petState = emptyList(),
+            petLoadout = emptyList(),
+            petFeed = emptyList(),
+            foodSeen = emptyList(),
+            petUnlock = emptyList(),
+        )
+
+        val decoded = ExportFormat.decode(source(documentAtVersion(1, versionOne)))
+
+        assertEquals(ExportFormat.Decoded.Success(versionOne), decoded)
+    }
+
+    @Test
+    fun `rows a version 1 document claims for a table its version never had are dropped`() {
+        // A version 1 writer never wrote a `pet` key, so one found there was put there by hand.
+        val decoded = ExportFormat.decode(source(documentAtVersion(1, sampleDocument())))
+
+        assertEquals(
+            ExportFormat.Decoded.Success(
+                sampleDocument().copy(
+                    sessionPetClaim = emptyList(),
+                    pet = emptyList(),
+                    petState = emptyList(),
+                    petLoadout = emptyList(),
+                    petFeed = emptyList(),
+                    foodSeen = emptyList(),
+                    petUnlock = emptyList(),
+                ),
+            ),
+            decoded,
+        )
+    }
+
     private fun assertMalformed(decoded: ExportFormat.Decoded): ImportError.MalformedJson {
         val error = (decoded as ExportFormat.Decoded.Refused).error
         assertTrue("expected MalformedJson, was $error", error is ImportError.MalformedJson)
@@ -387,8 +433,11 @@ class ExportFormatDecodeTest {
     private fun refusal(error: ImportError) = ExportFormat.Decoded.Refused(error)
 
     /** [sampleDocument] re-encoded with its version replaced — the only way to make one this build refuses. */
-    private fun documentAtVersion(version: Int): String {
-        val encoded = json.encodeToJsonElement(ExportDocument.serializer(), sampleDocument()).jsonObject
+    private fun documentAtVersion(
+        version: Int,
+        document: ExportDocument = sampleDocument(),
+    ): String {
+        val encoded = json.encodeToJsonElement(ExportDocument.serializer(), document).jsonObject
         val bumped = encoded.toMutableMap().apply { put("schema_version", JsonPrimitive(version)) }
         return json.encodeToString(JsonObject.serializer(), JsonObject(bumped))
     }

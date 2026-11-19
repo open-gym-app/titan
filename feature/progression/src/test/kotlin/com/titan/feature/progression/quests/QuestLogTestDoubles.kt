@@ -56,6 +56,8 @@ class FakeGamificationReads : GamificationRepository {
 
     override suspend fun claimSessionLoot(sessionId: Long): Boolean = readOnly()
 
+    override suspend fun claimSessionPet(sessionId: Long): Boolean = readOnly()
+
     override suspend fun updateStreak(advance: (state: StreakState) -> StreakUpdate): StreakUpdate = readOnly()
 }
 
@@ -79,10 +81,15 @@ class FakeCollectedItemReads : CollectedItemRepository {
         return recent
     }
 
+    override suspend fun find(id: Long): CollectedItem? = recent.value.firstOrNull { it.id == id }
+
+    override fun observeUnhatchedEggs(): Flow<List<CollectedItem>> = flowOf(emptyList())
+
     override suspend fun recordDrop(
         collectibleId: String,
         source: String,
         acquiredAt: Instant,
+        sessionId: Long?,
     ): Unit = readOnly()
 }
 

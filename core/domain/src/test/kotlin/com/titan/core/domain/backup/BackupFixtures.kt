@@ -7,13 +7,20 @@ import com.titan.core.domain.backup.model.ExerciseMuscleGroupRow
 import com.titan.core.domain.backup.model.ExerciseRow
 import com.titan.core.domain.backup.model.ExerciseTagRow
 import com.titan.core.domain.backup.model.ExportDocument
+import com.titan.core.domain.backup.model.FoodSeenRow
 import com.titan.core.domain.backup.model.MuscleGroupRow
 import com.titan.core.domain.backup.model.PersonalRecordRow
+import com.titan.core.domain.backup.model.PetFeedRow
+import com.titan.core.domain.backup.model.PetLoadoutRow
+import com.titan.core.domain.backup.model.PetRow
+import com.titan.core.domain.backup.model.PetStateRow
+import com.titan.core.domain.backup.model.PetUnlockRow
 import com.titan.core.domain.backup.model.PlateStockPayload
 import com.titan.core.domain.backup.model.PreferencesPayload
 import com.titan.core.domain.backup.model.QuestCompletionRow
 import com.titan.core.domain.backup.model.SessionExerciseRow
 import com.titan.core.domain.backup.model.SessionLootClaimRow
+import com.titan.core.domain.backup.model.SessionPetClaimRow
 import com.titan.core.domain.backup.model.SessionXpClaimRow
 import com.titan.core.domain.backup.model.TagRow
 import com.titan.core.domain.backup.model.TemplateExerciseRow
@@ -83,6 +90,7 @@ fun sampleDocument(
         bodyMeasurement = sampleBodyMeasurements(),
         sessionXpClaim = listOf(SessionXpClaimRow(sessionId = 1)),
         sessionLootClaim = listOf(SessionLootClaimRow(sessionId = 1)),
+        sessionPetClaim = listOf(SessionPetClaimRow(sessionId = 1)),
         userProgress = listOf(sampleProgress()),
         achievement = listOf(
             AchievementRow(achievementId = "first_workout", unlockedAt = FINISHED_AT),
@@ -93,21 +101,77 @@ fun sampleDocument(
         questCompletion = listOf(
             QuestCompletionRow(questId = "weekly_volume", periodStart = STARTED_AT, completedAt = FINISHED_AT),
         ),
-        collectedItem = listOf(
-            CollectedItemRow(
-                id = 1,
-                collectibleId = "steel_shaker",
-                source = "session_finished",
-                acquiredAt = FINISHED_AT,
-            ),
-            // The same collectible again: the inventory is a bag, not a set, and an import must
-            // not collapse these into one row.
-            CollectedItemRow(
-                id = 2,
-                collectibleId = "steel_shaker",
-                source = "session_finished",
-                acquiredAt = FINISHED_AT,
-            ),
+        collectedItem = sampleCollectedItems(),
+        pet = samplePets(),
+        // A headband on the first pet, and on the second a piece and a slot this build does not know.
+        petLoadout = listOf(PetLoadoutRow(1, "head", "headband"), PetLoadoutRow(2, "tail", "a_newer_gear")),
+        petFeed = listOf(PetFeedRow(collectedItemId = 5, petId = 1, fedAt = FINISHED_AT)),
+        foodSeen = listOf(FoodSeenRow(collectibleId = "steak", seenUpTo = 5)),
+        // One this build knows and one it does not: both are kept.
+        petUnlock = listOf(PetUnlockRow("from_a_newer_version", FINISHED_AT), PetUnlockRow("sauna", FINISHED_AT)),
+        petState = listOf(
+            PetStateRow(1, fuel = 22, spirit = 55, "train", FINISHED_AT, FINISHED_AT + 900_000, null, FINISHED_AT),
+            // An activity this build has never heard of, kept as written.
+            PetStateRow(2, fuel = 64, spirit = 55, "fly", FINISHED_AT, null, "train", FINISHED_AT),
+        ),
+    )
+
+private fun sampleCollectedItems() =
+    listOf(
+        CollectedItemRow(
+            id = 1,
+            collectibleId = "steel_shaker",
+            source = "session_finished",
+            acquiredAt = FINISHED_AT,
+        ),
+        // The same collectible again: the inventory is a bag, not a set, and an import must
+        // not collapse these into one row.
+        CollectedItemRow(
+            id = 2,
+            collectibleId = "steel_shaker",
+            source = "session_finished",
+            acquiredAt = FINISHED_AT,
+        ),
+        // Two eggs, each hatched below.
+        CollectedItemRow(id = 3, collectibleId = "pet_egg", source = "session_finished", acquiredAt = FINISHED_AT),
+        CollectedItemRow(id = 4, collectibleId = "pet_egg", source = "session_finished", acquiredAt = FINISHED_AT),
+        // A steak, eaten below.
+        CollectedItemRow(
+            id = 5,
+            collectibleId = "steak",
+            source = "session_finished",
+            acquiredAt = FINISHED_AT,
+            sessionId = 1,
+        ),
+    )
+
+private fun samplePets() =
+    listOf(
+        PetRow(
+            id = 1,
+            speciesId = "iron_cub",
+            hatchedFromItemId = 3,
+            hatchedAt = FINISHED_AT,
+            xp = 240,
+            strength = 12,
+            endurance = 3,
+            mobility = 1,
+            nickname = "Brick",
+            isActive = true,
+        ),
+        // A species this build has never heard of: a pet from a newer version, which a
+        // restore must carry through unchanged.
+        PetRow(
+            id = 2,
+            speciesId = "from_a_newer_version",
+            hatchedFromItemId = 4,
+            hatchedAt = FINISHED_AT,
+            xp = 0,
+            strength = 0,
+            endurance = 0,
+            mobility = 0,
+            nickname = null,
+            isActive = false,
         ),
     )
 

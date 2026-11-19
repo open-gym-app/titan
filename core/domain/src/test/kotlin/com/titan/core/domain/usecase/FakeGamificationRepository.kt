@@ -86,6 +86,7 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
 
     /** The same, for the roll: a separate set, because the two claims fence separate steps. */
     private val lootClaims = mutableSetOf<Long>()
+    private val petClaims = mutableSetOf<Long>()
 
     /**
      * Thrown instead of banking, writing or reading, when set. The only way to reach the
@@ -170,6 +171,8 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
     override suspend fun claimSessionXp(sessionId: Long): Boolean = xpClaims.add(sessionId)
 
     override suspend fun claimSessionLoot(sessionId: Long): Boolean = lootClaims.add(sessionId)
+
+    override suspend fun claimSessionPet(sessionId: Long): Boolean = petClaims.add(sessionId)
 
     override suspend fun updateStreak(advance: (state: StreakState) -> StreakUpdate): StreakUpdate {
         streakFailure?.let { throw it }

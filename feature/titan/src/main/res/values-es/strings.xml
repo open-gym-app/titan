@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- See values/strings.xml. -->
+    <string name="titan_tab_title">Titán</string>
+    <string name="titan_rename">Cambiar el nombre de %1$s</string>
+    <string name="titan_rename_title">Cambiar el nombre de %1$s</string>
+    <string name="titan_rename_field">Nombre</string>
+    <string name="titan_rename_save">Guardar</string>
+    <string name="titan_rename_cancel">Cancelar</string>
+    <string name="titan_rename_hint">Déjalo vacío para usar el nombre de la especie.</string>
+    <string name="titan_rename_too_long">24 caracteres como máximo</string>
+    <string name="titan_rename_control">Sin saltos de línea ni tabulaciones</string>
+    <string name="titan_header">%1$s · Niv. %2$d</string>
+
+    <!-- The dock above the bottom bar, read as one button: "Brick: On a run. Fuel low. Open titan." -->
+    <string name="titan_dock_description">%1$s: %2$s.</string>
+    <string name="titan_dock_alert">%1$s bajo.</string>
+    <string name="titan_dock_open">Abrir el titán.</string>
+    <string name="titan_power">Poder %1$d</string>
+    <string name="titan_stage_description">%1$s, %2$s</string>
+    <string name="titan_status_idle">Relajándose</string>
+    <string name="titan_status_walk">De paseo</string>
+    <string name="titan_status_run">Corriendo</string>
+    <string name="titan_status_swim">Nadando largos</string>
+    <string name="titan_status_train">Haciendo sentadillas</string>
+    <string name="titan_status_rest">Descansando</string>
+    <string name="titan_status_eat">Comiendo</string>
+    <string name="titan_note_idle">Decidiendo qué hacer</string>
+    <string name="titan_note_walk">Vuelta a la pista</string>
+    <string name="titan_note_run">Series en la pista</string>
+    <string name="titan_note_swim">Largos en la piscina</string>
+    <string name="titan_note_train">En el rack</string>
+    <string name="titan_note_rest">Recuperando el aliento</string>
+    <string name="titan_note_eat">Vuelve en un momento</string>
+    <string name="titan_vitals">Constantes</string>
+    <string name="titan_supplies">Provisiones</string>
+    <string name="titan_inventory">Inventario</string>
+    <string name="titan_tab_food">Comida</string>
+    <string name="titan_tab_gear">Equipo</string>
+    <string name="titan_tab_habitat">Hábitat</string>
+    <string name="titan_hint_food">Se gana entrenando: cada entrenamiento terminado da comida. Toca un alimento para dárselo a %1$s.</string>
+    <string name="titan_hint_gear">El equipo es estético: cambia el aspecto de %1$s, nunca su fuerza. Los logros y las subidas de nivel traen piezas nuevas.</string>
+    <string name="titan_hint_habitat">Los hábitats cambian el fondo detrás de %1$s. Los logros y las subidas de nivel abren otros nuevos.</string>
+    <string name="titan_slot_empty">Vacío</string>
+    <string name="titan_slot_nothing">Nada que ponerse aquí todavía. Los logros y las subidas de nivel traen piezas nuevas.</string>
+    <string name="titan_habitat_here">Aquí</string>
+    <string name="titan_habitat_go">Ir</string>
+    <string name="titan_gear_wear">Poner</string>
+    <string name="titan_none_title">Aún no tienes titán</string>
+    <string name="titan_none_body">Un titán es un compañero que crece con tu entrenamiento. A veces cae un huevo al terminar un entrenamiento.</string>
+    <string name="titan_eggs">Huevos</string>
+    <string name="titan_egg">Huevo de mascota</string>
+    <string name="titan_egg_found">Encontrado el %1$s</string>
+    <string name="titan_hatch">Eclosionar</string>
+    <string name="titan_hatch_description">Eclosionar el huevo encontrado el %1$s</string>
+    <plurals name="titan_food_left">
+        <item quantity="one">Queda %1$d</item>
+        <item quantity="many">Quedan %1$d</item>
+        <item quantity="other">Quedan %1$d</item>
+    </plurals>
+</resources>

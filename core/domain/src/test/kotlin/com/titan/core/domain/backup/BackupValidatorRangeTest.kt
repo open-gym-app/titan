@@ -8,6 +8,7 @@ import com.titan.core.domain.backup.model.ExportDocument
 import com.titan.core.domain.backup.model.ImportError
 import com.titan.core.domain.backup.model.MuscleGroupRow
 import com.titan.core.domain.backup.model.PersonalRecordRow
+import com.titan.core.domain.backup.model.PetRow
 import com.titan.core.domain.backup.model.SessionExerciseRow
 import com.titan.core.domain.backup.model.TagRow
 import com.titan.core.domain.backup.model.TemplateExerciseRow
@@ -219,6 +220,11 @@ class BackupValidatorRangeTest {
             BackupTable.COLLECTED_ITEM to { d, id ->
                 d.copy(collectedItem = d.collectedItem + CollectedItemRow(id, "steel_shaker", "range", acquiredAt = 0))
             },
+            BackupTable.PET to { d, id ->
+                val egg = CollectedItemRow(id = 900, collectibleId = "pet_egg", source = "range", acquiredAt = 0)
+                val row = PetRow(id, "iron_cub", egg.id, hatchedAt = 0, 0, 0, 0, 0, nickname = null, isActive = false)
+                d.copy(collectedItem = d.collectedItem + egg, pet = d.pet + row)
+            },
         )
 
         /** Every timestamp column, as `table.column` and a way to write one value into it. */
@@ -301,6 +307,20 @@ class BackupValidatorRangeTest {
             "collected_item.acquired_at" to { d, v ->
                 d.copy(
                     collectedItem = d.collectedItem.map { it.copy(acquiredAt = v) },
+                )
+            },
+            "pet_state.activity_started_at" to { d, v ->
+                d.copy(petState = d.petState.map { it.copy(activityStartedAt = v) })
+            },
+            "pet_state.activity_ends_at" to { d, v ->
+                d.copy(petState = d.petState.map { it.copy(activityEndsAt = v) })
+            },
+            "pet_state.updated_at" to { d, v ->
+                d.copy(petState = d.petState.map { it.copy(updatedAt = v) })
+            },
+            "pet.hatched_at" to { d, v ->
+                d.copy(
+                    pet = d.pet.map { it.copy(hatchedAt = v) },
                 )
             },
         )

@@ -1,8 +1,10 @@
 package com.titan.core.domain.usecase
 
 import com.titan.core.domain.gamification.Achievements
+import com.titan.core.domain.gamification.Collectibles
 import com.titan.core.domain.gamification.DropRates
 import com.titan.core.domain.gamification.DropTableEvaluator
+import com.titan.core.domain.gamification.FoodDrop
 import com.titan.core.domain.gamification.XpCalculator
 import com.titan.core.domain.integration.FakeExerciseRepository
 import com.titan.core.domain.model.CollectedItem
@@ -56,6 +58,7 @@ class SessionCompletionPipelineTest {
     private val records get() = rig.records
     private val gamification get() = rig.gamification
     private val inventory get() = rig.inventory
+    private val pets get() = rig.pets
     private val pipeline get() = rig.pipeline
 
     // ---------------------------------------------------------------- the order
@@ -599,6 +602,120 @@ class SessionCompletionPipelineTest {
             error("the progress row is not writable")
     }
 
+    // ─── The pet step ───────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `with no pet the session grows nothing and that is not a failure`() =
+        runTest {
+            val progression = pipeline(rig.finishSession(), FINISHED_AT)
+
+            assertNull(progression.pet)
+            assertTrue(progression.isComplete)
+        }
+
+    @Test
+    fun `a finished session grows the active pet once, and a re-run reports nothing`() =
+        runTest {
+            pets.hatch(collectedItemId = 1, speciesId = "iron_cub", hatchedAt = FINISHED_AT)
+            val sessionId = rig.finishSession(workingSets = 3, warmUpSets = 1)
+
+            val first = pipeline(sessionId, FINISHED_AT)
+            val again = pipeline(sessionId, FINISHED_AT)
+
+            // Three working sets; the warm-up pays the pet nothing, as it pays the user nothing.
+            assertEquals(65L, first.pet?.xpGained)
+            assertNull(again.pet)
+            assertEquals(65L, pets.held.single().xp)
+        }
+
+    @Test
+    fun `a failed xp step does not stop the pet growing in full`() =
+        runTest {
+            pets.hatch(collectedItemId = 1, speciesId = "iron_cub", hatchedAt = FINISHED_AT)
+            gamification.addXpFailure = IllegalStateException("the progress row is locked")
+
+            val progression = pipeline(rig.finishSession(workingSets = 3), FINISHED_AT)
+
+            assertTrue(SessionProgressionStep.XP in progression.failures.map { it.step })
+            assertEquals(65L, progression.pet?.xpGained)
+        }
+
+    @Test
+    fun `a run that died before the pet step pays the pet in full on re-entry`() =
+        runTest {
+            val torn = Rig(decorateGamification = { FailingPetClaim(it, times = 1) })
+            torn.pets.hatch(collectedItemId = 1, speciesId = "iron_cub", hatchedAt = FINISHED_AT)
+            val sessionId = torn.finishSession(workingSets = 3)
+
+            val first = torn.pipeline(sessionId, FINISHED_AT)
+            val reEntered = torn.pipeline(sessionId, FINISHED_AT)
+
+            assertEquals(listOf(SessionProgressionStep.PET), first.failures.map { it.step })
+            assertEquals("the xp claim was spent by the first run", 0, reEntered.xpAwarded)
+            assertEquals(65L, reEntered.pet?.xpGained)
+            assertEquals(65L, torn.pets.held.single().xp)
+        }
+
+    @Test
+    fun `a pet step that throws is recorded under PET and leaves every earlier write intact`() =
+        runTest {
+            val failing = Rig(decorateGamification = { FailingPetClaim(it) })
+            failing.pets.hatch(collectedItemId = 1, speciesId = "iron_cub", hatchedAt = FINISHED_AT)
+            val sessionId = failing.finishSession()
+
+            val progression = failing.pipeline(sessionId, FINISHED_AT)
+
+            assertEquals(listOf(SessionProgressionStep.PET), progression.failures.map { it.step })
+            assertNull(progression.pet)
+            assertTrue(progression.xpAwarded > 0)
+            assertEquals(StreakResult.Incremented(1), progression.streak?.result)
+            assertEquals(0L, failing.pets.held.single().xp)
+        }
+
+    @Test
+    fun `with no titan a session drops no food`() =
+        runTest {
+            assertTrue(pipeline(rig.finishSession(), FINISHED_AT).foodDropped.isEmpty())
+        }
+
+    @Test
+    fun `with a titan the session's food is reported beside its drop, and a re-run reports none`() =
+        runTest {
+            pets.hatch(collectedItemId = 1, speciesId = "iron_cub", hatchedAt = FINISHED_AT)
+            val sessionId = rig.finishSession(workingSets = 3)
+
+            val first = pipeline(sessionId, FINISHED_AT)
+            val again = pipeline(sessionId, FINISHED_AT)
+
+            assertEquals(listOf(Collectibles.STEAK), first.foodDropped)
+            assertEquals(DROPPED_COLLECTIBLE, first.lootDropped)
+            assertTrue(again.foodDropped.isEmpty())
+        }
+
+    @Test
+    fun `a session that earns nothing unlocks nothing, and that is not a failure`() =
+        runTest {
+            val progression = pipeline(rig.finishSession(), FINISHED_AT)
+
+            assertTrue(progression.unlocked.isEmpty())
+            assertTrue(progression.isComplete)
+        }
+
+    /** A store whose pet claim refuses [times] times, leaving every other write working. */
+    private class FailingPetClaim(
+        private val delegate: GamificationRepository,
+        private var times: Int = Int.MAX_VALUE,
+    ) : GamificationRepository by delegate {
+
+        override suspend fun claimSessionPet(sessionId: Long): Boolean {
+            if (times > 0) {
+                times--
+                error("the claim table is not writable")
+            }
+            return delegate.claimSessionPet(sessionId)
+        }
+    }
+
     // ─── The loot step ──────────────────────────────────────────────────────────────────
 
     @Test
@@ -727,6 +844,8 @@ class SessionCompletionPipelineTest {
         val quests = FakeQuestRepository()
         val progression = FakeProgressionRepository()
         val inventory = FakeCollectedItemRepository()
+        val pets = FakePetRepository()
+        val unlocks = FakeUnlockRepository()
 
         // A goal of one, so every session that counts is a week that met its goal, and the
         // streak moves on each one. The weekly rule itself is `StreakCalculatorTest`'s.
@@ -786,6 +905,10 @@ class SessionCompletionPipelineTest {
             dropTable = dropTable,
             collectedItemRepository = observedInventory,
             gamificationRepository = observedGamification,
+            petRepository = pets,
+            sessionRepository = sessions,
+            // Always the first food: what is drawn is `FoodDropTest`'s.
+            foodDrop = FoodDrop(RandomSource { 0 }),
         )
 
         val pipeline = SessionCompletionPipeline(
@@ -794,6 +917,13 @@ class SessionCompletionPipelineTest {
             triggerAchievements = AchievementTriggerUseCase(observedGamification, awardXp),
             completeQuests = completeQuests,
             rollLoot = rollLoot,
+            growPet = GrowPetUseCase(
+                sessionRepository = sessions,
+                exerciseRepository = FakeExerciseRepository(),
+                petRepository = pets,
+                gamificationRepository = observedGamification,
+            ),
+            evaluateUnlocks = EvaluateUnlocksUseCase(pets, unlocks),
             sessionRepository = sessions,
             personalRecordRepository = observedRecords,
             gamificationRepository = observedGamification,
@@ -909,9 +1039,10 @@ class SessionCompletionPipelineTest {
             collectibleId: String,
             source: String,
             acquiredAt: Instant,
+            sessionId: Long?,
         ) {
             journal += "loot"
-            delegate.recordDrop(collectibleId, source, acquiredAt)
+            delegate.recordDrop(collectibleId, source, acquiredAt, sessionId)
         }
     }
 

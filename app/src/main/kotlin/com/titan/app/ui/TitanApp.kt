@@ -27,6 +27,7 @@ import com.titan.app.navigation.TitanNavHost
 import com.titan.app.navigation.TopLevelDestination
 import com.titan.app.navigation.rememberTitanAppState
 import com.titan.feature.settings.navigation.SettingsDestination
+import com.titan.feature.titan.dock.TitanDockHost
 
 /**
  * The app shell: the chrome around the navigation graph.
@@ -87,11 +88,19 @@ fun TitanApp(
         },
         bottomBar = {
             if (chrome.shouldShowBottomBar) {
-                TitanBottomBar(
-                    destinations = TopLevelDestination.entries,
-                    currentDestination = chrome.currentTopLevelDestination,
-                    onNavigate = appState::navigateToTopLevelDestination,
-                )
+                Column {
+                    // The titan's dock sits on the bar, on every tab but its own: there the stage
+                    // is already on screen. A workout hides both, so it never meets the rest-timer
+                    // dock. Part of the bar's slot, so the Scaffold's padding makes room for it.
+                    if (chrome.currentTopLevelDestination != TopLevelDestination.TITAN) {
+                        TitanDockHost(onOpen = { appState.navigateToTopLevelDestination(TopLevelDestination.TITAN) })
+                    }
+                    TitanBottomBar(
+                        destinations = TopLevelDestination.entries,
+                        currentDestination = chrome.currentTopLevelDestination,
+                        onNavigate = appState::navigateToTopLevelDestination,
+                    )
+                }
             }
         },
     ) { innerPadding ->

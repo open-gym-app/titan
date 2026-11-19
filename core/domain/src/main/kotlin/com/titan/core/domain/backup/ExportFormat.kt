@@ -9,13 +9,20 @@ import com.titan.core.domain.backup.model.ExerciseMuscleGroupRow
 import com.titan.core.domain.backup.model.ExerciseRow
 import com.titan.core.domain.backup.model.ExerciseTagRow
 import com.titan.core.domain.backup.model.ExportDocument
+import com.titan.core.domain.backup.model.FoodSeenRow
 import com.titan.core.domain.backup.model.ImportError
 import com.titan.core.domain.backup.model.MuscleGroupRow
 import com.titan.core.domain.backup.model.PersonalRecordRow
+import com.titan.core.domain.backup.model.PetFeedRow
+import com.titan.core.domain.backup.model.PetLoadoutRow
+import com.titan.core.domain.backup.model.PetRow
+import com.titan.core.domain.backup.model.PetStateRow
+import com.titan.core.domain.backup.model.PetUnlockRow
 import com.titan.core.domain.backup.model.PreferencesPayload
 import com.titan.core.domain.backup.model.QuestCompletionRow
 import com.titan.core.domain.backup.model.SessionExerciseRow
 import com.titan.core.domain.backup.model.SessionLootClaimRow
+import com.titan.core.domain.backup.model.SessionPetClaimRow
 import com.titan.core.domain.backup.model.SessionXpClaimRow
 import com.titan.core.domain.backup.model.TagRow
 import com.titan.core.domain.backup.model.TemplateExerciseRow
@@ -129,10 +136,17 @@ object ExportFormat {
             is BodyMeasurementRow -> json.encodeToString(BodyMeasurementRow.serializer(), row)
             is SessionXpClaimRow -> json.encodeToString(SessionXpClaimRow.serializer(), row)
             is SessionLootClaimRow -> json.encodeToString(SessionLootClaimRow.serializer(), row)
+            is SessionPetClaimRow -> json.encodeToString(SessionPetClaimRow.serializer(), row)
             is UserProgressRow -> json.encodeToString(UserProgressRow.serializer(), row)
             is AchievementRow -> json.encodeToString(AchievementRow.serializer(), row)
             is QuestCompletionRow -> json.encodeToString(QuestCompletionRow.serializer(), row)
             is CollectedItemRow -> json.encodeToString(CollectedItemRow.serializer(), row)
+            is PetRow -> json.encodeToString(PetRow.serializer(), row)
+            is PetStateRow -> json.encodeToString(PetStateRow.serializer(), row)
+            is PetFeedRow -> json.encodeToString(PetFeedRow.serializer(), row)
+            is PetLoadoutRow -> json.encodeToString(PetLoadoutRow.serializer(), row)
+            is FoodSeenRow -> json.encodeToString(FoodSeenRow.serializer(), row)
+            is PetUnlockRow -> json.encodeToString(PetUnlockRow.serializer(), row)
         }
 
     /**
@@ -207,7 +221,10 @@ object ExportFormat {
             val capped = ImportSource { CappedStream(source.open(), maxBytes) }
             when (val version = capped.readVersion()) {
                 null -> Decoded.Refused(ImportError.MalformedJson("no `$VERSION_KEY` in the document"))
-                ExportDocument.SCHEMA_VERSION -> accept(capped.readDocument())
+
+                ExportDocument.SCHEMA_VERSION, in SchemaUpgrade.READABLE_OLDER_VERSIONS ->
+                    accept(capped.readDocument(), written = version)
+
                 else -> unsupported(version)
             }
         } catch (failure: DocumentTooLargeException) {
@@ -225,10 +242,19 @@ object ExportFormat {
             Decoded.Refused(ImportError.IoFailure(failure.message.orEmpty()))
         }
 
-    /** [document] if the second pass read the version the first one did, else the refusal. */
-    private fun accept(document: ExportDocument): Decoded =
-        if (document.schemaVersion == ExportDocument.SCHEMA_VERSION) {
-            Decoded.Success(WeeklyStreakUpgrade.apply(document))
+    /**
+     * Takes the second pass's document, provided it still says the version the first pass read.
+     *
+     * [written] is that first answer: this build's own version, or an older one
+     * [SchemaUpgrade] can carry forward. A document that says anything else on the second read
+     * changed between the two passes and is refused for what it says now.
+     */
+    private fun accept(
+        document: ExportDocument,
+        written: Int,
+    ): Decoded =
+        if (document.schemaVersion == written) {
+            Decoded.Success(WeeklyStreakUpgrade.apply(SchemaUpgrade.toCurrent(document)))
         } else {
             unsupported(document.schemaVersion)
         }

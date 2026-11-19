@@ -243,6 +243,14 @@ data class SessionXpClaimRow(@SerialName("session_id") val sessionId: Long) : Ba
 data class SessionLootClaimRow(@SerialName("session_id") val sessionId: Long) : BackupRow
 
 /**
+ * A row of `session_pet_claim`: the marker that a session has already grown the active pet.
+ * Exported for the reason the other two claims are — without it a restored session would grow
+ * the pet again the next time its cascade ran.
+ */
+@Serializable
+data class SessionPetClaimRow(@SerialName("session_id") val sessionId: Long) : BackupRow
+
+/**
  * The single row of `user_progress`, or no row at all before the first XP award.
  *
  * [id] is carried even though it can only ever be `1`: the column exists, the table's `CHECK`
@@ -320,4 +328,86 @@ data class CollectedItemRow(
     @SerialName("collectible_id") val collectibleId: String,
     @SerialName("source") val source: String,
     @SerialName("acquired_at") val acquiredAt: Long,
+    @SerialName("session_id") val sessionId: Long? = null,
+) : BackupRow
+
+/**
+ * A row of `pet`: one hatched titan.
+ *
+ * [speciesId] is not validated against this build, for `achievement`'s reason: a species this
+ * build does not know is a pet from a newer version, and it must survive the round trip.
+ * [hatchedFromItemId] must resolve to a `collected_item` in the same document, and no two pets
+ * may name the same one — an egg hatches once.
+ */
+@Serializable
+data class PetRow(
+    @SerialName("id") val id: Long,
+    @SerialName("species_id") val speciesId: String,
+    @SerialName("hatched_from_item_id") val hatchedFromItemId: Long,
+    @SerialName("hatched_at") val hatchedAt: Long,
+    @SerialName("xp") val xp: Long,
+    @SerialName("strength") val strength: Int,
+    @SerialName("endurance") val endurance: Int,
+    @SerialName("mobility") val mobility: Int,
+    @SerialName("nickname") val nickname: String?,
+    @SerialName("is_active") val isActive: Boolean,
+) : BackupRow
+
+/**
+ * A row of `pet_state`: a pet's vitals and what it is doing, as of [updatedAt].
+ *
+ * [activity] and [resumeActivity] are not validated against this build's activities, for the
+ * reason `species_id` is not; an unknown one reads as idle. Vitals out of range are clamped on
+ * the way in and again by every reader.
+ */
+@Serializable
+data class PetStateRow(
+    @SerialName("pet_id") val petId: Long,
+    @SerialName("fuel") val fuel: Int,
+    @SerialName("spirit") val spirit: Int,
+    @SerialName("activity") val activity: String,
+    @SerialName("activity_started_at") val activityStartedAt: Long,
+    @SerialName("activity_ends_at") val activityEndsAt: Long?,
+    @SerialName("resume_activity") val resumeActivity: String?,
+    @SerialName("updated_at") val updatedAt: Long,
+) : BackupRow
+
+/**
+ * A row of `pet_feed`: one food drop eaten. [collectedItemId] is unique — an item is eaten once —
+ * and must name a `collected_item` in the same document. [petId] is null when the pet that ate
+ * it is gone.
+ */
+@Serializable
+data class PetFeedRow(
+    @SerialName("collected_item_id") val collectedItemId: Long,
+    @SerialName("pet_id") val petId: Long?,
+    @SerialName("fed_at") val fedAt: Long,
+) : BackupRow
+
+/**
+ * A row of `food_seen`: the newest drop of a food the user has looked at, which is what decides
+ * whether the food reads as new. Not validated against this build's foods.
+ */
+@Serializable
+data class FoodSeenRow(
+    @SerialName("collectible_id") val collectibleId: String,
+    @SerialName("seen_up_to") val seenUpTo: Long,
+) : BackupRow
+
+/** A row of `pet_unlock`: something unlocked for the titan, kept once earned. Not validated. */
+@Serializable
+data class PetUnlockRow(
+    @SerialName("key") val key: String,
+    @SerialName("unlocked_at") val unlockedAt: Long,
+) : BackupRow
+
+/**
+ * A row of `pet_loadout`: one piece of gear worn by one pet, keyed by the pet and the slot.
+ * Neither [slot] nor [gear] is validated against this build, for `species_id`'s reason.
+ */
+@Serializable
+data class PetLoadoutRow(
+    @SerialName("pet_id") val petId: Long,
+    @SerialName("slot") val slot: String,
+    @SerialName("gear") val gear: String,
 ) : BackupRow

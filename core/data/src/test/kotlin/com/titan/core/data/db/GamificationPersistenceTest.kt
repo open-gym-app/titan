@@ -68,6 +68,7 @@ class GamificationPersistenceTest {
             achievementDao = achievementDao(),
             sessionXpClaimDao = sessionXpClaimDao(),
             sessionLootClaimDao = sessionLootClaimDao(),
+            sessionPetClaimDao = sessionPetClaimDao(),
         )
 
     private fun TitanDatabase.inventory() = CollectedItemRepositoryImpl(collectedItemDao())
@@ -156,8 +157,8 @@ class GamificationPersistenceTest {
     fun `collected items are still held on the next launch, duplicates included`() =
         runBlocking {
             val first = open()
-            first.inventory().recordDrop("pet_egg", "session_finished", MONDAY_EVENING)
-            first.inventory().recordDrop("pet_egg", "new_gym_explored", TUESDAY_EVENING)
+            first.inventory().recordDrop("pet_egg", "session_finished", MONDAY_EVENING, sessionId = null)
+            first.inventory().recordDrop("pet_egg", "new_gym_explored", TUESDAY_EVENING, sessionId = null)
             first.close()
 
             val reopened = open()

@@ -3,8 +3,15 @@ package com.titan.core.data.db
 import com.titan.core.data.db.entity.AchievementEntity
 import com.titan.core.data.db.entity.CollectedItemEntity
 import com.titan.core.data.db.entity.ExerciseTagEntity
+import com.titan.core.data.db.entity.FoodSeenEntity
+import com.titan.core.data.db.entity.PetEntity
+import com.titan.core.data.db.entity.PetFeedEntity
+import com.titan.core.data.db.entity.PetLoadoutEntity
+import com.titan.core.data.db.entity.PetStateEntity
+import com.titan.core.data.db.entity.PetUnlockEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
 import com.titan.core.data.db.entity.SessionLootClaimEntity
+import com.titan.core.data.db.entity.SessionPetClaimEntity
 import com.titan.core.data.db.entity.SessionXpClaimEntity
 import com.titan.core.data.db.entity.TemplateSetEntity
 import com.titan.core.data.db.entity.UserProgressEntity
@@ -147,6 +154,7 @@ private suspend fun TitanDatabase.seedProgressAndSpoils() {
     )
     dao.insertXpClaims(listOf(SessionXpClaimEntity(sessionId = 1)))
     dao.insertLootClaims(listOf(SessionLootClaimEntity(sessionId = 1)))
+    dao.insertPetClaims(listOf(SessionPetClaimEntity(sessionId = 1)))
     dao.insertUserProgress(
         listOf(
             UserProgressEntity(
@@ -172,13 +180,18 @@ private suspend fun TitanDatabase.seedProgressAndSpoils() {
     dao.insertQuestCompletions(
         listOf(QuestCompletionEntity(questId = "weekly_volume", periodStart = STARTED_AT, completedAt = FINISHED_AT)),
     )
-    dao.insertCollectedItems(
+    seedPets()
+}
+
+private suspend fun TitanDatabase.seedPets() {
+    backupDao().insertCollectedItems(
         listOf(
             CollectedItemEntity(
                 id = 1,
                 collectibleId = "steel_shaker",
                 source = "session_finished",
                 acquiredAt = FINISHED_AT,
+                sessionId = 1,
             ),
             // The same collectible twice: the inventory is a bag rather than a set, and an
             // import must not collapse two drops into one row.
@@ -188,7 +201,67 @@ private suspend fun TitanDatabase.seedProgressAndSpoils() {
                 source = "session_finished",
                 acquiredAt = FINISHED_AT,
             ),
+            // Two eggs, each hatched below.
+            CollectedItemEntity(
+                id = 3,
+                collectibleId = "pet_egg",
+                source = "session_finished",
+                acquiredAt = FINISHED_AT,
+            ),
+            CollectedItemEntity(
+                id = 4,
+                collectibleId = "pet_egg",
+                source = "session_finished",
+                acquiredAt = FINISHED_AT,
+            ),
+            // A steak, eaten below.
+            CollectedItemEntity(
+                id = 5,
+                collectibleId = "steak",
+                source = "session_finished",
+                acquiredAt = FINISHED_AT,
+                sessionId = 1,
+            ),
         ),
+    )
+    backupDao().insertPets(
+        listOf(
+            PetEntity(
+                id = 1,
+                speciesId = "iron_cub",
+                hatchedFromItemId = 3,
+                hatchedAt = FINISHED_AT,
+                xp = 240,
+                strength = 12,
+                endurance = 3,
+                mobility = 1,
+                nickname = "Brick",
+                isActive = true,
+            ),
+            // A species this build has never heard of: a pet from a newer version, which has to
+            // survive the round trip unchanged.
+            PetEntity(id = 2, speciesId = "from_a_newer_version", hatchedFromItemId = 4, hatchedAt = FINISHED_AT),
+        ),
+    )
+    seedTitanState()
+}
+
+private suspend fun TitanDatabase.seedTitanState() {
+    backupDao().insertPetStates(
+        listOf(
+            PetStateEntity(1, fuel = 22, spirit = 55, "train", FINISHED_AT, FINISHED_AT + 900_000, null, FINISHED_AT),
+            // An activity this build has never heard of, kept as written.
+            PetStateEntity(2, fuel = 64, spirit = 55, "fly", FINISHED_AT, null, "train", FINISHED_AT),
+        ),
+    )
+    backupDao().insertPetFeeds(listOf(PetFeedEntity(collectedItemId = 5, petId = 1, fedAt = FINISHED_AT)))
+    backupDao().insertPetLoadouts(
+        listOf(PetLoadoutEntity(1, "head", "headband"), PetLoadoutEntity(2, "tail", "a_newer_gear")),
+    )
+    backupDao().insertFoodSeen(listOf(FoodSeenEntity(collectibleId = "steak", seenUpTo = 5)))
+    backupDao().insertPetUnlocks(
+        // In key order, which is the order an export reads them back in.
+        listOf(PetUnlockEntity("from_a_newer_version", FINISHED_AT), PetUnlockEntity("sauna", FINISHED_AT)),
     )
 }
 

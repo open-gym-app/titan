@@ -4,8 +4,8 @@ import com.titan.core.domain.gamification.SessionXp
 import com.titan.core.domain.gamification.StreakCalculator
 import com.titan.core.domain.model.AchievementProgress
 import com.titan.core.domain.model.AchievementUnlock
-import com.titan.core.domain.model.Collectible
 import com.titan.core.domain.model.PersonalRecord
+import com.titan.core.domain.model.PetGrowth
 import com.titan.core.domain.model.QuestCompletion
 import com.titan.core.domain.model.SessionProgression
 import com.titan.core.domain.model.SessionProgressionFailure
@@ -99,7 +99,7 @@ import java.time.Instant
  * already ran — a marker written at the end would not survive a crash before it, and one
  * written at the start would strand a half-run cascade forever.
  *
- * Four of the six steps are idempotent for free, and were built that way:
+ * Four of the seven steps are idempotent for free, and were built that way:
  *
  * - detection compares *strictly* better, so a second pass beats the records the first one
  *   wrote and inserts nothing ([PrDetectionUseCase]);
@@ -112,14 +112,17 @@ import java.time.Instant
  * - a quest completion is the same insert-if-absent, narrowed to a period, with its XP behind
  *   the same answer ([QuestCompletionUseCase]).
  *
- * The remaining two are not, and cannot be. [AwardXpUseCase] banks what it is handed,
+ * The remaining three are not, and cannot be. [AwardXpUseCase] banks what it is handed,
  * deliberately, so re-emitting a session's events would pay for them twice; and a roll is a
  * decision taken from a random source, so re-entering would roll again and hand out a second
  * collectible — and unlike an unlock there is nothing downstream to catch it, since a second
  * legitimate drop of the same collectible is a normal thing to hold. Each is fenced by a claim
  * of its own, taken **before** the step it protects:
- * [GamificationRepository.claimSessionXp] and [GamificationRepository.claimSessionLoot]. Both
- * choose under-paying a session torn in half over re-paying every session on every
+ * [GamificationRepository.claimSessionXp] and [GamificationRepository.claimSessionLoot]. The
+ * third is the pet: growth is an increment to the active pet's XP and stats, so a re-entry
+ * would add it again, and [GamificationRepository.claimSessionPet] fences it on the same terms
+ * — see [GrowPetUseCase], which also says why the claim is spent when there is no pet to pay.
+ * All three choose under-paying a session torn in half over re-paying every session on every
  * crash-recovery boot. See [GamificationRepository.claimSessionXp] for the whole of the trade,
  * and [LootRollUseCase] for why the roll takes the same one rather than a cleverer answer.
  *
@@ -154,6 +157,13 @@ import java.time.Instant
  * compensates for another's — a cascade that guessed at what a previous pass had already paid
  * is how a user ends up with XP for a workout they did once and the app finished three times.
  *
+ * ### The pet step is last, and reads nothing the others write
+ *
+ * [SessionProgressionStep.PET] runs after loot, on loot's terms: nothing above it moves. It is
+ * paid from the session's own sets rather than from the XP this run awarded, so — like quests
+ * with the streak — a failed XP or detection step does not take it down, and a run that died
+ * after XP and is re-entered still pays the pet in full.
+ *
  * ### Where this is invoked from
  *
  * [FinishSessionUseCase], inside the transition it already holds
@@ -180,6 +190,8 @@ class SessionCompletionPipeline(
     private val triggerAchievements: AchievementTriggerUseCase,
     private val completeQuests: QuestCompletionUseCase,
     private val rollLoot: LootRollUseCase,
+    private val growPet: GrowPetUseCase,
+    private val evaluateUnlocks: EvaluateUnlocksUseCase,
     private val sessionRepository: SessionRepository,
     private val personalRecordRepository: PersonalRecordRepository,
     private val gamificationRepository: GamificationRepository,
@@ -246,23 +258,38 @@ class SessionCompletionPipeline(
         // owns: at most one row is written, so there is no partial write for a throw to lose.
         // Null therefore covers three answers — the table paid nothing, the session had already
         // been rolled for, or the step failed — and `failures` is where the third is stated.
-        val loot: Collectible? = runStep(SessionProgressionStep.LOOT, failures) {
-            rollLoot(sessionId, finishedAt)
+        val loot: LootRoll? = runStep(SessionProgressionStep.LOOT, failures) {
+            rollLoot.roll(sessionId, finishedAt)
         }
+
+        val petGrowth: PetGrowth? = runStep(SessionProgressionStep.PET, failures) {
+            growPet(sessionId)
+        }
+
+        // The unlocks' own awards join the ledger so `xp` is the whole breakdown rather than the
+        // part this class emitted; `achievementsUnlocked` keeps them attached to what earned
+        // them, which is what a celebration draws.
+        val ledger = xp +
+            unlocks.map { XpGrant(XpEvent.AchievementUnlocked(it.achievement.id), it.xp) } +
+            quests.map { XpGrant(XpEvent.QuestCompleted(it.quest.id, it.quest.xpReward), it.xp) }
+
+        // The levels this run's awards crossed: none on a re-run, whose awards are claimed.
+        val levelsGained = (ledger.lastOrNull()?.award?.level ?: 0) - (ledger.firstOrNull()?.award?.previousLevel ?: 0)
+        val unlocked = runStep(SessionProgressionStep.UNLOCKS, failures) {
+            evaluateUnlocks(levelsGained, finishedAt.toEpochMilli())
+        }.orEmpty()
 
         return SessionProgression(
             sessionId = sessionId,
             recordsBroken = records,
-            // The unlocks' own awards join the ledger so `xp` is the whole breakdown rather
-            // than the part this class emitted; `achievementsUnlocked` keeps them attached to
-            // what earned them, which is what a celebration draws.
-            xp = xp +
-                unlocks.map { XpGrant(XpEvent.AchievementUnlocked(it.achievement.id), it.xp) } +
-                quests.map { XpGrant(XpEvent.QuestCompleted(it.quest.id, it.quest.xpReward), it.xp) },
+            xp = ledger,
             streak = streak,
             achievementsUnlocked = unlocks,
             questsCompleted = quests,
-            lootDropped = loot,
+            lootDropped = loot?.drop,
+            foodDropped = loot?.food.orEmpty(),
+            pet = petGrowth,
+            unlocked = unlocked,
             failures = failures,
         )
     }

@@ -2,20 +2,31 @@ package com.titan.core.data.di
 
 import com.titan.core.domain.gamification.DropTableEvaluator
 import com.titan.core.domain.repository.CollectedItemRepository
+import com.titan.core.domain.repository.ExerciseRepository
 import com.titan.core.domain.repository.GamificationRepository
+import com.titan.core.domain.repository.LoadoutRepository
+import com.titan.core.domain.repository.PantryRepository
 import com.titan.core.domain.repository.PersonalRecordRepository
+import com.titan.core.domain.repository.PetRepository
 import com.titan.core.domain.repository.ProgressionRepository
 import com.titan.core.domain.repository.QuestRepository
 import com.titan.core.domain.repository.SessionRepository
+import com.titan.core.domain.repository.TitanStateRepository
+import com.titan.core.domain.repository.UnlockRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
 import com.titan.core.domain.time.Clock
 import com.titan.core.domain.usecase.AchievementTriggerUseCase
 import com.titan.core.domain.usecase.AwardXpUseCase
+import com.titan.core.domain.usecase.EvaluateUnlocksUseCase
+import com.titan.core.domain.usecase.FeedUseCase
+import com.titan.core.domain.usecase.GrowPetUseCase
+import com.titan.core.domain.usecase.HatchEggUseCase
 import com.titan.core.domain.usecase.LootRollUseCase
 import com.titan.core.domain.usecase.PrDetectionUseCase
 import com.titan.core.domain.usecase.QuestCompletionUseCase
 import com.titan.core.domain.usecase.QuestProgressUseCase
 import com.titan.core.domain.usecase.SessionCompletionPipeline
+import com.titan.core.domain.usecase.WearGearUseCase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -110,11 +121,15 @@ object GamificationUseCaseModule {
         dropTable: DropTableEvaluator,
         collectedItemRepository: CollectedItemRepository,
         gamificationRepository: GamificationRepository,
+        petRepository: PetRepository,
+        sessionRepository: SessionRepository,
     ): LootRollUseCase =
         LootRollUseCase(
             dropTable = dropTable,
             collectedItemRepository = collectedItemRepository,
             gamificationRepository = gamificationRepository,
+            petRepository = petRepository,
+            sessionRepository = sessionRepository,
         )
 
     @Provides
@@ -124,6 +139,8 @@ object GamificationUseCaseModule {
         triggerAchievements: AchievementTriggerUseCase,
         completeQuests: QuestCompletionUseCase,
         rollLoot: LootRollUseCase,
+        growPet: GrowPetUseCase,
+        evaluateUnlocks: EvaluateUnlocksUseCase,
         sessionRepository: SessionRepository,
         personalRecordRepository: PersonalRecordRepository,
         gamificationRepository: GamificationRepository,
@@ -135,9 +152,62 @@ object GamificationUseCaseModule {
             triggerAchievements = triggerAchievements,
             completeQuests = completeQuests,
             rollLoot = rollLoot,
+            growPet = growPet,
+            evaluateUnlocks = evaluateUnlocks,
             sessionRepository = sessionRepository,
             personalRecordRepository = personalRecordRepository,
             gamificationRepository = gamificationRepository,
             userPreferencesRepository = userPreferencesRepository,
         )
+
+    @Provides
+    fun provideGrowPetUseCase(
+        sessionRepository: SessionRepository,
+        exerciseRepository: ExerciseRepository,
+        petRepository: PetRepository,
+        gamificationRepository: GamificationRepository,
+    ): GrowPetUseCase =
+        GrowPetUseCase(
+            sessionRepository = sessionRepository,
+            exerciseRepository = exerciseRepository,
+            petRepository = petRepository,
+            gamificationRepository = gamificationRepository,
+        )
+
+    /**
+     * The hatch, on the real random source and the shipped species catalogue, and on the graph's
+     * clock so a pinned "now" dates a hatch like everything else.
+     */
+    @Provides
+    fun provideHatchEggUseCase(
+        collectedItemRepository: CollectedItemRepository,
+        petRepository: PetRepository,
+        clock: Clock,
+    ): HatchEggUseCase =
+        HatchEggUseCase(
+            collectedItemRepository = collectedItemRepository,
+            petRepository = petRepository,
+            clock = clock,
+        )
+
+    @Provides
+    fun provideFeedUseCase(
+        pantryRepository: PantryRepository,
+        titanStateRepository: TitanStateRepository,
+    ): FeedUseCase = FeedUseCase(pantryRepository, titanStateRepository)
+
+    /** On the real random source: a seeded one would drop the same items for every install. */
+    @Provides
+    fun provideEvaluateUnlocksUseCase(
+        petRepository: PetRepository,
+        unlockRepository: UnlockRepository,
+    ): EvaluateUnlocksUseCase = EvaluateUnlocksUseCase(petRepository, unlockRepository)
+
+    @Provides
+    fun provideWearGearUseCase(
+        petRepository: PetRepository,
+        unlockRepository: UnlockRepository,
+        loadoutRepository: LoadoutRepository,
+        gamificationRepository: GamificationRepository,
+    ): WearGearUseCase = WearGearUseCase(petRepository, unlockRepository, gamificationRepository, loadoutRepository)
 }

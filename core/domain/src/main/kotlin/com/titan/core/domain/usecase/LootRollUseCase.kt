@@ -1,11 +1,15 @@
 package com.titan.core.domain.usecase
 
 import com.titan.core.domain.gamification.DropTableEvaluator
+import com.titan.core.domain.gamification.FoodDrop
 import com.titan.core.domain.model.Collectible
 import com.titan.core.domain.model.DropSource
 import com.titan.core.domain.repository.CollectedItemRepository
 import com.titan.core.domain.repository.GamificationRepository
+import com.titan.core.domain.repository.PetRepository
+import com.titan.core.domain.repository.SessionRepository
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.time.Instant
 
@@ -56,41 +60,77 @@ class LootRollUseCase(
     private val dropTable: DropTableEvaluator,
     private val collectedItemRepository: CollectedItemRepository,
     private val gamificationRepository: GamificationRepository,
+    private val petRepository: PetRepository? = null,
+    private val sessionRepository: SessionRepository? = null,
+    private val foodDrop: FoodDrop = FoodDrop(),
 ) {
 
-    /**
-     * Rolls for [sessionId], writes what dropped, and returns it.
-     *
-     * @param sessionId the finished session, and the key the claim is taken under — so a
-     *   recovery path re-entering with nothing but the row is fenced by the same marker a
-     *   normal finish takes.
-     * @param finishedAt when that session finished, stamped on the drop as its acquisition
-     *   moment. The workout's own moment rather than a clock's, the rule
-     *   [AchievementTriggerUseCase] and [QuestCompletionUseCase] both already follow: a cascade
-     *   retried an hour later dates the drop to the training that earned it.
-     * @return the collectible that dropped, or **null** — which is the ordinary answer, in two
-     *   different ways that are deliberately not distinguished here. The table paid out nothing
-     *   (four times in five), or this session had already been rolled for. Both mean the same
-     *   thing to the caller: this run produced no drop.
-     */
+    /** The trophy roll alone, as it has always been answered. See [roll] for the food. */
     suspend operator fun invoke(
         sessionId: Long,
         finishedAt: Instant,
-    ): Collectible? =
+    ): Collectible? = roll(sessionId, finishedAt).drop
+
+    /**
+     * Rolls the session's drops: the trophy roll, and — for a user who owns a titan — the food.
+     *
+     * One claim covers both, taken before either draw, so a re-entered cascade draws nothing.
+     * The sets are read before the claim, so a read that fails leaves the claim for the re-run.
+     * With no titan, or with no session store wired, the food draw is not made and the trophy
+     * roll consumes exactly the numbers it always did.
+     */
+    suspend fun roll(
+        sessionId: Long,
+        finishedAt: Instant,
+    ): LootRoll {
+        val sets = if (petRepository != null && sessionRepository != null && petRepository.count() > 0) {
+            sessionRepository.getSetsForSession(sessionId).first()
+        } else {
+            null
+        }
+
         // Uncancellable as one piece, for the reason [QuestCompletionUseCase.complete] is: the
         // claim is what makes the roll unrepeatable, so a cancellation landing between it and
-        // the write would throw away a collectible the user had earned and no later run could
-        // roll it again. A caller cancelled before this is entered is not affected — that is a
-        // roll that never happened, and the claim is still there to be taken.
-        withContext(NonCancellable) {
-            if (!gamificationRepository.claimSessionLoot(sessionId)) return@withContext null
+        // the writes would throw away what the user had earned and no later run could roll it.
+        return withContext(NonCancellable) {
+            if (!gamificationRepository.claimSessionLoot(sessionId)) return@withContext LootRoll.NOTHING
 
-            val drop = dropTable.roll(DropSource.SESSION_FINISHED) ?: return@withContext null
-            collectedItemRepository.recordDrop(
-                collectibleId = drop.id,
-                source = DropSource.SESSION_FINISHED.key,
-                acquiredAt = finishedAt,
-            )
-            drop
+            val drop = dropTable.roll(DropSource.SESSION_FINISHED)
+            drop?.let { record(it, sessionId, finishedAt) }
+            val food = sets?.let(foodDrop::roll).orEmpty()
+            food.forEach { record(it, sessionId, finishedAt) }
+            LootRoll(drop = drop, food = food)
         }
+    }
+
+    private suspend fun record(
+        collectible: Collectible,
+        sessionId: Long,
+        finishedAt: Instant,
+    ) {
+        collectedItemRepository.recordDrop(
+            collectibleId = collectible.id,
+            source = DropSource.SESSION_FINISHED.key,
+            acquiredAt = finishedAt,
+            sessionId = sessionId,
+        )
+    }
+}
+
+/**
+ * What a session's roll produced.
+ *
+ * @property drop the trophy roll's answer, or null for the ordinary session that drops nothing.
+ * @property food the food it paid, in the order drawn; empty with no titan to feed.
+ */
+data class LootRoll(
+    val drop: Collectible?,
+    val food: List<Collectible>,
+) {
+
+    companion object {
+
+        /** A roll refused at the claim: nothing at all. */
+        val NOTHING = LootRoll(drop = null, food = emptyList())
+    }
 }

@@ -72,6 +72,9 @@ enum class BackupTable(val tableName: String) {
     /** Needs `workout_session`. The same fence over the drop-table roll. */
     SESSION_LOOT_CLAIM("session_loot_claim"),
 
+    /** Needs `workout_session`. The same fence again, over the active pet's growth. */
+    SESSION_PET_CLAIM("session_pet_claim"),
+
     /** Points at nothing. Exactly one row, or none at all. */
     USER_PROGRESS("user_progress"),
 
@@ -81,8 +84,29 @@ enum class BackupTable(val tableName: String) {
     /** Points at nothing. */
     QUEST_COMPLETION("quest_completion"),
 
-    /** Points at nothing. */
+    /**
+     * Points at nothing, and is pointed at: `pet` names the egg it hatched from. Its place before
+     * `pet` is load-bearing.
+     */
     COLLECTED_ITEM("collected_item"),
+
+    /** Needs `collected_item`: a pet names the drop row of the egg it hatched from. */
+    PET("pet"),
+
+    /** Needs `pet`. One row per pet: its vitals and current activity. */
+    PET_STATE("pet_state"),
+
+    /** Needs `pet`. What each pet is wearing, one piece per slot. */
+    PET_LOADOUT("pet_loadout"),
+
+    /** Needs `collected_item` and `pet`. One row per food drop eaten. */
+    PET_FEED("pet_feed"),
+
+    /** Points at nothing. What the user has seen of each food. */
+    FOOD_SEEN("food_seen"),
+
+    /** Points at nothing. What the user's training has unlocked for the titan. */
+    PET_UNLOCK("pet_unlock"),
     ;
 
     companion object {

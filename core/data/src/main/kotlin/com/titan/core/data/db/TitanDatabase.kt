@@ -10,12 +10,18 @@ import com.titan.core.data.db.dao.BackupDao
 import com.titan.core.data.db.dao.BodyMeasurementDao
 import com.titan.core.data.db.dao.CollectedItemDao
 import com.titan.core.data.db.dao.ExerciseDao
+import com.titan.core.data.db.dao.LoadoutDao
 import com.titan.core.data.db.dao.LocalDataDao
 import com.titan.core.data.db.dao.MuscleGroupDao
+import com.titan.core.data.db.dao.PantryDao
 import com.titan.core.data.db.dao.PersonalRecordDao
+import com.titan.core.data.db.dao.PetDao
+import com.titan.core.data.db.dao.PetStateDao
+import com.titan.core.data.db.dao.PetUnlockDao
 import com.titan.core.data.db.dao.QuestCompletionDao
 import com.titan.core.data.db.dao.SessionExerciseDao
 import com.titan.core.data.db.dao.SessionLootClaimDao
+import com.titan.core.data.db.dao.SessionPetClaimDao
 import com.titan.core.data.db.dao.SessionXpClaimDao
 import com.titan.core.data.db.dao.TagDao
 import com.titan.core.data.db.dao.UserProgressDao
@@ -28,11 +34,18 @@ import com.titan.core.data.db.entity.CollectedItemEntity
 import com.titan.core.data.db.entity.ExerciseEntity
 import com.titan.core.data.db.entity.ExerciseMuscleGroupEntity
 import com.titan.core.data.db.entity.ExerciseTagEntity
+import com.titan.core.data.db.entity.FoodSeenEntity
 import com.titan.core.data.db.entity.MuscleGroupEntity
 import com.titan.core.data.db.entity.PersonalRecordEntity
+import com.titan.core.data.db.entity.PetEntity
+import com.titan.core.data.db.entity.PetFeedEntity
+import com.titan.core.data.db.entity.PetLoadoutEntity
+import com.titan.core.data.db.entity.PetStateEntity
+import com.titan.core.data.db.entity.PetUnlockEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
 import com.titan.core.data.db.entity.SessionExerciseEntity
 import com.titan.core.data.db.entity.SessionLootClaimEntity
+import com.titan.core.data.db.entity.SessionPetClaimEntity
 import com.titan.core.data.db.entity.SessionXpClaimEntity
 import com.titan.core.data.db.entity.TagEntity
 import com.titan.core.data.db.entity.TemplateExerciseEntity
@@ -63,10 +76,19 @@ import com.titan.core.data.db.entity.WorkoutTemplateEntity
         SessionLootClaimEntity::class,
         QuestCompletionEntity::class,
         CollectedItemEntity::class,
+        PetEntity::class,
+        PetStateEntity::class,
+        PetLoadoutEntity::class,
+        PetFeedEntity::class,
+        FoodSeenEntity::class,
+        PetUnlockEntity::class,
+        SessionPetClaimEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
+// One abstract getter per DAO is what a Room database is, so the count grows with the schema.
+@Suppress("TooManyFunctions")
 abstract class TitanDatabase : RoomDatabase() {
 
     abstract fun exerciseDao(): ExerciseDao
@@ -85,6 +107,12 @@ abstract class TitanDatabase : RoomDatabase() {
     abstract fun sessionLootClaimDao(): SessionLootClaimDao
     abstract fun questCompletionDao(): QuestCompletionDao
     abstract fun collectedItemDao(): CollectedItemDao
+    abstract fun petDao(): PetDao
+    abstract fun petStateDao(): PetStateDao
+    abstract fun pantryDao(): PantryDao
+    abstract fun petUnlockDao(): PetUnlockDao
+    abstract fun loadoutDao(): LoadoutDao
+    abstract fun sessionPetClaimDao(): SessionPetClaimDao
 
     /**
      * Every table, whole, for export and import — see [BackupDao] for why backup gets a DAO of
@@ -138,11 +166,94 @@ abstract class TitanDatabase : RoomDatabase() {
             }
 
         /**
+         * Version 2: the Titans milestone's tables, added once for the whole milestone.
+         *
+         * Additive only — no existing table is touched, so every row a version 1 install holds
+         * is where it was afterwards. The statements are the ones Room generates for the
+         * entities (`schemas/2.json`), which `DatabaseMigrationTest` holds this to.
+         */
+        val MIGRATION_1_2: Migration = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                MIGRATION_1_2_STATEMENTS.forEach(db::execSQL)
+            }
+        }
+
+        /**
+         * What [MIGRATION_1_2] runs, in order. One change to a version 1 table, and an additive
+         * one: `collected_item` gains a nullable column, so every drop already held reads back
+         * with no session. Everything else is a new table.
+         */
+        private val MIGRATION_1_2_STATEMENTS: List<String> = listOf(
+            """
+                        CREATE TABLE IF NOT EXISTS `pet` (
+                            `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            `species_id` TEXT NOT NULL,
+                            `hatched_from_item_id` INTEGER NOT NULL,
+                            `hatched_at` INTEGER NOT NULL,
+                            `xp` INTEGER NOT NULL,
+                            `strength` INTEGER NOT NULL,
+                            `endurance` INTEGER NOT NULL,
+                            `mobility` INTEGER NOT NULL,
+                            `nickname` TEXT,
+                            `is_active` INTEGER NOT NULL,
+                            FOREIGN KEY(`hatched_from_item_id`) REFERENCES `collected_item`(`id`)
+                                ON UPDATE NO ACTION ON DELETE RESTRICT
+                        )
+            """.trimIndent(),
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_pet_hatched_from_item_id` " +
+                "ON `pet` (`hatched_from_item_id`)",
+            "ALTER TABLE `collected_item` ADD COLUMN `session_id` INTEGER " +
+                "REFERENCES `workout_session`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL",
+            "CREATE INDEX IF NOT EXISTS `index_collected_item_session_id` ON `collected_item` (`session_id`)",
+            """
+                        CREATE TABLE IF NOT EXISTS `pet_state` (
+                            `pet_id` INTEGER NOT NULL,
+                            `fuel` INTEGER NOT NULL,
+                                `spirit` INTEGER NOT NULL,
+                            `activity` TEXT NOT NULL,
+                            `activity_started_at` INTEGER NOT NULL,
+                            `activity_ends_at` INTEGER,
+                            `resume_activity` TEXT,
+                            `updated_at` INTEGER NOT NULL,
+                            PRIMARY KEY(`pet_id`),
+                            FOREIGN KEY(`pet_id`) REFERENCES `pet`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                        )
+            """.trimIndent(),
+            """
+                        CREATE TABLE IF NOT EXISTS `pet_feed` (
+                            `collected_item_id` INTEGER NOT NULL,
+                            `pet_id` INTEGER,
+                            `fed_at` INTEGER NOT NULL,
+                            PRIMARY KEY(`collected_item_id`),
+                            FOREIGN KEY(`collected_item_id`) REFERENCES `collected_item`(`id`)
+                                ON UPDATE NO ACTION ON DELETE RESTRICT,
+                            FOREIGN KEY(`pet_id`) REFERENCES `pet`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL
+                        )
+            """.trimIndent(),
+            "CREATE INDEX IF NOT EXISTS `index_pet_feed_pet_id` ON `pet_feed` (`pet_id`)",
+            "CREATE TABLE IF NOT EXISTS `food_seen` " +
+                "(`collectible_id` TEXT NOT NULL, `seen_up_to` INTEGER NOT NULL, PRIMARY KEY(`collectible_id`))",
+            """
+                        CREATE TABLE IF NOT EXISTS `session_pet_claim` (
+                            `session_id` INTEGER NOT NULL,
+                            PRIMARY KEY(`session_id`),
+                            FOREIGN KEY(`session_id`) REFERENCES `workout_session`(`id`)
+                                ON UPDATE NO ACTION ON DELETE CASCADE
+                        )
+            """.trimIndent(),
+            "CREATE TABLE IF NOT EXISTS `pet_unlock` " +
+                "(`key` TEXT NOT NULL, `unlocked_at` INTEGER NOT NULL, PRIMARY KEY(`key`))",
+            "CREATE TABLE IF NOT EXISTS `pet_loadout` (`pet_id` INTEGER NOT NULL, `slot` TEXT NOT NULL, " +
+                "`gear` TEXT NOT NULL, PRIMARY KEY(`pet_id`, `slot`), FOREIGN KEY(`pet_id`) REFERENCES `pet`(`id`) " +
+                "ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+
+        /**
          * Every version bump beyond 1 must add its `Migration` here and a matching
          * test in the migration test suite. The database is deliberately *not*
          * built with a destructive fallback: a version bump without a migration
          * here throws at startup instead of silently wiping user history.
          */
-        val MIGRATIONS: Array<Migration> = emptyArray()
+        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2)
     }
 }

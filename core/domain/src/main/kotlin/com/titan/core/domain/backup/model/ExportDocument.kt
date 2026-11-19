@@ -64,10 +64,17 @@ data class ExportDocument(
     @SerialName("body_measurement") val bodyMeasurement: List<BodyMeasurementRow> = emptyList(),
     @SerialName("session_xp_claim") val sessionXpClaim: List<SessionXpClaimRow> = emptyList(),
     @SerialName("session_loot_claim") val sessionLootClaim: List<SessionLootClaimRow> = emptyList(),
+    @SerialName("session_pet_claim") val sessionPetClaim: List<SessionPetClaimRow> = emptyList(),
     @SerialName("user_progress") val userProgress: List<UserProgressRow> = emptyList(),
     @SerialName("achievement") val achievement: List<AchievementRow> = emptyList(),
     @SerialName("quest_completion") val questCompletion: List<QuestCompletionRow> = emptyList(),
     @SerialName("collected_item") val collectedItem: List<CollectedItemRow> = emptyList(),
+    @SerialName("pet") val pet: List<PetRow> = emptyList(),
+    @SerialName("pet_state") val petState: List<PetStateRow> = emptyList(),
+    @SerialName("pet_loadout") val petLoadout: List<PetLoadoutRow> = emptyList(),
+    @SerialName("pet_feed") val petFeed: List<PetFeedRow> = emptyList(),
+    @SerialName("food_seen") val foodSeen: List<FoodSeenRow> = emptyList(),
+    @SerialName("pet_unlock") val petUnlock: List<PetUnlockRow> = emptyList(),
 ) {
 
     /**
@@ -95,10 +102,17 @@ data class ExportDocument(
             BackupTable.BODY_MEASUREMENT -> bodyMeasurement
             BackupTable.SESSION_XP_CLAIM -> sessionXpClaim
             BackupTable.SESSION_LOOT_CLAIM -> sessionLootClaim
+            BackupTable.SESSION_PET_CLAIM -> sessionPetClaim
             BackupTable.USER_PROGRESS -> userProgress
             BackupTable.ACHIEVEMENT -> achievement
             BackupTable.QUEST_COMPLETION -> questCompletion
             BackupTable.COLLECTED_ITEM -> collectedItem
+            BackupTable.PET -> pet
+            BackupTable.PET_STATE -> petState
+            BackupTable.PET_LOADOUT -> petLoadout
+            BackupTable.PET_FEED -> petFeed
+            BackupTable.FOOD_SEEN -> foodSeen
+            BackupTable.PET_UNLOCK -> petUnlock
         }
 
     /** How many rows the whole document holds, across every table. What a progress bar divides by. */
@@ -116,7 +130,12 @@ data class ExportDocument(
          * docs/export-schema.md's version-history table and, if older files are to keep
          * restoring, an up-converter listed there; until one is written, a reader refuses
          * every version but its own, older ones included.
+         *
+         * Version 2 added the Titans milestone's tables: `pet`, `pet_state`, `pet_loadout`,
+         * `pet_feed`,
+         * `food_seen`, `pet_unlock` and `session_pet_claim`. A version 1 file still restores, through
+         * [com.titan.core.domain.backup.SchemaUpgrade].
          */
-        const val SCHEMA_VERSION: Int = 1
+        const val SCHEMA_VERSION: Int = 2
     }
 }

@@ -13,13 +13,11 @@ package com.titan.core.domain.model
  * [com.titan.core.domain.gamification.DropRates] do not move because a new entry joined the
  * pool.
  *
- * ### What a collectible *does* is nothing, deliberately
+ * ### What a collectible does is its [kind]
  *
- * There is no effect, no consumption and no "equipped" flag, because there is no mechanic yet
- * for one to feed. A collectible that hatches, or that buys something, is a feature line of its
- * own — see #107, which says so — and the shape here is what keeps that a later addition rather
- * than a rewrite: the drop foundation stores *that* a thing was pulled, and anything the thing
- * does is a property added to this class when something reads it.
+ * A trophy does nothing, an egg hatches, food is eaten. The drop foundation still stores only
+ * *that* a thing was pulled; what the thing does is read off the catalogue entry. Gear is not a
+ * collectible: it is cosmetic and unlocked by milestones (#291), not dropped.
  *
  * ### No display name
  *
@@ -44,11 +42,31 @@ data class Collectible(
     val id: String,
     val rarity: Rarity,
     val source: DropSource,
+    val kind: CollectibleKind = CollectibleKind.TROPHY,
+    val fuel: Int? = null,
 ) {
 
     init {
         require(id.isNotBlank()) { "a collectible needs an id: it is the key its drops are stored under" }
+        require((kind == CollectibleKind.FOOD) == (fuel != null)) { "food, and only food, restores fuel: $id" }
+        require(fuel == null || fuel > 0) { "a food that restores nothing is not food: $id" }
     }
+}
+
+/**
+ * What a [Collectible] does once the user holds it. Not persisted: a drop row holds the id, and
+ * the kind is looked up from the catalogue, like [Rarity].
+ */
+enum class CollectibleKind {
+
+    /** Nothing. A souvenir of a session. */
+    TROPHY,
+
+    /** Hatches into a pet when the user asks it to. */
+    EGG,
+
+    /** Eaten by the titan, restoring [Collectible.fuel]. */
+    FOOD,
 }
 
 /**

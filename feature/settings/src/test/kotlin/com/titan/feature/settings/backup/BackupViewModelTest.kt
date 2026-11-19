@@ -13,6 +13,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.titan.core.domain.backup.BackupDirectory
 import com.titan.core.domain.backup.ExportFormat
 import com.titan.core.domain.backup.ImportSource
+import com.titan.core.domain.backup.model.ExportDocument
 import com.titan.core.domain.backup.model.ImportError
 import com.titan.core.domain.session.IdleSessionMonitor
 import com.titan.core.domain.timer.BackgroundRest
@@ -375,13 +376,23 @@ class BackupViewModelTest {
             viewModel.onEvent(BackupEvent.ExportRequested(APP_VERSION))
             val exported = viewModel.uiState.first { it.lastExport != null }.lastExport as ExportOutcome.Succeeded
             val file = backupFile(exported.fileName)
-            file.writeText(file.readText().replace("\"schema_version\":1", "\"schema_version\":2"))
+            file.writeText(
+                file.readText().replace(
+                    "\"schema_version\":${ExportDocument.SCHEMA_VERSION}",
+                    "\"schema_version\":${ExportDocument.SCHEMA_VERSION + 1}",
+                ),
+            )
 
             restore(viewModel, file)
             val outcome = viewModel.uiState.first { it.lastRestore != null }.lastRestore
 
             assertEquals(
-                RestoreOutcome.Failed(ImportError.UnsupportedSchemaVersion(found = 2, supported = 1)),
+                RestoreOutcome.Failed(
+                    ImportError.UnsupportedSchemaVersion(
+                        found = ExportDocument.SCHEMA_VERSION + 1,
+                        supported = ExportDocument.SCHEMA_VERSION,
+                    ),
+                ),
                 outcome,
             )
         }

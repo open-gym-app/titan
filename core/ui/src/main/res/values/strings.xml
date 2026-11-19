@@ -640,4 +640,70 @@
     <string name="time_picker_confirm">Save</string>
     <string name="time_picker_cancel">Cancel</string>
 
+    <!-- ── The titan ────────────────────────────────────────────────────────────── -->
+
+    <!-- The companion's vocabulary, shared by the tab, the dock, the feed sheet
+         and the inventory. Written in sentence case: the components uppercase the mono labels. -->
+    <string name="titan_slot_head">Head</string>
+    <string name="titan_slot_face">Face</string>
+    <string name="titan_slot_hands">Hands</string>
+    <string name="titan_slot_neck">Neck</string>
+    <string name="titan_slot_back">Back</string>
+    <string name="titan_slot_chest">Chest</string>
+    <string name="titan_vital_fuel">Fuel</string>
+    <string name="titan_vital_spirit">Spirit</string>
+    <string name="titan_vital_value">%1$d / %2$d</string>
+    <string name="titan_vital_low">Low</string>
+    <string name="titan_vital_description">%1$s, %2$d of %3$d</string>
+    <string name="titan_vital_low_description">%1$s, low, %2$d of %3$d</string>
+    <string name="titan_item_new">New</string>
+    <string name="titan_item_worn">Worn</string>
+    <string name="titan_item_locked">Locked</string>
+    <string name="titan_effect">+%1$d %2$s</string>
+    <string name="titan_effect_description">%1$s plus %2$d</string>
+    <string name="titan_activity_idle">Idle</string>
+    <string name="titan_activity_walk">Walk</string>
+    <string name="titan_activity_run">Run</string>
+    <string name="titan_activity_swim">Swim</string>
+    <string name="titan_activity_train">Train</string>
+    <string name="titan_activity_rest">Rest</string>
+    <string name="titan_activity_eat">Eat</string>
+    <string name="titan_gear_headband">Headband</string>
+    <string name="titan_gear_shades">Shades</string>
+    <string name="titan_gear_crown">Crown</string>
+    <string name="titan_gear_chalk">Chalk</string>
+    <string name="titan_gear_cap">Cap</string>
+    <string name="titan_gear_cape">Cape</string>
+    <string name="titan_gear_scarf">Scarf</string>
+    <string name="titan_gear_medal">Medal</string>
+    <string name="titan_place_track">Track</string>
+    <string name="titan_place_rack">Rack</string>
+    <string name="titan_place_pool">Pool</string>
+    <string name="titan_place_ring">Ring</string>
+    <string name="titan_place_sauna">Sauna</string>
+    <string name="titan_place_trail">Trail</string>
+    <string name="titan_place_dojo">Dojo</string>
+    <string name="titan_place_summit">Summit</string>
+    <string name="titan_food_steak">Steak</string>
+    <string name="titan_food_rice">Rice</string>
+    <string name="titan_food_shake">Shake</string>
+    <string name="titan_food_eggs">Eggs</string>
+    <string name="titan_food_oats">Oats</string>
+    <string name="titan_food_honey">Honey</string>
+    <string name="titan_food_banana">Banana</string>
+    <string name="titan_food_berries">Berries</string>
+    <string name="titan_food_unknown">Unknown food</string>
+    <string name="titan_species_iron_cub">Iron cub</string>
+    <string name="titan_species_chalk_sprite">Chalk sprite</string>
+    <string name="titan_species_plate_tortoise">Plate tortoise</string>
+    <string name="titan_species_kettle_ram">Kettle ram</string>
+    <string name="titan_species_barbell_drake">Barbell drake</string>
+    <string name="titan_species_atlas">Atlas</string>
+    <string name="titan_species_unknown">Unknown titan</string>
+    <string name="titan_owned">Owned</string>
+    <plurals name="titan_minutes_left">
+        <item quantity="one">%1$d min left</item>
+        <item quantity="other">%1$d min left</item>
+    </plurals>
+
 </resources>

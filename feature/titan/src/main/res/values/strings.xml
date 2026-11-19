@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The Titan tab: the companion, what it does next, its vitals and its supplies. -->
+    <string name="titan_tab_title">Titan</string>
+    <string name="titan_rename">Rename %1$s</string>
+    <string name="titan_rename_title">Rename %1$s</string>
+    <string name="titan_rename_field">Name</string>
+    <string name="titan_rename_save">Save</string>
+    <string name="titan_rename_cancel">Cancel</string>
+    <string name="titan_rename_hint">Leave it empty to use the species’ name.</string>
+    <string name="titan_rename_too_long">At most 24 characters</string>
+    <string name="titan_rename_control">No line breaks or tabs</string>
+    <string name="titan_header">%1$s · Lvl %2$d</string>
+
+    <!-- The dock above the bottom bar, read as one button: "Brick: On a run. Fuel low. Open titan." -->
+    <string name="titan_dock_description">%1$s: %2$s.</string>
+    <string name="titan_dock_alert">%1$s low.</string>
+    <string name="titan_dock_open">Open titan.</string>
+    <string name="titan_power">Power %1$d</string>
+    <string name="titan_stage_description">%1$s, %2$s</string>
+    <string name="titan_status_idle">Hanging out</string>
+    <string name="titan_status_walk">Out for a walk</string>
+    <string name="titan_status_run">On a run</string>
+    <string name="titan_status_swim">Swimming laps</string>
+    <string name="titan_status_train">Squatting</string>
+    <string name="titan_status_rest">Resting</string>
+    <string name="titan_status_eat">Eating</string>
+    <string name="titan_note_idle">Picking what to do next</string>
+    <string name="titan_note_walk">Round the track</string>
+    <string name="titan_note_run">Intervals on the track</string>
+    <string name="titan_note_swim">Laps in the pool</string>
+    <string name="titan_note_train">On the rack</string>
+    <string name="titan_note_rest">Catching its breath</string>
+    <string name="titan_note_eat">Back to it in a moment</string>
+    <string name="titan_vitals">Vitals</string>
+    <string name="titan_supplies">Supplies</string>
+    <string name="titan_inventory">Inventory</string>
+    <string name="titan_tab_food">Food</string>
+    <string name="titan_tab_gear">Gear</string>
+    <string name="titan_tab_habitat">Habitat</string>
+    <string name="titan_hint_food">Earned by training: finished workouts drop food. Tap an item to feed %1$s.</string>
+    <string name="titan_hint_gear">Gear is cosmetic: it changes how %1$s looks, never how strong it is. Achievements and level-ups bring new pieces.</string>
+    <string name="titan_hint_habitat">Habitats change the backdrop behind %1$s. Achievements and level-ups open new ones.</string>
+    <string name="titan_slot_empty">Empty</string>
+    <string name="titan_slot_nothing">Nothing to wear here yet. Achievements and level-ups bring new pieces.</string>
+    <string name="titan_habitat_here">Here</string>
+    <string name="titan_habitat_go">Go</string>
+    <string name="titan_gear_wear">Wear</string>
+    <string name="titan_none_title">No titan yet</string>
+    <string name="titan_none_body">A titan is a companion that grows with your training. Eggs sometimes drop when you finish a workout.</string>
+    <string name="titan_eggs">Eggs</string>
+    <string name="titan_egg">Pet egg</string>
+    <string name="titan_egg_found">Found %1$s</string>
+    <string name="titan_hatch">Hatch</string>
+    <string name="titan_hatch_description">Hatch the egg found %1$s</string>
+    <plurals name="titan_food_left">
+        <item quantity="one">%1$d left</item>
+        <item quantity="other">%1$d left</item>
+    </plurals>
+</resources>

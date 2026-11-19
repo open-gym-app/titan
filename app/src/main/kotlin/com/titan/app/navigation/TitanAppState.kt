@@ -1,5 +1,6 @@
 package com.titan.app.navigation
 
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
@@ -40,6 +41,15 @@ class TitanAppState(val navController: NavHostController) {
         )
 
     /**
+     * Opens [uri]: a tab's own link by switching to that tab, any other link over the tabs with
+     * [NavHostController.openDeepLink].
+     */
+    fun openDeepLink(uri: Uri) {
+        val tab = TopLevelDestination.entries.firstOrNull { it.deepLink != null && it.deepLink == uri.toString() }
+        if (tab != null) navigateToTopLevelDestination(tab) else navController.openDeepLink(uri)
+    }
+
+    /**
      * Switch tabs, preserving what each one had on its stack.
      *
      * The three options are one behaviour, not three preferences:
@@ -75,6 +85,7 @@ class TitanAppState(val navController: NavHostController) {
      * screen pushed inside a tab (#24) is still that tab, and the bar shows it as selected, so
      * pressing it there is the same press.
      */
+
     fun navigateToTopLevelDestination(topLevelDestination: TopLevelDestination) {
         val current = ShellChrome.of(navController.currentBackStackEntry?.destination)
         if (current.currentTopLevelDestination == topLevelDestination) return

@@ -1,6 +1,7 @@
 package com.titan.core.domain.gamification
 
 import com.titan.core.domain.model.Collectible
+import com.titan.core.domain.model.CollectibleKind
 import com.titan.core.domain.model.DropSource
 import com.titan.core.domain.model.Rarity
 
@@ -13,13 +14,12 @@ import com.titan.core.domain.model.Rarity
  * are priced per [Rarity] in [DropRates] rather than per entry. Adding a sixth common is a line
  * here and does not make commons any likelier; it makes the common band wider.
  *
- * ### They are trophies, not equipment
+ * ### Trophies, an egg, and food
  *
- * Nothing here has a stat, a use or an effect, and the naming keeps it that way on purpose. A
- * "lifting strap" in this catalogue is a souvenir of a session, not a piece of kit the app
- * models — `EquipmentType` is where equipment lives, and a collectible that started modifying
- * anything would be a mechanic rather than a drop. See [Collectible] for why that is a milestone
- * of its own rather than a field waiting to be filled in.
+ * The trophies have no stat, use or effect, and the naming keeps it that way: a "lifting strap"
+ * here is a souvenir of a session, not a piece of kit — `EquipmentType` is where equipment
+ * lives. The egg hatches (#276). Food ([FOOD]) is eaten by the titan and is drawn from a pool of
+ * its own, so it moves no trophy or egg odds: [TROPHY_POOL] is what the trophy roll reads.
  *
  * ### Every band is stocked, and that is a rule rather than an accident
  *
@@ -62,11 +62,11 @@ object Collectibles {
     /**
      * The wireframe's own example — "Pet egg · Rare".
      *
-     * It hatches into nothing, because nothing hatches anything yet; see [Collectible]. Kept at
-     * the rarity the wireframe gave it so the mechanic the drawing describes is the mechanic
-     * that shipped.
+     * It hatches into a pet when the user asks it to — see
+     * [com.titan.core.domain.usecase.HatchEggUseCase]. Kept at the rarity the wireframe gave it
+     * so the mechanic the drawing describes is the mechanic that shipped.
      */
-    val PET_EGG = collectible("pet_egg", Rarity.RARE)
+    val PET_EGG = collectible("pet_egg", Rarity.RARE, CollectibleKind.EGG)
 
     // ─── Epic ───────────────────────────────────────────────────────────────────────────────
 
@@ -78,15 +78,28 @@ object Collectibles {
     /** The top of the table: a crown of iron, and a story about the session that produced it. */
     val IRON_CROWN = collectible("iron_crown", Rarity.LEGENDARY)
 
+    // ─── Food ───────────────────────────────────────────────────────────────────────────
+    //
+    // Eaten by the titan. Not in the trophy pool: a session pays food on a draw of its own (#288).
+
+    val STEAK = food("steak", fuel = 40)
+    val RICE = food("rice", fuel = 30)
+    val SHAKE = food("shake", fuel = 25)
+    val EGGS = food("eggs", fuel = 20)
+    val OATS = food("oats", fuel = 15)
+    val HONEY = food("honey", fuel = 12)
+    val BANANA = food("banana", fuel = 10)
+    val BERRIES = food("berries", fuel = 8)
+
+    /** Every food, most filling first: the pantry's order. */
+    val FOOD: List<Collectible> = listOf(STEAK, RICE, SHAKE, EGGS, OATS, HONEY, BANANA, BERRIES)
+
     /**
-     * Every collectible this build knows about, commonest band first.
+     * What the trophy roll draws from: the trophies and the egg, commonest band first.
      *
-     * The order is not read by the roll — [DropRates] walks [Rarity] itself, so a band's odds do
-     * not depend on where its entries sit in this list — but it is the order a full-collection
-     * screen would draw, and keeping it in step with [Rarity] is what makes the table above
-     * legible as a ladder rather than as a bag. `CollectiblesTest` holds it.
+     * Kept apart from [FOOD] so that adding food moves no band's odds.
      */
-    val ALL: List<Collectible> = listOf(
+    val TROPHY_POOL: List<Collectible> = listOf(
         CHALK_BLOCK,
         SPARE_COLLAR,
         WORN_WRISTBAND,
@@ -96,6 +109,16 @@ object Collectibles {
         GOLDEN_DUMBBELL,
         IRON_CROWN,
     )
+
+    /**
+     * Every collectible this build knows about, commonest band first.
+     *
+     * The order is not read by the roll — [DropRates] walks [Rarity] itself, so a band's odds do
+     * not depend on where its entries sit in this list — but it is the order a full-collection
+     * screen would draw, and keeping it in step with [Rarity] is what makes the table above
+     * legible as a ladder rather than as a bag. `CollectiblesTest` holds it.
+     */
+    val ALL: List<Collectible> = TROPHY_POOL + FOOD
 
     /**
      * The catalogue entry [id] names, or **null** if this build has none.
@@ -126,4 +149,18 @@ object Collectibles {
 private fun collectible(
     id: String,
     rarity: Rarity,
-): Collectible = Collectible(id = id, rarity = rarity, source = DropSource.SESSION_FINISHED)
+    kind: CollectibleKind = CollectibleKind.TROPHY,
+): Collectible = Collectible(id = id, rarity = rarity, source = DropSource.SESSION_FINISHED, kind = kind)
+
+/** A food. Common, for styling only: food is never in a rarity roll. */
+private fun food(
+    id: String,
+    fuel: Int,
+): Collectible =
+    Collectible(
+        id = id,
+        rarity = Rarity.COMMON,
+        source = DropSource.SESSION_FINISHED,
+        kind = CollectibleKind.FOOD,
+        fuel = fuel,
+    )
