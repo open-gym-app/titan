@@ -48,19 +48,6 @@
       ],
       "datasourceTemplate": "git-refs",
       "packageNameTemplate": "https://github.com/{{{depName}}}"
-    },
-    {
-      "customType": "regex",
-      "description": "The Python the seed job runs on. `actions/setup-python` takes the series as a literal, so the github-actions manager reads the action's own version but not the interpreter's.",
-      "managerFilePatterns": [
-        "/^\\.github/workflows/[^/]+\\.ya?ml$/"
-      ],
-      "matchStrings": [
-        "uses: actions/setup-python@[^\\n]+\\n[\\s\\S]*?python-version:\\s*\"(?<currentValue>\\d+\\.\\d+)\""
-      ],
-      "depNameTemplate": "python",
-      "datasourceTemplate": "python-version",
-      "versioningTemplate": "python"
     }
   ],
   "packageRules": [
@@ -95,12 +82,9 @@
       ]
     },
     {
-      "description": "The seed job's Python picks the Pillow wheel `make seed-deps` installs, and tools/seed/requirements.txt hashes only the wheels of the CPython series it was pinned on, with `--only-binary :all:`. A Python bump therefore fails `make seed-deps` until those hashes cover the new series, so it travels with the encoder, outside `group:all`, rather than holding every other dependency PR hostage.",
-      "matchManagers": [
-        "custom.regex"
-      ],
-      "matchDepNames": [
-        "python"
+      "description": "The seed job's Python picks the Pillow wheel `make seed-deps` installs, and tools/seed/requirements.txt hashes only the wheels of the CPython series it was pinned on, with `--only-binary :all:`. A Python bump therefore fails `make seed-deps` until those hashes cover the new series, so it travels with the encoder, outside `group:all`, rather than holding every other dependency PR hostage. Matched by datasource, not manager: the github-actions manager reads `python-version` from `actions/setup-python` itself.",
+      "matchDatasources": [
+        "python-version"
       ],
       "groupName": "seed image encoder",
       "semanticCommitScope": "seed",
@@ -140,21 +124,29 @@
       "allowedVersions": "<14.0.0"
     },
     {
-      "description": "Roborazzi calls into ComposablePreviewScanner by binary signature, and 0.10.0 removed the `ComposablePreview.invoke(Composer, int)` that Roborazzi 1.78 links against, so every scanned preview test fails with `NoSuchMethodError`. The scanner is held below 0.10.0 until a Roborazzi release is built against it.",
+      "description": "Roborazzi calls into ComposablePreviewScanner by binary signature, and 0.10.0 moved `ComposablePreview.invoke(Composer, int)` to a parent interface, so every scanned preview test fails with `NoSuchMethodError`. Roborazzi 1.79.0, the latest release, still calls the old signature, so the scanner is held below 0.10.0 until a Roborazzi release stops doing so; check by bumping both and running a screenshot test, not by reading release notes. gradle/libs.versions.toml says the same thing at the `composablePreviewScanner` entry. Grouped so that, once the hold is lifted, the scanner bump arrives with the Roborazzi bump that supports it.",
+      "matchPackageNames": [
+        "io.github.takahirom.roborazzi{/,}**",
+        "io.github.sergio-sastre.ComposablePreviewScanner{/,}**"
+      ],
+      "groupName": "roborazzi and preview scanner"
+    },
+    {
+      "description": "See the rule above: Roborazzi 1.79.0 is not built against ComposablePreviewScanner 0.10.0. Lift this together with a Roborazzi release that is.",
       "matchPackageNames": [
         "io.github.sergio-sastre.ComposablePreviewScanner{/,}**"
       ],
       "allowedVersions": "<0.10.0"
     },
     {
-      "description": "CI runs Gradle with `--warning-mode fail`, and Gradle 9.9 deprecates `Configuration.setVisible`, which the detekt Gradle plugin (2.0.0-alpha.6, the latest) still calls, so every job fails on a warning that is not ours to fix. The wrapper is held below 9.9 until a detekt release stops calling it.",
+      "description": "CI runs Gradle with `--warning-mode fail`, and Gradle 9.8 deprecates `Configuration.setVisible`, which the detekt Gradle plugin (2.0.0-alpha.6, the latest) still calls, so every job fails on a warning that is not ours to fix. The wrapper is held below 9.8 until a detekt release stops calling it.",
       "matchDepNames": [
         "gradle"
       ],
       "matchManagers": [
         "gradle-wrapper"
       ],
-      "allowedVersions": "<9.9.0"
+      "allowedVersions": "<9.8.0"
     },
     {
       "description": "The Compose BOM is the single source of truth for every androidx.compose artifact (they are declared without a version.ref on purpose). Renovate has nothing to pin on them, but this states the intent so a future contributor does not add one.",
