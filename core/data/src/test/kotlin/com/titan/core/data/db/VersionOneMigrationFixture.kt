@@ -43,6 +43,8 @@ internal fun versionOneFixture(): MigrationFixture {
             assertEquals(emptyList<List<String?>>(), db.dump("food_seen"))
             assertEquals(emptyList<List<String?>>(), db.dump("pet_unlock"))
             assertEquals(emptyList<List<String?>>(), db.dump("pet_loadout"))
+            assertEquals(emptyList<List<String?>>(), db.dump("pet_power_snapshot"))
+            assertEquals(emptyList<List<String?>>(), db.dump("pet_spar"))
             db.execSQL("PRAGMA foreign_keys = ON")
             db.execSQL(PET_INSERT, arrayOf<Any>(1))
             db.execSQL(

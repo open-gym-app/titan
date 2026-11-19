@@ -79,7 +79,10 @@ class FakePetRepository : PetRepository {
         return HatchedPet(pet = pet, isNew = true)
     }
 
-    override suspend fun grow(gain: PetGain): PetGrowth? {
+    override suspend fun grow(
+        gain: PetGain,
+        at: Long,
+    ): PetGrowth? {
         val before = pets.value.firstOrNull { it.isActive } ?: return null
         val after = before.copy(
             xp = before.xp + gain.xp,

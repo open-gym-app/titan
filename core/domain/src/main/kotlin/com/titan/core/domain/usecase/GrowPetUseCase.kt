@@ -11,6 +11,7 @@ import com.titan.core.domain.repository.SessionRepository
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import java.time.Instant
 
 /**
  * Grows the active pet from one finished session, once.
@@ -39,7 +40,10 @@ class GrowPetUseCase(
     private val gamificationRepository: GamificationRepository,
 ) {
 
-    suspend operator fun invoke(sessionId: Long): PetGrowth? {
+    suspend operator fun invoke(
+        sessionId: Long,
+        finishedAt: Instant,
+    ): PetGrowth? {
         // Read before the claim, as the XP step does: a read that throws leaves the claim
         // untaken, and the re-entered run pays in full.
         val gain = gainFor(sessionId)
@@ -47,7 +51,7 @@ class GrowPetUseCase(
         return withContext(NonCancellable) {
             if (!gamificationRepository.claimSessionPet(sessionId)) return@withContext null
             if (gain.isNothing) return@withContext null
-            petRepository.grow(gain)
+            petRepository.grow(gain, at = finishedAt.toEpochMilli())
         }
     }
 

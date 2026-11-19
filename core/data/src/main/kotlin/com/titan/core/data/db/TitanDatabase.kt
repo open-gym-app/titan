@@ -23,6 +23,7 @@ import com.titan.core.data.db.dao.SessionExerciseDao
 import com.titan.core.data.db.dao.SessionLootClaimDao
 import com.titan.core.data.db.dao.SessionPetClaimDao
 import com.titan.core.data.db.dao.SessionXpClaimDao
+import com.titan.core.data.db.dao.SparDao
 import com.titan.core.data.db.dao.TagDao
 import com.titan.core.data.db.dao.UserProgressDao
 import com.titan.core.data.db.dao.WorkoutSessionDao
@@ -40,6 +41,8 @@ import com.titan.core.data.db.entity.PersonalRecordEntity
 import com.titan.core.data.db.entity.PetEntity
 import com.titan.core.data.db.entity.PetFeedEntity
 import com.titan.core.data.db.entity.PetLoadoutEntity
+import com.titan.core.data.db.entity.PetPowerSnapshotEntity
+import com.titan.core.data.db.entity.PetSparEntity
 import com.titan.core.data.db.entity.PetStateEntity
 import com.titan.core.data.db.entity.PetUnlockEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
@@ -79,6 +82,8 @@ import com.titan.core.data.db.entity.WorkoutTemplateEntity
         PetEntity::class,
         PetStateEntity::class,
         PetLoadoutEntity::class,
+        PetPowerSnapshotEntity::class,
+        PetSparEntity::class,
         PetFeedEntity::class,
         FoodSeenEntity::class,
         PetUnlockEntity::class,
@@ -112,6 +117,7 @@ abstract class TitanDatabase : RoomDatabase() {
     abstract fun pantryDao(): PantryDao
     abstract fun petUnlockDao(): PetUnlockDao
     abstract fun loadoutDao(): LoadoutDao
+    abstract fun sparDao(): SparDao
     abstract fun sessionPetClaimDao(): SessionPetClaimDao
 
     /**
@@ -247,6 +253,15 @@ abstract class TitanDatabase : RoomDatabase() {
             "CREATE TABLE IF NOT EXISTS `pet_loadout` (`pet_id` INTEGER NOT NULL, `slot` TEXT NOT NULL, " +
                 "`gear` TEXT NOT NULL, PRIMARY KEY(`pet_id`, `slot`), FOREIGN KEY(`pet_id`) REFERENCES `pet`(`id`) " +
                 "ON UPDATE NO ACTION ON DELETE CASCADE )",
+            "CREATE TABLE IF NOT EXISTS `pet_power_snapshot` (`pet_id` INTEGER NOT NULL, `week_start` INTEGER NOT NULL, " +
+                "`level` INTEGER NOT NULL, `power` INTEGER NOT NULL, PRIMARY KEY(`pet_id`, `week_start`), " +
+                "FOREIGN KEY(`pet_id`) REFERENCES `pet`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+            "CREATE TABLE IF NOT EXISTS `pet_spar` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`pet_id` INTEGER NOT NULL, `rival` TEXT NOT NULL, `rival_week` INTEGER NOT NULL, `power` INTEGER NOT NULL, " +
+                "`rival_power` INTEGER NOT NULL, `won` INTEGER NOT NULL, `rounds_won` INTEGER NOT NULL, " +
+                "`rounds_lost` INTEGER NOT NULL, `fought_at` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`pet_id`) REFERENCES `pet`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+            "CREATE INDEX IF NOT EXISTS `index_pet_spar_pet_id` ON `pet_spar` (`pet_id`)",
         )
 
         /**

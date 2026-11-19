@@ -2,12 +2,10 @@ package com.titan.core.data.db.dao
 
 import androidx.room.Insert
 import androidx.room.Query
-import com.titan.core.data.db.entity.FoodSeenEntity
 import com.titan.core.data.db.entity.PetEntity
 import com.titan.core.data.db.entity.PetFeedEntity
 import com.titan.core.data.db.entity.PetLoadoutEntity
 import com.titan.core.data.db.entity.PetStateEntity
-import com.titan.core.data.db.entity.PetUnlockEntity
 
 /**
  * The backup half of the Titans milestone's tables: a page read, a bulk insert and a wipe per
@@ -50,30 +48,6 @@ interface TitanBackupDao {
 
     @Query("DELETE FROM pet_feed")
     suspend fun deletePetFeeds()
-
-    @Query("SELECT * FROM food_seen ORDER BY collectible_id LIMIT :limit OFFSET :offset")
-    suspend fun readFoodSeen(
-        limit: Int,
-        offset: Int,
-    ): List<FoodSeenEntity>
-
-    @Insert
-    suspend fun insertFoodSeen(rows: List<FoodSeenEntity>)
-
-    @Query("DELETE FROM food_seen")
-    suspend fun deleteFoodSeen()
-
-    @Query("SELECT * FROM pet_unlock ORDER BY `key` LIMIT :limit OFFSET :offset")
-    suspend fun readPetUnlocks(
-        limit: Int,
-        offset: Int,
-    ): List<PetUnlockEntity>
-
-    @Insert
-    suspend fun insertPetUnlocks(rows: List<PetUnlockEntity>)
-
-    @Query("DELETE FROM pet_unlock")
-    suspend fun deletePetUnlocks()
 
     @Query("SELECT * FROM pet_loadout ORDER BY pet_id, slot LIMIT :limit OFFSET :offset")
     suspend fun readPetLoadouts(

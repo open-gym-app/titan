@@ -84,7 +84,14 @@ interface PetRepository {
      * XP stops at the curve's ceiling and each stat at its bound; the growth returned reports
      * what was actually added.
      *
+     * In the same write it files the pet's level and power under the week of [at], replacing
+     * that week's earlier snapshot, so the spar can rebuild the titan as it stood at the end of
+     * any week it trained in.
+     *
      * @return what the write did, or null — having written nothing — when there is no active pet.
      */
-    suspend fun grow(gain: PetGain): PetGrowth?
+    suspend fun grow(
+        gain: PetGain,
+        at: Long,
+    ): PetGrowth?
 }
