@@ -123,7 +123,7 @@ fun TitanNavHost(
     DisposableEffect(activity, navController) {
         val provider = activity as? OnNewIntentProvider
         val listener = Consumer<Intent> { intent ->
-            intent.consumeDeepLink()?.let(navController::openDeepLink)
+            intent.consumeDeepLink()?.let(appState::openDeepLink)
         }
         provider?.addOnNewIntentListener(listener)
         onDispose { provider?.removeOnNewIntentListener(listener) }
@@ -131,7 +131,7 @@ fun TitanNavHost(
 
     // After the first composition, so the graph exists to match the link against.
     LaunchedEffect(launchLink, navController) {
-        launchLink?.let(navController::openDeepLink)
+        launchLink?.let(appState::openDeepLink)
     }
 
     // The exercise picker's answer, on its way back to whoever opened it.
@@ -598,7 +598,8 @@ internal fun Intent.consumeDeepLink(): Uri? {
 }
 
 /**
- * Open [uri], leaving the tabs underneath it.
+ * Open [uri], leaving the tabs underneath it. For a link that names a tab itself, see
+ * [TitanAppState.openDeepLink], which never reaches here.
  *
  * ### Why this exists rather than `NavController.handleDeepLink`
  *

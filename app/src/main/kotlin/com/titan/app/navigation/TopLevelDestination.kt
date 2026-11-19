@@ -12,6 +12,7 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.titan.app.R
+import com.titan.core.domain.navigation.DeepLinks
 import com.titan.core.ui.component.titan.TitanIcons
 import com.titan.feature.history.navigation.HistoryGraphDestination
 import com.titan.feature.history.navigation.LibraryGraphDestination
@@ -47,6 +48,13 @@ enum class TopLevelDestination(
     @param:StringRes val labelRes: Int,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector,
+    /**
+     * The link that opens this tab, if one does. A link that names a tab is opened the way a tap
+     * on the tab is (see [TitanAppState.openDeepLink]), never as a deep-link request: navigating
+     * *into* a tab's graph by link leaves a back stack the tab bar's save-and-restore misreads,
+     * and the next tap on Home lands back on the linked tab.
+     */
+    val deepLink: String? = null,
 ) {
     HOME(
         graphDestination = HomeGraphDestination,
@@ -79,6 +87,7 @@ enum class TopLevelDestination(
         labelRes = R.string.nav_titan,
         selectedIcon = TitanIcons.titan,
         unselectedIcon = TitanIcons.titan,
+        deepLink = DeepLinks.TITANS,
     ),
     ;
 
