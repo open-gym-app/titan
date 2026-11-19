@@ -4,6 +4,7 @@ import com.titan.core.domain.gamification.DropTableEvaluator
 import com.titan.core.domain.repository.CollectedItemRepository
 import com.titan.core.domain.repository.GamificationRepository
 import com.titan.core.domain.repository.PersonalRecordRepository
+import com.titan.core.domain.repository.PetRepository
 import com.titan.core.domain.repository.ProgressionRepository
 import com.titan.core.domain.repository.QuestRepository
 import com.titan.core.domain.repository.SessionRepository
@@ -11,6 +12,7 @@ import com.titan.core.domain.repository.UserPreferencesRepository
 import com.titan.core.domain.time.Clock
 import com.titan.core.domain.usecase.AchievementTriggerUseCase
 import com.titan.core.domain.usecase.AwardXpUseCase
+import com.titan.core.domain.usecase.HatchEggUseCase
 import com.titan.core.domain.usecase.LootRollUseCase
 import com.titan.core.domain.usecase.PrDetectionUseCase
 import com.titan.core.domain.usecase.QuestCompletionUseCase
@@ -139,5 +141,21 @@ object GamificationUseCaseModule {
             personalRecordRepository = personalRecordRepository,
             gamificationRepository = gamificationRepository,
             userPreferencesRepository = userPreferencesRepository,
+        )
+
+    /**
+     * The hatch, on the real random source and the shipped species catalogue, and on the graph's
+     * clock so a pinned "now" dates a hatch like everything else.
+     */
+    @Provides
+    fun provideHatchEggUseCase(
+        collectedItemRepository: CollectedItemRepository,
+        petRepository: PetRepository,
+        clock: Clock,
+    ): HatchEggUseCase =
+        HatchEggUseCase(
+            collectedItemRepository = collectedItemRepository,
+            petRepository = petRepository,
+            clock = clock,
         )
 }

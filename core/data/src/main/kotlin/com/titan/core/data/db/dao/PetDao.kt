@@ -22,6 +22,22 @@ interface PetDao {
     @Query("SELECT * FROM pet WHERE is_active = 1 ORDER BY id LIMIT 1")
     fun observeActive(): Flow<PetEntity?>
 
+    @Query("SELECT * FROM pet WHERE hatched_from_item_id = :collectedItemId")
+    suspend fun findByEgg(collectedItemId: Long): PetEntity?
+
+    /**
+     * Inserts a newly hatched pet, active if it is the first.
+     *
+     * One transaction, so two first hatches cannot both see an empty table and both come out
+     * active.
+     */
+    @Transaction
+    suspend fun hatch(pet: PetEntity): Long = insert(pet.copy(isActive = count() == 0))
+
+    /** The lowest flagged id, or null with no active pet. */
+    @Query("SELECT MIN(id) FROM pet WHERE is_active = 1")
+    suspend fun activeId(): Long?
+
     @Query("SELECT COUNT(*) FROM pet")
     suspend fun count(): Int
 

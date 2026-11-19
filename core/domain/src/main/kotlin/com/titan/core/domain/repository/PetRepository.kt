@@ -1,7 +1,9 @@
 package com.titan.core.domain.repository
 
+import com.titan.core.domain.model.HatchedPet
 import com.titan.core.domain.model.Pet
 import kotlinx.coroutines.flow.Flow
+import java.time.Instant
 
 /**
  * The pets the user has hatched — *titans*, on screen.
@@ -51,4 +53,25 @@ interface PetRepository {
         id: Long,
         nickname: String?,
     ): Boolean
+
+    /** The pet hatched from drop row [collectedItemId], or null if that row has hatched nothing. */
+    suspend fun findByEgg(collectedItemId: Long): Pet?
+
+    /**
+     * Writes the pet hatched from [collectedItemId], in one transaction.
+     *
+     * A new pet starts at zero — no XP, no stats, no nickname — and **the first pet becomes
+     * active**, in the same transaction as its insert; later ones join inactive.
+     *
+     * The store refuses a second pet from one egg. A call that loses that race is not an error:
+     * it is answered with the pet that won, [HatchedPet.isNew] false.
+     *
+     * @throws IllegalStateException if the write is refused and no pet names the egg — the drop
+     *   row is not there, which the caller checks first.
+     */
+    suspend fun hatch(
+        collectedItemId: Long,
+        speciesId: String,
+        hatchedAt: Instant,
+    ): HatchedPet
 }
