@@ -9,7 +9,8 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.core.net.toUri
 import androidx.navigation.NavHostController
 import com.titan.app.HiltTestActivity
-import com.titan.app.navigation.openDeepLink
+import com.titan.app.navigation.TitanAppState
+import com.titan.app.navigation.TopLevelDestination
 import com.titan.app.navigation.rememberTitanAppState
 import com.titan.core.domain.model.WorkoutSession
 import com.titan.core.domain.navigation.DeepLinks
@@ -70,6 +71,7 @@ class DeepLinkNavigationTest {
     lateinit var sessions: SessionRepository
 
     private lateinit var navController: NavHostController
+    private lateinit var appState: TitanAppState
 
     @Before
     fun setUp() {
@@ -110,6 +112,7 @@ class DeepLinkNavigationTest {
             DeepLinks.NEW_SESSION,
             DeepLinks.activeSession(SOME_SESSION_ID),
             DeepLinks.QUEST_LOG,
+            DeepLinks.TITANS,
         ).forEach { link ->
             val activities = composeTestRule.activity.packageManager
                 .queryIntentActivities(viewIntent(link), 0)
@@ -156,6 +159,31 @@ class DeepLinkNavigationTest {
         // The link is read off the activity's intent, so a launch that carries none — the
         // launcher icon, a return from recents — must be untouched by any of the above.
         launch()
+
+        assertOnScreen(hasText(HOME_MARKER))
+    }
+
+    // --- a link that names a tab ---------------------------------------------
+
+    @Test
+    fun `the titan link opens the titan tab`() {
+        launch()
+
+        openWhileRunning(DeepLinks.TITANS)
+
+        assertOnScreen(hasText(TITAN_MARKER))
+    }
+
+    @Test
+    fun `after the titan link, Home is one tap away`() {
+        // The device report: opened by the link, the tab bar's Home tap landed back on the
+        // titan, because the link had navigated *into* the tab's graph. A tab's link now switches
+        // tabs the way a tap does, and Home is Home again.
+        launch()
+        openWhileRunning(DeepLinks.TITANS)
+        assertOnScreen(hasText(TITAN_MARKER))
+
+        composeTestRule.runOnUiThread { appState.navigateToTopLevelDestination(TopLevelDestination.HOME) }
 
         assertOnScreen(hasText(HOME_MARKER))
     }
@@ -227,22 +255,23 @@ class DeepLinkNavigationTest {
             // The app state is hoisted so the test holds the same `NavController` the shell
             // does — `TitanApp` builds one itself otherwise, and there would be nothing to
             // ask about the back stack.
-            val appState = rememberTitanAppState()
-            navController = appState.navController
+            val state = rememberTitanAppState()
+            appState = state
+            navController = state.navController
             // Reduced motion, which is what makes these tests terminate rather than a
             // stylistic choice: the quest log's streak card draws `StreakFlame`, the one
             // perpetual animation in the app, and a composition running one never goes idle.
             // The composition local is the seam `:core:ui`'s animated components already
             // honour — see `LocalReducedMotion`.
             TitanTheme(reducedMotion = true) {
-                TitanApp(startsOnOnboarding = false, appState = appState)
+                TitanApp(startsOnOnboarding = false, appState = state)
             }
         }
     }
 
     /** The `onNewIntent` path, through the function its listener calls. */
     private fun openWhileRunning(link: String) {
-        composeTestRule.runOnUiThread { navController.openDeepLink(link.toUri()) }
+        composeTestRule.runOnUiThread { appState.openDeepLink(link.toUri()) }
     }
 
     /** One step back, the way the system delivers it. */
@@ -288,6 +317,9 @@ class DeepLinkNavigationTest {
         /** Each screen's own eyebrow or title — the marker that does not move with the copy. */
         const val NEW_SESSION_MARKER = "New session"
         const val HOME_MARKER = "QUICK START"
+
+        /** What the Titan tab says to a user with no titan, as the test database's is. */
+        const val TITAN_MARKER = "No titan yet"
 
         /**
          * How long a wait gives a screen to draw.

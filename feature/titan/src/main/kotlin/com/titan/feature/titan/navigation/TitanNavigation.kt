@@ -3,8 +3,6 @@ package com.titan.feature.titan.navigation
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
-import androidx.navigation.navDeepLink
-import com.titan.core.domain.navigation.DeepLinks
 import com.titan.feature.titan.tab.TitanTabRoute
 import kotlinx.serialization.Serializable
 
@@ -25,9 +23,10 @@ fun NavGraphBuilder.titanGraph(
     onOpenSpar: () -> Unit,
 ) {
     navigation<TitanGraphDestination>(startDestination = TitanTabDestination) {
-        composable<TitanTabDestination>(
-            deepLinks = listOf(navDeepLink<TitanTabDestination>(basePath = DeepLinks.TITANS)),
-        ) {
+        // No `deepLinks` here: `DeepLinks.TITANS` names a tab, and the app opens it the way a tap
+        // on the tab does (`TitanAppState.openDeepLink`). Registered as a deep link, it would be
+        // navigated into, and the tab bar's save-and-restore would then send Home back here.
+        composable<TitanTabDestination> {
             TitanTabRoute(onOpenInventory = onOpenInventory, onOpenSpar = onOpenSpar)
         }
     }
