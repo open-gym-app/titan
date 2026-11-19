@@ -66,6 +66,8 @@ fun TitanTheme(
             if (dark) TitanDarkQuestColors else TitanLightQuestColors,
         LocalTitanMedalColors provides
             if (dark) TitanDarkMedalColors else TitanLightMedalColors,
+        LocalTitanSpriteColors provides
+            if (dark) TitanDarkSpriteColors else TitanLightSpriteColors,
         // Provided here rather than read at the call sites that animate: it is a
         // content-resolver read, and one provision is what lets a preview or a test render
         // the still version by passing [reducedMotion]. See [LocalReducedMotion].
@@ -155,6 +157,12 @@ object TitanTheme {
         @Composable
         @ReadOnlyComposable
         get() = LocalTitanMedalColors.current
+
+    /** The titan sprite's colours. See [TitanSpriteColors]. */
+    val sprite: TitanSpriteColors
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTitanSpriteColors.current
 }
 
 /*
@@ -195,6 +203,8 @@ internal val LocalTitanQuestColors = staticCompositionLocalOf { TitanLightQuestC
  * The achievement metals, on the same terms as the three above.
  */
 internal val LocalTitanMedalColors = staticCompositionLocalOf { TitanLightMedalColors }
+
+internal val LocalTitanSpriteColors = staticCompositionLocalOf { TitanLightSpriteColors }
 
 /**
  * The units every number the user reads is rendered in.
