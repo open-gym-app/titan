@@ -39,8 +39,6 @@ internal object SchemaUpgrade {
                 pet = emptyList(),
                 petState = emptyList(),
                 petLoadout = emptyList(),
-                petPowerSnapshot = emptyList(),
-                petSpar = emptyList(),
                 petFeed = emptyList(),
                 foodSeen = emptyList(),
                 petUnlock = emptyList(),

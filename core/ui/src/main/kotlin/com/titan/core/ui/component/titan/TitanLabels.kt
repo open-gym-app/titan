@@ -2,19 +2,16 @@ package com.titan.core.ui.component.titan
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import com.titan.core.domain.gamification.LevelTitles
 import com.titan.core.domain.model.Gear
 import com.titan.core.domain.model.TitanActivity
 import com.titan.core.domain.model.TitanPlace
 import com.titan.core.domain.model.TitanVital
-import com.titan.core.domain.model.UnlockCondition
 import com.titan.core.ui.R
 
 /*
  * The titan's vocabulary, labelled once in `:core:ui` because the tab, the dock, the sheet, the
- * inventory and the spar screen all draw it — the rule DomainLabels.kt states. Each id this
+ * and the inventory all draw it — the rule DomainLabels.kt states. Each id this
  * build cannot name has an "unknown" answer rather than a throw.
  */
 
@@ -24,7 +21,6 @@ fun TitanVital.label(): String =
     stringResource(
         when (this) {
             TitanVital.FUEL -> R.string.titan_vital_fuel
-            TitanVital.ENERGY -> R.string.titan_vital_energy
             TitanVital.SPIRIT -> R.string.titan_vital_spirit
         },
     )
@@ -39,7 +35,6 @@ fun TitanActivity.label(): String =
             TitanActivity.RUN -> R.string.titan_activity_run
             TitanActivity.SWIM -> R.string.titan_activity_swim
             TitanActivity.TRAIN -> R.string.titan_activity_train
-            TitanActivity.SPAR -> R.string.titan_activity_spar
             TitanActivity.REST -> R.string.titan_activity_rest
             TitanActivity.EAT -> R.string.titan_activity_eat
         },
@@ -110,23 +105,3 @@ fun petSpeciesLabel(id: String): String =
             else -> R.string.titan_species_unknown
         },
     )
-
-/** What a locked place or piece of gear needs: "Level 20", "100 km", "8-week streak", "Legend rank". */
-@Composable
-fun UnlockCondition.needLabel(): String =
-    when (this) {
-        UnlockCondition.FromHatch -> stringResource(R.string.titan_owned)
-
-        is UnlockCondition.Level ->
-            if (level == LevelTitles.LEGEND.fromLevel) {
-                stringResource(R.string.titan_need_legend)
-            } else {
-                stringResource(R.string.titan_need_level, level)
-            }
-
-        is UnlockCondition.DistanceKm -> stringResource(R.string.titan_need_km, kilometres)
-
-        is UnlockCondition.StreakWeeks -> pluralStringResource(R.plurals.titan_need_streak, weeks, weeks)
-
-        is UnlockCondition.SparsWon -> pluralStringResource(R.plurals.titan_need_spars, count, count)
-    }

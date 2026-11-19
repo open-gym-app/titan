@@ -1,58 +1,47 @@
 package com.titan.core.domain.model
 
 /**
- * What the user's training has to reach for something to unlock. Data, so a place or an item
- * names its condition and the evaluator walks them all.
+ * How a place or a piece of gear comes to be the titan's. Data, so each one names its own way in.
+ *
+ * Nothing locked is ever shown: what the user sees is what the titan has.
  */
 sealed interface UnlockCondition {
 
-    /** Owned the moment a titan hatches. Never stored: it is always met. */
+    /** Owned the moment a titan hatches. */
     data object FromHatch : UnlockCondition
 
-    /** A weekly streak of at least [weeks], at any point — the best one held counts. */
-    data class StreakWeeks(val weeks: Int) : UnlockCondition
+    /**
+     * Owned once the user holds the achievement [id]. Derived from the achievement rather than
+     * stored, so it is kept for good — an achievement is never taken back — and appears the
+     * moment a titan hatches, however long ago the achievement was earned.
+     */
+    data class Achievement(val id: String) : UnlockCondition
 
-    /** At least [kilometres] logged in all, across every distance set. */
-    data class DistanceKm(val kilometres: Int) : UnlockCondition
-
-    /** At least [count] spars won. */
-    data class SparsWon(val count: Int) : UnlockCondition
-
-    /** The user at [level] or above. */
-    data class Level(val level: Int) : UnlockCondition
-
-    /** Whether [progress] meets this. */
-    fun isMetBy(progress: UnlockProgress): Boolean =
-        when (this) {
-            FromHatch -> true
-            is StreakWeeks -> progress.bestStreakWeeks >= weeks
-            is DistanceKm -> progress.distanceCentimetres >= kilometres * CENTIMETRES_PER_KILOMETRE
-            is SparsWon -> progress.sparsWon >= count
-            is Level -> progress.level >= level
-        }
-
-    private companion object {
-        const val CENTIMETRES_PER_KILOMETRE = 100_000L
-    }
+    /**
+     * Owned once it drops: each time the user levels up while owning a titan, one item still
+     * missing from this pool is drawn at random and kept.
+     */
+    data object LevelUpDrop : UnlockCondition
 }
 
-/**
- * The figures unlocks are judged against: the user's training, read, never written.
- *
- * @property bestStreakWeeks the longer of the current weekly streak and the best one held.
- * @property distanceCentimetres every distance set's distance, in all.
- * @property level the user's level.
- * @property sparsWon how many spars the titan has won.
- */
-data class UnlockProgress(
-    val bestStreakWeeks: Int,
-    val distanceCentimetres: Long,
-    val level: Int,
-    val sparsWon: Int,
-)
-
-/** Something that unlocks: a [key] stored once earned, and the [condition] that earns it. */
+/** Something that unlocks: a [key] its owner is known by, and the [condition] that earns it. */
 interface Unlockable {
     val key: String
     val condition: UnlockCondition
+
+    /**
+     * Whether this is owned, given the level-up drops stored and the achievements held.
+     *
+     * @param dropped the keys stored by level-up drops.
+     * @param achievements the ids of the achievements the user holds.
+     */
+    fun isOwned(
+        dropped: Set<String>,
+        achievements: Set<String>,
+    ): Boolean =
+        when (val condition = condition) {
+            UnlockCondition.FromHatch -> true
+            is UnlockCondition.Achievement -> condition.id in achievements
+            UnlockCondition.LevelUpDrop -> key in dropped
+        }
 }

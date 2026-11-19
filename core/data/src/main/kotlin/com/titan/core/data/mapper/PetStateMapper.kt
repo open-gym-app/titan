@@ -3,15 +3,11 @@ package com.titan.core.data.mapper
 import com.titan.core.data.db.entity.FoodSeenEntity
 import com.titan.core.data.db.entity.PetFeedEntity
 import com.titan.core.data.db.entity.PetLoadoutEntity
-import com.titan.core.data.db.entity.PetPowerSnapshotEntity
-import com.titan.core.data.db.entity.PetSparEntity
 import com.titan.core.data.db.entity.PetStateEntity
 import com.titan.core.data.db.entity.PetUnlockEntity
 import com.titan.core.domain.backup.model.FoodSeenRow
 import com.titan.core.domain.backup.model.PetFeedRow
 import com.titan.core.domain.backup.model.PetLoadoutRow
-import com.titan.core.domain.backup.model.PetPowerSnapshotRow
-import com.titan.core.domain.backup.model.PetSparRow
 import com.titan.core.domain.backup.model.PetStateRow
 import com.titan.core.domain.backup.model.PetUnlockRow
 import com.titan.core.domain.model.TitanActivity
@@ -25,7 +21,7 @@ import com.titan.core.domain.model.TitanVitals
  */
 fun PetStateEntity.toDomain(): TitanState =
     TitanState(
-        vitals = TitanVitals.clamped(fuel = fuel, energy = energy, spirit = spirit),
+        vitals = TitanVitals.clamped(fuel = fuel, spirit = spirit),
         activity = TitanActivity.fromKey(activity),
         startedAt = activityStartedAt,
         endsAt = activityEndsAt,
@@ -37,7 +33,6 @@ fun TitanState.toEntity(petId: Long): PetStateEntity =
     PetStateEntity(
         petId = petId,
         fuel = vitals.fuel,
-        energy = vitals.energy,
         spirit = vitals.spirit,
         activity = activity.key,
         activityStartedAt = startedAt,
@@ -50,7 +45,6 @@ fun PetStateEntity.toRow(): PetStateRow =
     PetStateRow(
         petId = petId,
         fuel = fuel,
-        energy = energy,
         spirit = spirit,
         activity = activity,
         activityStartedAt = activityStartedAt,
@@ -64,7 +58,6 @@ fun PetStateRow.toEntity(): PetStateEntity =
     PetStateEntity(
         petId = petId,
         fuel = fuel.coerceIn(0, TitanVitals.MAX),
-        energy = energy.coerceIn(0, TitanVitals.MAX),
         spirit = spirit.coerceIn(0, TitanVitals.MAX),
         activity = activity,
         activityStartedAt = activityStartedAt,
@@ -89,13 +82,3 @@ fun PetUnlockRow.toEntity(): PetUnlockEntity = PetUnlockEntity(key = key, unlock
 fun PetLoadoutEntity.toRow(): PetLoadoutRow = PetLoadoutRow(petId = petId, slot = slot, gear = gear)
 
 fun PetLoadoutRow.toEntity(): PetLoadoutEntity = PetLoadoutEntity(petId = petId, slot = slot, gear = gear)
-
-fun PetPowerSnapshotEntity.toRow(): PetPowerSnapshotRow = PetPowerSnapshotRow(petId, weekStart, level, power)
-
-fun PetPowerSnapshotRow.toEntity(): PetPowerSnapshotEntity = PetPowerSnapshotEntity(petId, weekStart, level, power)
-
-fun PetSparEntity.toRow(): PetSparRow =
-    PetSparRow(id, petId, rival, rivalWeek, power, rivalPower, won, roundsWon, roundsLost, foughtAt)
-
-fun PetSparRow.toEntity(): PetSparEntity =
-    PetSparEntity(id, petId, rival, rivalWeek, power, rivalPower, won, roundsWon, roundsLost, foughtAt)

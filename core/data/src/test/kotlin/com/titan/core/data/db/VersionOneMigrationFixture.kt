@@ -43,18 +43,16 @@ internal fun versionOneFixture(): MigrationFixture {
             assertEquals(emptyList<List<String?>>(), db.dump("food_seen"))
             assertEquals(emptyList<List<String?>>(), db.dump("pet_unlock"))
             assertEquals(emptyList<List<String?>>(), db.dump("pet_loadout"))
-            assertEquals(emptyList<List<String?>>(), db.dump("pet_power_snapshot"))
-            assertEquals(emptyList<List<String?>>(), db.dump("pet_spar"))
             db.execSQL("PRAGMA foreign_keys = ON")
             db.execSQL(PET_INSERT, arrayOf<Any>(1))
             db.execSQL(
-                "INSERT INTO pet_state (pet_id, fuel, energy, spirit, activity, activity_started_at, " +
-                    "activity_ends_at, resume_activity, updated_at) VALUES (1, 80, 100, 60, 'idle', 3000, NULL, NULL, 3000)",
+                "INSERT INTO pet_state (pet_id, fuel, spirit, activity, activity_started_at, " +
+                    "activity_ends_at, resume_activity, updated_at) VALUES (1, 80, 60, 'idle', 3000, NULL, NULL, 3000)",
             )
             assertThrows(SQLiteConstraintException::class.java) {
                 db.execSQL(
-                    "INSERT INTO pet_state (pet_id, fuel, energy, spirit, activity, activity_started_at, " +
-                        "activity_ends_at, resume_activity, updated_at) VALUES (404, 80, 100, 60, 'idle', 0, NULL, NULL, 0)",
+                    "INSERT INTO pet_state (pet_id, fuel, spirit, activity, activity_started_at, " +
+                        "activity_ends_at, resume_activity, updated_at) VALUES (404, 80, 60, 'idle', 0, NULL, NULL, 0)",
                 )
             }
             assertThrows(SQLiteConstraintException::class.java) { db.execSQL(PET_INSERT, arrayOf<Any>(1)) }

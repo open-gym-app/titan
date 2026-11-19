@@ -1,82 +1,54 @@
 package com.titan.core.domain.usecase
 
-import com.titan.core.domain.model.WorkoutSession
-import com.titan.core.domain.model.WorkoutSet
+import com.titan.core.domain.random.RandomSource
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.time.Instant
 
 class EvaluateUnlocksUseCaseTest {
 
-    private val gamification = FakeGamificationRepository()
-    private val sessions = FakeSessionRepository()
+    private val pets = FakePetRepository()
     private val unlocks = FakeUnlockRepository()
-    private var spars = 0
 
-    private val evaluate = EvaluateUnlocksUseCase(gamification, sessions, { spars }, unlocks)
+    private val evaluate = EvaluateUnlocksUseCase(pets, unlocks, RandomSource { 0 })
 
     @Test
-    fun `nothing earned stores nothing`() =
+    fun `no titan, no drop`() =
         runTest {
-            assertEquals(emptySet<String>(), evaluate(at = 1))
+            assertEquals(emptySet<String>(), evaluate(levelsGained = 3, at = 1))
             assertEquals(emptyMap<String, Long>(), unlocks.unlocked)
         }
 
     @Test
-    fun `ten spars won unlock the dojo and the scarf, once`() =
+    fun `no level gained, no drop`() =
         runTest {
-            spars = 10
+            hatch()
 
-            assertEquals(setOf("dojo", "scarf"), evaluate(at = 1))
-            assertEquals(emptySet<String>(), evaluate(at = 2))
-            assertEquals(mapOf("dojo" to 1L, "scarf" to 1L), unlocks.unlocked)
+            assertEquals(emptySet<String>(), evaluate(levelsGained = 0, at = 1))
         }
 
     @Test
-    fun `an unlock survives its condition lapsing`() =
+    fun `each level gained drops one item and stores it`() =
         runTest {
-            spars = 10
-            evaluate(at = 1)
+            hatch()
 
-            spars = 0
-            evaluate(at = 2)
-
-            assertEquals(setOf("dojo", "scarf"), unlocks.unlocked.keys)
+            assertEquals(setOf("dojo"), evaluate(levelsGained = 1, at = 1))
+            assertEquals(setOf("chalk", "cap"), evaluate(levelsGained = 2, at = 2))
+            assertEquals(mapOf("dojo" to 1L, "chalk" to 2L, "cap" to 2L), unlocks.unlocked)
         }
 
     @Test
-    fun `distance is every distance set's, across sessions`() =
+    fun `an empty pool drops nothing more`() =
         runTest {
-            ranOnce(km = 60)
-            ranOnce(km = 40)
+            hatch()
+            evaluate(levelsGained = 50, at = 1)
 
-            assertEquals(setOf("trail", "cap"), evaluate(at = 1))
+            assertEquals(emptySet<String>(), evaluate(levelsGained = 1, at = 2))
+            assertEquals(6, unlocks.unlocked.size)
         }
 
-    @Test
-    fun `just under the distance unlocks nothing`() =
-        runTest {
-            ranOnce(km = 99)
-
-            assertEquals(emptySet<String>(), evaluate(at = 1))
-        }
-
-    private suspend fun ranOnce(km: Long) {
-        val id = sessions.insert(
-            WorkoutSession(completedAt = 1, isInProgress = false, lastActiveAt = 1, createdAt = 0, updatedAt = 1),
-        )
-        val slot = sessions.addExercise(sessionId = id)
-        sessions.insertSet(
-            WorkoutSet(
-                sessionExerciseId = slot,
-                setNumber = 1,
-                distance = km * 100_000,
-                duration = 600,
-                isCompleted = true,
-                completedAt = 1,
-                createdAt = 1,
-                updatedAt = 1,
-            ),
-        )
+    private suspend fun hatch() {
+        pets.hatch(collectedItemId = 1, speciesId = "titan", hatchedAt = Instant.EPOCH)
     }
 }

@@ -47,17 +47,14 @@ import com.titan.core.ui.component.SectionHeading
 import com.titan.core.ui.component.TitanCard
 import com.titan.core.ui.component.TitanDialog
 import com.titan.core.ui.component.TitanTabRow
-import com.titan.core.ui.component.titan.TitanActivityOption
 import com.titan.core.ui.component.titan.TitanEffectChip
 import com.titan.core.ui.component.titan.TitanIcons
 import com.titan.core.ui.component.titan.TitanItemState
 import com.titan.core.ui.component.titan.TitanItemTile
-import com.titan.core.ui.component.titan.TitanOptionState
 import com.titan.core.ui.component.titan.TitanSprite
 import com.titan.core.ui.component.titan.TitanVitalRow
 import com.titan.core.ui.component.titan.foodLabel
 import com.titan.core.ui.component.titan.label
-import com.titan.core.ui.component.titan.needLabel
 import com.titan.core.ui.component.titan.petSpeciesLabel
 import com.titan.core.ui.format.formatSessionDate
 import com.titan.core.ui.theme.MIN_TOUCH_TARGET
@@ -69,7 +66,6 @@ import com.titan.core.ui.R as UiR
 @Composable
 fun TitanTabRoute(
     onOpenInventory: () -> Unit,
-    onOpenSpar: () -> Unit,
     viewModel: TitanTabViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -77,12 +73,12 @@ fun TitanTabRoute(
         state = state,
         onEvent = viewModel::onEvent,
         onOpenInventory = onOpenInventory,
-        onOpenSpar = onOpenSpar,
     )
 }
 
 /**
- * The Titan tab (canvas *Titan tab*): header, stage card, "What next", vitals, supplies. With no
+ * The Titan tab (canvas *Titan tab*): header, stage card, vitals, supplies. The titan picks what
+ * it does on its own, so there is nothing here to choose for it. With no
  * titan yet, what a titan is and the eggs waiting to hatch.
  */
 @Composable
@@ -90,13 +86,12 @@ fun TitanTabScreen(
     state: TitanTabUiState,
     onEvent: (TitanTabEvent) -> Unit,
     onOpenInventory: () -> Unit,
-    onOpenSpar: () -> Unit,
 ) {
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         when (state) {
             TitanTabUiState.Loading -> Box(Modifier.fillMaxSize())
             is TitanTabUiState.NoTitan -> NoTitan(state, onEvent)
-            is TitanTabUiState.Titan -> TitanHome(state, onEvent, onOpenInventory, onOpenSpar)
+            is TitanTabUiState.Titan -> TitanHome(state, onEvent, onOpenInventory)
         }
     }
 }
@@ -106,7 +101,6 @@ private fun TitanHome(
     state: TitanTabUiState.Titan,
     onEvent: (TitanTabEvent) -> Unit,
     onOpenInventory: () -> Unit,
-    onOpenSpar: () -> Unit,
 ) {
     val name = state.name ?: petSpeciesLabel(state.speciesId)
     Column(
@@ -123,7 +117,6 @@ private fun TitanHome(
             onRename = { onEvent(TitanTabEvent.StartRename) },
         )
         StageCard(state, name)
-        WhatNext(state, onEvent, onOpenSpar)
         Vitals(state)
         Supplies(state, name, onEvent, onOpenInventory)
     }
@@ -217,42 +210,6 @@ private fun StageCard(
 }
 
 @Composable
-private fun WhatNext(
-    state: TitanTabUiState.Titan,
-    onEvent: (TitanTabEvent) -> Unit,
-    onOpenSpar: () -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.lg)) {
-        SectionHeading(stringResource(R.string.titan_what_next))
-        WHAT_NEXT.chunked(COLUMNS_WHAT_NEXT).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md)) {
-                row.forEach { activity ->
-                    val optionState = when {
-                        activity == state.activity -> TitanOptionState.Now
-                        activity.energyCost > state.vitals.energy -> TitanOptionState.Unaffordable(activity.energyCost)
-                        else -> TitanOptionState.Available(activity.energyCost)
-                    }
-                    TitanActivityOption(
-                        activity = activity,
-                        state = optionState,
-                        onClick = {
-                            if (activity == TitanActivity.SPAR) {
-                                onOpenSpar()
-                            } else {
-                                onEvent(
-                                    TitanTabEvent.Choose(activity),
-                                )
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun Vitals(state: TitanTabUiState.Titan) {
     Column(verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.lg)) {
         SectionHeading(stringResource(R.string.titan_vitals))
@@ -291,18 +248,8 @@ private fun Supplies(
         )
         val tiles: List<@Composable (Modifier) -> Unit> = when (state.tab) {
             SuppliesTab.FOOD -> state.pantry.map { entry -> { modifier -> FoodTile(entry, onEvent, modifier) } }
-
             SuppliesTab.GEAR -> state.gear.map { entry -> { modifier -> GearTile(entry, onEvent, modifier) } }
-
-            SuppliesTab.HABITAT -> state.places.map { (place, owned) ->
-                { modifier ->
-                    PlaceTile(
-                        place,
-                        owned,
-                        modifier,
-                    )
-                }
-            }
+            SuppliesTab.HABITAT -> state.places.map { place -> { modifier -> PlaceTile(place, modifier) } }
         }
         tiles.chunked(COLUMNS_SUPPLIES).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md)) {
@@ -352,24 +299,22 @@ private fun GearTile(
     onEvent: (TitanTabEvent) -> Unit,
     modifier: Modifier,
 ) {
-    val detail = when {
-        entry.worn -> stringResource(UiR.string.titan_item_worn)
-        entry.owned -> stringResource(R.string.titan_gear_wear)
-        else -> entry.gear.condition.needLabel()
+    val detail = if (entry.worn) {
+        stringResource(
+            UiR.string.titan_item_worn,
+        )
+    } else {
+        stringResource(R.string.titan_gear_wear)
     }
     TitanItemTile(
         icon = TitanIcons.of(entry.gear),
         name = entry.gear.label(),
         detail = detail,
         spokenDetail = detail,
-        state = when {
-            entry.worn -> TitanItemState.WORN
-            entry.owned -> TitanItemState.STOCKED
-            else -> TitanItemState.EMPTY
-        },
+        state = if (entry.worn) TitanItemState.WORN else TitanItemState.STOCKED,
         container = MaterialTheme.colorScheme.surfaceContainerHighest,
         content = MaterialTheme.colorScheme.onSurface,
-        onClick = { if (entry.owned) onEvent(TitanTabEvent.ToggleGear(entry.gear.key)) },
+        onClick = { onEvent(TitanTabEvent.ToggleGear(entry.gear.key)) },
         modifier = modifier,
     )
 }
@@ -377,19 +322,19 @@ private fun GearTile(
 @Composable
 private fun PlaceTile(
     place: TitanPlace,
-    owned: Boolean,
     modifier: Modifier,
 ) {
-    val energy = TitanTheme.vital(TitanVital.ENERGY)
-    val detail = if (owned) stringResource(UiR.string.titan_owned) else place.condition.needLabel()
+    val tint = TitanTheme.vital(TitanVital.SPIRIT)
+    val detail = place.enables.takeIf { it.isNotEmpty() }?.map { it.label() }?.joinToString(" · ")
+        ?: stringResource(UiR.string.titan_owned)
     TitanItemTile(
         icon = TitanIcons.of(place),
         name = place.label(),
         detail = detail,
         spokenDetail = detail,
-        state = if (owned) TitanItemState.STOCKED else TitanItemState.EMPTY,
-        container = energy.container,
-        content = energy.content,
+        state = TitanItemState.STOCKED,
+        container = tint.container,
+        content = tint.content,
         onClick = {},
         modifier = modifier,
     )
@@ -497,7 +442,6 @@ private fun TitanActivity.status(): Int =
         TitanActivity.RUN -> R.string.titan_status_run
         TitanActivity.SWIM -> R.string.titan_status_swim
         TitanActivity.TRAIN -> R.string.titan_status_train
-        TitanActivity.SPAR -> R.string.titan_status_spar
         TitanActivity.REST -> R.string.titan_status_rest
         TitanActivity.EAT -> R.string.titan_status_eat
     }
@@ -509,11 +453,9 @@ private fun TitanActivity.note(): Int =
         TitanActivity.RUN -> R.string.titan_note_run
         TitanActivity.SWIM -> R.string.titan_note_swim
         TitanActivity.TRAIN -> R.string.titan_note_train
-        TitanActivity.SPAR -> R.string.titan_note_spar
         TitanActivity.REST -> R.string.titan_note_rest
         TitanActivity.EAT -> R.string.titan_note_eat
     }
 
 private const val STAGE_HEIGHT = 190
-private const val COLUMNS_WHAT_NEXT = 3
 private const val COLUMNS_SUPPLIES = 4

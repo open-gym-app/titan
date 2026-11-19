@@ -19,12 +19,11 @@ import com.titan.core.domain.model.TitanVital
 object TitanIcons {
 
     val fuel: ImageVector by lazy { icon("M4 11h16a8 8 0 0 1-16 0zM9 4.5v3M12 3.5v4M15 4.5v3") }
-    val energy: ImageVector by lazy { icon("M13 3L5 14h6l-1 7 8-11h-6z") }
     val spirit: ImageVector by lazy {
         icon("M12 20s-7.5-4.6-7.5-10.3A4.2 4.2 0 0 1 12 7.3a4.2 4.2 0 0 1 7.5 2.4C19.5 15.4 12 20 12 20z")
     }
 
-    /** The titan itself, for the bottom bar and a spar's past self. */
+    /** The titan itself, for the bottom bar. */
     val titan: ImageVector by lazy {
         icon(
             "M7 10a4.5 4.5 0 0 1 4.5-4.5h1A4.5 4.5 0 0 1 17 10v9H7zM12 3v2.5M9.5 10.5h5v2.5h-5z",
@@ -35,7 +34,6 @@ object TitanIcons {
     fun of(vital: TitanVital): ImageVector =
         when (vital) {
             TitanVital.FUEL -> fuel
-            TitanVital.ENERGY -> energy
             TitanVital.SPIRIT -> spirit
         }
 
@@ -61,7 +59,6 @@ object TitanIcons {
                 "M15 7.5a1.5 1.5 0 1 0 0-.01M5 12l4-3 4 2 3-1M3 17c2 0 2-1.5 4.5-1.5S9.5 17 12 17s2-1.5 4.5-1.5S18.5 17 21 17",
             ),
             TitanActivity.TRAIN to icon("M6.5 7v10M3.5 9.5v5M17.5 7v10M20.5 9.5v5M6.5 12h11"),
-            TitanActivity.SPAR to icon("M4 4l10 10M20 4L10 14M7 17l-3 3M17 17l3 3M5.5 14.5l4 4M18.5 14.5l-4 4"),
             TitanActivity.REST to rest,
             TitanActivity.EAT to fuel,
         )

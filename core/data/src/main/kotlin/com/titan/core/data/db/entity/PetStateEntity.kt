@@ -31,8 +31,6 @@ data class PetStateEntity(
     val petId: Long,
     @ColumnInfo(name = "fuel")
     val fuel: Int,
-    @ColumnInfo(name = "energy")
-    val energy: Int,
     @ColumnInfo(name = "spirit")
     val spirit: Int,
     @ColumnInfo(name = "activity")

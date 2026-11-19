@@ -12,7 +12,9 @@ import com.titan.core.domain.model.PetGrowth
 import com.titan.core.domain.model.PetStats
 import com.titan.core.domain.model.TitanChange
 import com.titan.core.domain.model.TitanState
+import com.titan.core.domain.model.UnlockedAchievement
 import com.titan.core.domain.repository.CollectedItemRepository
+import com.titan.core.domain.repository.GamificationRepository
 import com.titan.core.domain.repository.LoadoutRepository
 import com.titan.core.domain.repository.PantryRepository
 import com.titan.core.domain.repository.PetRepository
@@ -21,6 +23,7 @@ import com.titan.core.domain.repository.UnlockRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import java.lang.reflect.Proxy
 import java.time.Instant
 
 /*
@@ -60,10 +63,7 @@ class FakePets : PetRepository {
         return HatchedPet(pet, isNew = true)
     }
 
-    override suspend fun grow(
-        gain: PetGain,
-        at: Long,
-    ): PetGrowth? = null
+    override suspend fun grow(gain: PetGain): PetGrowth? = null
 }
 
 class FakeTitans(private val now: Long) : TitanStateRepository {
@@ -118,14 +118,18 @@ class FakePantry : PantryRepository {
 
 class FakeUnlocks : UnlockRepository {
 
-    val keys = MutableStateFlow<Set<String>>(emptySet())
+    val stored = MutableStateFlow<Set<String>>(emptySet())
 
-    override fun observeUnlocked(): Flow<Set<String>> = keys
+    override fun observeUnlocked(): Flow<Set<String>> = stored
 
     override suspend fun unlock(
         keys: Set<String>,
         at: Long,
-    ): Set<String> = emptySet()
+    ): Set<String> {
+        val new = keys - stored.value
+        stored.value += new
+        return new
+    }
 }
 
 class FakeLoadout : LoadoutRepository {
@@ -167,3 +171,24 @@ class FakeEggs : CollectedItemRepository {
 
     override fun observeUnhatchedEggs(): Flow<List<CollectedItem>> = eggs
 }
+
+/**
+ * The achievements held, and nothing else of [GamificationRepository]: the tab reads only these,
+ * so anything else it calls fails loudly rather than answering with a made-up value.
+ */
+class FakeAchievements(held: Set<String> = emptySet()) : GamificationRepository by unsupported() {
+    val held = MutableStateFlow(held)
+
+    override fun observeUnlockedAchievements(): Flow<List<UnlockedAchievement>> =
+        held.map { ids -> ids.map { UnlockedAchievement(it, Instant.EPOCH) } }
+
+    override suspend fun unlockedAchievementIds(): Set<String> = held.value
+}
+
+private fun unsupported(): GamificationRepository =
+    Proxy.newProxyInstance(
+        GamificationRepository::class.java.classLoader,
+        arrayOf(GamificationRepository::class.java),
+    ) { _, method, _ ->
+        error("${method.name} is not faked")
+    } as GamificationRepository

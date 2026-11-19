@@ -210,9 +210,7 @@ class SessionCompletionCascadeTest : RoomTestBase() {
                 gamificationRepository = gamification,
             ),
             evaluateUnlocks = EvaluateUnlocksUseCase(
-                gamificationRepository = gamification,
-                sessionRepository = sessions,
-                sparTally = { 0 },
+                petRepository = pets,
                 unlockRepository = UnlockRepositoryImpl(db.petUnlockDao()),
             ),
             sessionRepository = sessions,

@@ -642,10 +642,9 @@
 
     <!-- ── The titan ────────────────────────────────────────────────────────────── -->
 
-    <!-- The companion's vocabulary, shared by the tab, the dock, the feed sheet, the inventory
-         and the spar screen. Written in sentence case: the components uppercase the mono labels. -->
+    <!-- The companion's vocabulary, shared by the tab, the dock, the feed sheet
+         and the inventory. Written in sentence case: the components uppercase the mono labels. -->
     <string name="titan_vital_fuel">Fuel</string>
-    <string name="titan_vital_energy">Energy</string>
     <string name="titan_vital_spirit">Spirit</string>
     <string name="titan_vital_value">%1$d / %2$d</string>
     <string name="titan_vital_low">Low</string>
@@ -654,14 +653,6 @@
     <string name="titan_item_new">New</string>
     <string name="titan_item_worn">Worn</string>
     <string name="titan_item_locked">Locked</string>
-    <string name="titan_activity_now">Now</string>
-    <string name="titan_activity_cost">−%1$d en</string>
-    <string name="titan_activity_refills">+Energy</string>
-    <string name="titan_activity_needs">Needs %1$d en</string>
-    <string name="titan_activity_needs_description">needs %1$d energy</string>
-    <string name="titan_activity_cost_description">costs %1$d energy</string>
-    <string name="titan_activity_now_description">doing it now</string>
-    <string name="titan_activity_refills_description">refills energy</string>
     <string name="titan_effect">+%1$d %2$s</string>
     <string name="titan_effect_description">%1$s plus %2$d</string>
     <string name="titan_activity_idle">Idle</string>
@@ -669,7 +660,6 @@
     <string name="titan_activity_run">Run</string>
     <string name="titan_activity_swim">Swim</string>
     <string name="titan_activity_train">Train</string>
-    <string name="titan_activity_spar">Spar</string>
     <string name="titan_activity_rest">Rest</string>
     <string name="titan_activity_eat">Eat</string>
     <string name="titan_gear_headband">Headband</string>
@@ -704,18 +694,7 @@
     <string name="titan_species_barbell_drake">Barbell drake</string>
     <string name="titan_species_atlas">Atlas</string>
     <string name="titan_species_unknown">Unknown titan</string>
-    <string name="titan_need_level">Level %1$d</string>
-    <string name="titan_need_km">%1$d km</string>
-    <string name="titan_need_legend">Legend rank</string>
     <string name="titan_owned">Owned</string>
-    <plurals name="titan_need_streak">
-        <item quantity="one">%1$d-week streak</item>
-        <item quantity="other">%1$d-week streak</item>
-    </plurals>
-    <plurals name="titan_need_spars">
-        <item quantity="one">%1$d spar won</item>
-        <item quantity="other">%1$d spars won</item>
-    </plurals>
     <plurals name="titan_minutes_left">
         <item quantity="one">%1$d min left</item>
         <item quantity="other">%1$d min left</item>

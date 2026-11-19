@@ -412,7 +412,6 @@
 
     <!-- ── The titan ────────────────────────────────────────────────────────────── -->
     <string name="titan_vital_fuel">Carburant</string>
-    <string name="titan_vital_energy">Énergie</string>
     <string name="titan_vital_spirit">Moral</string>
     <string name="titan_vital_value">%1$d / %2$d</string>
     <string name="titan_vital_low">Bas</string>
@@ -421,14 +420,6 @@
     <string name="titan_item_new">Nouveau</string>
     <string name="titan_item_worn">Porté</string>
     <string name="titan_item_locked">Verrouillé</string>
-    <string name="titan_activity_now">En cours</string>
-    <string name="titan_activity_cost">−%1$d én</string>
-    <string name="titan_activity_refills">+Énergie</string>
-    <string name="titan_activity_needs">Il faut %1$d én</string>
-    <string name="titan_activity_needs_description">il faut %1$d d’énergie</string>
-    <string name="titan_activity_cost_description">coûte %1$d d’énergie</string>
-    <string name="titan_activity_now_description">en cours</string>
-    <string name="titan_activity_refills_description">recharge l’énergie</string>
     <string name="titan_effect">+%1$d %2$s</string>
     <string name="titan_effect_description">%1$s plus %2$d</string>
     <string name="titan_activity_idle">Pause</string>
@@ -436,7 +427,6 @@
     <string name="titan_activity_run">Courir</string>
     <string name="titan_activity_swim">Nager</string>
     <string name="titan_activity_train">S’entraîner</string>
-    <string name="titan_activity_spar">Combat</string>
     <string name="titan_activity_rest">Repos</string>
     <string name="titan_activity_eat">Manger</string>
     <string name="titan_gear_headband">Bandeau</string>
@@ -471,20 +461,7 @@
     <string name="titan_species_barbell_drake">Drake d’haltère</string>
     <string name="titan_species_atlas">Atlas</string>
     <string name="titan_species_unknown">Titan inconnu</string>
-    <string name="titan_need_level">Niveau %1$d</string>
-    <string name="titan_need_km">%1$d km</string>
-    <string name="titan_need_legend">Rang Légende</string>
     <string name="titan_owned">Acquis</string>
-    <plurals name="titan_need_streak">
-        <item quantity="one">Série de %1$d semaine</item>
-        <item quantity="many">Série de %1$d semaines</item>
-        <item quantity="other">Série de %1$d semaines</item>
-    </plurals>
-    <plurals name="titan_need_spars">
-        <item quantity="one">%1$d combat gagné</item>
-        <item quantity="many">%1$d combats gagnés</item>
-        <item quantity="other">%1$d combats gagnés</item>
-    </plurals>
     <plurals name="titan_minutes_left">
         <item quantity="one">%1$d min restante</item>
         <item quantity="many">%1$d min restantes</item>

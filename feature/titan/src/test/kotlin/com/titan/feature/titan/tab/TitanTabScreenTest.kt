@@ -1,6 +1,5 @@
 package com.titan.feature.titan.tab
 
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -8,7 +7,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.titan.core.domain.gamification.PetNicknameResult
 import com.titan.core.domain.model.CollectedItem
-import com.titan.core.domain.model.TitanActivity
 import com.titan.core.ui.theme.TitanTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -24,12 +22,11 @@ class TitanTabScreenTest {
     val composeTestRule = createComposeRule()
 
     private val events = mutableListOf<TitanTabEvent>()
-    private var sparOpened = 0
 
     private fun show(state: TitanTabUiState) {
         composeTestRule.setContent {
             TitanTheme(reducedMotion = true) {
-                TitanTabScreen(state, events::add, onOpenInventory = {}, onOpenSpar = { sparOpened++ })
+                TitanTabScreen(state, events::add, onOpenInventory = {})
             }
         }
     }
@@ -46,25 +43,7 @@ class TitanTabScreenTest {
         show(previewTitan())
 
         composeTestRule.onNodeWithContentDescription("Fuel, low, 22 of 100").performScrollTo()
-        composeTestRule.onNodeWithContentDescription("Energy, 80 of 100").performScrollTo()
-    }
-
-    @Test
-    fun `choosing an option sends it, and spar opens the spar screen instead`() {
-        show(previewTitan())
-
-        composeTestRule.onNodeWithContentDescription("Walk, costs 5 energy").performScrollTo().performClick()
-        composeTestRule.onNodeWithContentDescription("Spar, costs 20 energy").performScrollTo().performClick()
-
-        assertEquals(listOf<TitanTabEvent>(TitanTabEvent.Choose(TitanActivity.WALK)), events)
-        assertEquals(1, sparOpened)
-    }
-
-    @Test
-    fun `an unaffordable option does nothing and says why`() {
-        show(previewTitan().let { it.copy(vitals = it.vitals.copy(energy = 4)) })
-
-        composeTestRule.onNodeWithContentDescription("Run, needs 15 energy").performScrollTo().assertIsNotEnabled()
+        composeTestRule.onNodeWithContentDescription("Spirit, 55 of 100").performScrollTo()
     }
 
     @Test

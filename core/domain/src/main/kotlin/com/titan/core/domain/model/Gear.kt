@@ -21,8 +21,8 @@ enum class GearSlot(val key: String) {
  * One piece of gear. **Gear is cosmetic**: it changes how the titan looks, never how strong it
  * is — no stat, vital or power figure reads it.
  *
- * Owned from hatch, or unlocked by the user's training, through the same [Unlockable] contract
- * and table the habitat uses.
+ * Earned through an achievement or dropped on a level-up, through the same [Unlockable] contract
+ * the habitat uses. A titan hatches with none.
  *
  * @property key the stable id the loadout and the unlock table store, and the string-resource key.
  */
@@ -31,18 +31,15 @@ enum class Gear(
     val slot: GearSlot,
     override val condition: UnlockCondition,
 ) : Unlockable {
-    HEADBAND("headband", GearSlot.HEAD, UnlockCondition.FromHatch),
-    SHADES("shades", GearSlot.FACE, UnlockCondition.FromHatch),
-    CROWN("crown", GearSlot.HEAD, UnlockCondition.FromHatch),
-    CHALK("chalk", GearSlot.HANDS, UnlockCondition.Level(level = 20)),
-    CAP("cap", GearSlot.HEAD, UnlockCondition.DistanceKm(kilometres = 100)),
-    CAPE("cape", GearSlot.BACK, UnlockCondition.Level(level = 40)),
-    SCARF("scarf", GearSlot.NECK, UnlockCondition.SparsWon(count = 10)),
-    MEDAL("medal", GearSlot.CHEST, UnlockCondition.Level(level = 100)),
+    HEADBAND("headband", GearSlot.HEAD, UnlockCondition.Achievement("first_session")),
+    SHADES("shades", GearSlot.FACE, UnlockCondition.Achievement("ten_sessions")),
+    CROWN("crown", GearSlot.HEAD, UnlockCondition.Achievement("first_record")),
+    CHALK("chalk", GearSlot.HANDS, UnlockCondition.LevelUpDrop),
+    CAP("cap", GearSlot.HEAD, UnlockCondition.LevelUpDrop),
+    CAPE("cape", GearSlot.BACK, UnlockCondition.LevelUpDrop),
+    SCARF("scarf", GearSlot.NECK, UnlockCondition.LevelUpDrop),
+    MEDAL("medal", GearSlot.CHEST, UnlockCondition.LevelUpDrop),
     ;
-
-    /** Whether this is owned, given the unlock keys stored. */
-    fun isOwned(unlocked: Set<String>): Boolean = condition == UnlockCondition.FromHatch || key in unlocked
 
     companion object {
 
@@ -52,14 +49,13 @@ enum class Gear(
 }
 
 /**
- * One piece of gear as the supplies grid and the inventory draw it.
+ * One piece of gear the user owns, as the supplies grid and the inventory draw it. Gear not
+ * owned is never drawn.
  *
- * @property owned whether the user has it; a locked one shows what it needs ([Gear.condition]).
  * @property worn whether this pet has it on.
  */
 data class GearEntry(
     val gear: Gear,
-    val owned: Boolean,
     val worn: Boolean,
 )
 
@@ -69,8 +65,8 @@ sealed interface WearResult {
     /** On, in its slot, replacing whatever was there ([replaced], if anything). */
     data class Worn(val replaced: Gear?) : WearResult
 
-    /** Not owned yet: it unlocks on [needs]. */
-    data class Locked(val needs: UnlockCondition) : WearResult
+    /** Not owned yet. Never offered on screen; refused if asked for anyway. */
+    data object Locked : WearResult
 
     /** There is no such gear. */
     data object NotGear : WearResult

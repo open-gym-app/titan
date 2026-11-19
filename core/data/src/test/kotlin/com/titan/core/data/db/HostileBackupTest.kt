@@ -352,14 +352,13 @@ class HostileBackupTest : RoomTestBase() {
         runBlocking {
             val progress = restore { document ->
                 document.copy(
-                    petState = document.petState.map { it.copy(fuel = -40, energy = 900, spirit = Int.MAX_VALUE) },
+                    petState = document.petState.map { it.copy(fuel = -40, spirit = Int.MAX_VALUE) },
                 )
             }
 
             assertComplete(progress)
             val rows = db.backupDao().readPetStates(limit = 10, offset = 0)
             assertEquals(listOf(0, 0), rows.map { it.fuel })
-            assertEquals(listOf(100, 100), rows.map { it.energy })
             assertEquals(listOf(100, 100), rows.map { it.spirit })
             assertEquals("an unknown activity is kept as written", "fly", rows.last().activity)
         }

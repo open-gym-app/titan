@@ -18,7 +18,6 @@
     <string name="titan_status_run">Correndo</string>
     <string name="titan_status_swim">Nadando</string>
     <string name="titan_status_train">Agachando</string>
-    <string name="titan_status_spar">Lutando</string>
     <string name="titan_status_rest">Descansando</string>
     <string name="titan_status_eat">Comendo</string>
     <string name="titan_note_idle">Escolhendo o que fazer</string>
@@ -26,10 +25,8 @@
     <string name="titan_note_run">Tiros na pista</string>
     <string name="titan_note_swim">Voltas na piscina</string>
     <string name="titan_note_train">No rack</string>
-    <string name="titan_note_spar">No ringue</string>
-    <string name="titan_note_rest">A energia recarrega no descanso</string>
+    <string name="titan_note_rest">Recuperando o fôlego</string>
     <string name="titan_note_eat">Já volta</string>
-    <string name="titan_what_next">E agora</string>
     <string name="titan_vitals">Sinais vitais</string>
     <string name="titan_supplies">Suprimentos</string>
     <string name="titan_inventory">Inventário</string>
@@ -37,8 +34,8 @@
     <string name="titan_tab_gear">Equipamento</string>
     <string name="titan_tab_habitat">Habitat</string>
     <string name="titan_hint_food">Ganha treinando: cada treino concluído rende comida. Toque em um item para alimentar %1$s.</string>
-    <string name="titan_hint_gear">O equipamento é estético: muda a aparência de %1$s, nunca a força. Ele é desbloqueado com seu treino.</string>
-    <string name="titan_hint_habitat">Lugares desbloqueiam atividades. Sequências, distância e lutas abrem novos.</string>
+    <string name="titan_hint_gear">O equipamento é estético: muda a aparência de %1$s, nunca a força. Conquistas e subidas de nível trazem peças novas.</string>
+    <string name="titan_hint_habitat">Lugares desbloqueiam atividades. Conquistas e subidas de nível abrem novos.</string>
     <string name="titan_gear_wear">Usar</string>
     <string name="titan_none_title">Nenhum titã ainda</string>
     <string name="titan_none_body">Um titã é um companheiro que cresce com seu treino. Às vezes cai um ovo quando você conclui um treino.</string>

@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 2,
-    "identityHash": "fdaccacc529554eb17fec4eff143deb1",
+    "identityHash": "05ac656e785ae3aaedb158d0642d79ba",
     "entities": [
       {
         "tableName": "exercise",
@@ -1553,7 +1553,7 @@
       },
       {
         "tableName": "pet_state",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`pet_id` INTEGER NOT NULL, `fuel` INTEGER NOT NULL, `energy` INTEGER NOT NULL, `spirit` INTEGER NOT NULL, `activity` TEXT NOT NULL, `activity_started_at` INTEGER NOT NULL, `activity_ends_at` INTEGER, `resume_activity` TEXT, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`pet_id`), FOREIGN KEY(`pet_id`) REFERENCES `pet`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`pet_id` INTEGER NOT NULL, `fuel` INTEGER NOT NULL, `spirit` INTEGER NOT NULL, `activity` TEXT NOT NULL, `activity_started_at` INTEGER NOT NULL, `activity_ends_at` INTEGER, `resume_activity` TEXT, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`pet_id`), FOREIGN KEY(`pet_id`) REFERENCES `pet`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "petId",
@@ -1564,12 +1564,6 @@
           {
             "fieldPath": "fuel",
             "columnName": "fuel",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "energy",
-            "columnName": "energy",
             "affinity": "INTEGER",
             "notNull": true
           },
@@ -1658,152 +1652,6 @@
             "slot"
           ]
         },
-        "foreignKeys": [
-          {
-            "table": "pet",
-            "onDelete": "CASCADE",
-            "onUpdate": "NO ACTION",
-            "columns": [
-              "pet_id"
-            ],
-            "referencedColumns": [
-              "id"
-            ]
-          }
-        ]
-      },
-      {
-        "tableName": "pet_power_snapshot",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`pet_id` INTEGER NOT NULL, `week_start` INTEGER NOT NULL, `level` INTEGER NOT NULL, `power` INTEGER NOT NULL, PRIMARY KEY(`pet_id`, `week_start`), FOREIGN KEY(`pet_id`) REFERENCES `pet`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
-        "fields": [
-          {
-            "fieldPath": "petId",
-            "columnName": "pet_id",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "weekStart",
-            "columnName": "week_start",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "level",
-            "columnName": "level",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "power",
-            "columnName": "power",
-            "affinity": "INTEGER",
-            "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": false,
-          "columnNames": [
-            "pet_id",
-            "week_start"
-          ]
-        },
-        "foreignKeys": [
-          {
-            "table": "pet",
-            "onDelete": "CASCADE",
-            "onUpdate": "NO ACTION",
-            "columns": [
-              "pet_id"
-            ],
-            "referencedColumns": [
-              "id"
-            ]
-          }
-        ]
-      },
-      {
-        "tableName": "pet_spar",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `pet_id` INTEGER NOT NULL, `rival` TEXT NOT NULL, `rival_week` INTEGER NOT NULL, `power` INTEGER NOT NULL, `rival_power` INTEGER NOT NULL, `won` INTEGER NOT NULL, `rounds_won` INTEGER NOT NULL, `rounds_lost` INTEGER NOT NULL, `fought_at` INTEGER NOT NULL, FOREIGN KEY(`pet_id`) REFERENCES `pet`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
-        "fields": [
-          {
-            "fieldPath": "id",
-            "columnName": "id",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "petId",
-            "columnName": "pet_id",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "rival",
-            "columnName": "rival",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "rivalWeek",
-            "columnName": "rival_week",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "power",
-            "columnName": "power",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "rivalPower",
-            "columnName": "rival_power",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "won",
-            "columnName": "won",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "roundsWon",
-            "columnName": "rounds_won",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "roundsLost",
-            "columnName": "rounds_lost",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "foughtAt",
-            "columnName": "fought_at",
-            "affinity": "INTEGER",
-            "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": true,
-          "columnNames": [
-            "id"
-          ]
-        },
-        "indices": [
-          {
-            "name": "index_pet_spar_pet_id",
-            "unique": false,
-            "columnNames": [
-              "pet_id"
-            ],
-            "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_pet_spar_pet_id` ON `${TABLE_NAME}` (`pet_id`)"
-          }
-        ],
         "foreignKeys": [
           {
             "table": "pet",
@@ -1964,7 +1812,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'fdaccacc529554eb17fec4eff143deb1')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '05ac656e785ae3aaedb158d0642d79ba')"
     ]
   }
 }

@@ -1,6 +1,5 @@
 package com.titan.core.domain.gamification
 
-import com.titan.core.domain.model.ChooseActivityResult
 import com.titan.core.domain.model.Collectible
 import com.titan.core.domain.model.FeedEffect
 import com.titan.core.domain.model.PetStats
@@ -28,9 +27,10 @@ import kotlin.random.Random
  *
  * ### The titan picks for itself
  *
- * When an activity ends, the titan chooses its next one from what it can afford and where it can
- * go. The draw is seeded by the caller's seed **and the moment of the choice**, so the same
- * state and time give the same answer on every read.
+ * When an activity ends, the titan chooses its next one from where it can go. Nobody chooses for
+ * it. A hungry titan only rests or idles until it is fed. The draw is seeded by the caller's seed
+ * **and the moment of the choice**, so the same state and time give the same answer on every
+ * read.
  *
  * The rates are starting defaults; the canvas gives costs but no rates.
  */
@@ -48,14 +48,8 @@ object TitanRules {
     /** Spirit is lost once every this many ticks: one an hour. */
     const val SPIRIT_DECAY_EVERY_TICKS = 4
 
-    /** Energy regained per tick while resting. */
-    const val REST_ENERGY_PER_TICK = 5
-
-    /** Energy regained per tick while idle. */
-    const val IDLE_ENERGY_PER_TICK = 1
-
-    /** Under this much energy the titan rests rather than choosing something to do. */
-    const val MIN_ENERGY_TO_PLAY = TitanVitals.LOW_BELOW
+    /** Under this much fuel the titan is too hungry to exercise: it rests or idles until fed. */
+    const val HUNGRY_BELOW = TitanVitals.LOW_BELOW
 
     /** The state a newly hatched titan starts in at [now]. */
     fun starting(now: Long): TitanState = start(TitanVitals.START, TitanActivity.IDLE, at = now, resume = null)
@@ -90,7 +84,7 @@ object TitanRules {
     /**
      * The single vital to raise an alert for: the **lowest**, and only if it is low.
      *
-     * Ties resolve in [TitanVital]'s declaration order — fuel, then energy, then spirit — which
+     * Ties resolve in [TitanVital]'s declaration order — fuel, then spirit — which
      * is also the order of what the user can do about them.
      */
     fun alertFor(vitals: TitanVitals): TitanVital? = TitanVital.entries.minBy { vitals[it] }.takeIf { vitals.isLow(it) }
@@ -117,31 +111,11 @@ object TitanRules {
             val end = current.endsAt?.coerceAtLeast(now)
             current = when {
                 end != null && end < nextTick && end <= to -> finish(current, at = end, seed, places)
-                nextTick <= to -> tick(current, at = nextTick, seed, places)
+                nextTick <= to -> tick(current, at = nextTick)
                 else -> return if (to > now) current.copy(updatedAt = to) else current
             }
         }
     }
-
-    /**
-     * The user asks the titan to do [activity] instead, at [now].
-     *
-     * [state] must already be advanced to [now]. Refused, with its reason and nothing changed,
-     * when it cannot afford it or does not have the place.
-     */
-    fun choose(
-        state: TitanState,
-        activity: TitanActivity,
-        now: Long,
-        places: Set<TitanPlace> = TitanPlace.STARTING,
-    ): ChooseActivityResult =
-        when {
-            state.activity == activity -> ChooseActivityResult.Chosen(state)
-            !activity.selfChosen -> ChooseActivityResult.NotChoosable
-            activity.place != null && activity.place !in places -> ChooseActivityResult.PlaceLocked(activity.place)
-            activity.energyCost > state.vitals.energy -> ChooseActivityResult.NotAffordable(activity.energyCost)
-            else -> ChooseActivityResult.Chosen(start(state.vitals, activity, at = now, resume = null))
-        }
 
     /** What any food adds to spirit on top of its fuel. */
     const val FEED_SPIRIT = 5
@@ -180,8 +154,7 @@ object TitanRules {
     /**
      * The titan's power: one figure, derived from what training has built.
      *
-     * Twice its level plus a tenth of its three stats together. Derived from training alone, so
-     * a past week's power can be recomputed from history (#292).
+     * Twice its level plus a tenth of its three stats together, derived from training alone.
      */
     fun power(
         level: Int,
@@ -194,8 +167,6 @@ object TitanRules {
     private fun tick(
         state: TitanState,
         at: Long,
-        seed: Long,
-        places: Set<TitanPlace>,
     ): TitanState {
         var vitals = state.vitals
         if (vitals.fuel > FUEL_FLOOR) {
@@ -206,17 +177,7 @@ object TitanRules {
         if (Math.floorMod(Math.floorDiv(at, TICK_MILLIS), SPIRIT_DECAY_EVERY_TICKS.toLong()) == 0L) {
             vitals = vitals.plus(TitanVital.SPIRIT, -1)
         }
-        when (state.activity) {
-            TitanActivity.REST -> vitals = vitals.plus(TitanVital.ENERGY, REST_ENERGY_PER_TICK)
-            TitanActivity.IDLE -> vitals = vitals.plus(TitanVital.ENERGY, IDLE_ENERGY_PER_TICK)
-            else -> Unit
-        }
-        val ticked = state.copy(vitals = vitals, updatedAt = at)
-        return if (ticked.activity == TitanActivity.REST && vitals.energy >= TitanVitals.MAX) {
-            finish(ticked, at, seed, places)
-        } else {
-            ticked
-        }
+        return state.copy(vitals = vitals, updatedAt = at)
     }
 
     private fun finish(
@@ -228,8 +189,7 @@ object TitanRules {
         val vitals = state.vitals.plus(TitanVital.SPIRIT, state.activity.spiritOnFinish)
         val resume = state.resumeActivity
         if (state.activity == TitanActivity.EAT && resume != null) {
-            // Back to what it was doing, without paying for it twice.
-            return start(vitals, resume, at, resume = null, charge = false)
+            return start(vitals, resume, at, resume = null)
         }
         return start(vitals, next(vitals, at, seed, places), at, resume = null)
     }
@@ -240,14 +200,13 @@ object TitanRules {
         seed: Long,
         places: Set<TitanPlace>,
     ): TitanActivity {
-        if (vitals.energy < MIN_ENERGY_TO_PLAY) return TitanActivity.REST
-        val affordable = TitanActivity.entries.filter { activity ->
+        val hungry = vitals.fuel < HUNGRY_BELOW
+        val open = TitanActivity.entries.filter { activity ->
             activity.selfChosen &&
-                activity != TitanActivity.REST &&
-                activity.energyCost <= vitals.energy &&
-                (activity.place == null || activity.place in places)
+                (activity.place == null || activity.place in places) &&
+                (!hungry || activity.place == null)
         }
-        return affordable[Random(seed xor (at * SEED_MIX)).nextInt(affordable.size)]
+        return open[Random(seed xor (at * SEED_MIX)).nextInt(open.size)]
     }
 
     private fun start(
@@ -255,10 +214,9 @@ object TitanRules {
         activity: TitanActivity,
         at: Long,
         resume: TitanActivity?,
-        charge: Boolean = true,
     ): TitanState =
         TitanState(
-            vitals = if (charge) vitals.plus(TitanVital.ENERGY, -activity.energyCost) else vitals,
+            vitals = vitals,
             activity = activity,
             startedAt = at,
             endsAt = activity.duration?.let { at + it.inWholeMilliseconds },

@@ -9,7 +9,7 @@ import com.titan.core.domain.model.TitanVital
  * A vital's two colours: the container its icon and chip sit on, and the content drawn on it.
  *
  * The vitals **reuse the quest families** rather than adding hues of their own: fuel is the
- * records' amber, energy the sessions' teal, spirit the volume's violet. The accent stays
+ * records' amber, spirit the volume's violet. The accent stays
  * reserved for the titan's feet, its sparks and a low vital.
  */
 data class TitanVitalColors(
@@ -24,7 +24,6 @@ fun TitanTheme.vital(vital: TitanVital): TitanVitalColors {
     val quest = quest
     return when (vital) {
         TitanVital.FUEL -> TitanVitalColors(quest.records, quest.onRecords)
-        TitanVital.ENERGY -> TitanVitalColors(quest.sessions, quest.onSessions)
         TitanVital.SPIRIT -> TitanVitalColors(quest.volume, quest.onVolume)
     }
 }

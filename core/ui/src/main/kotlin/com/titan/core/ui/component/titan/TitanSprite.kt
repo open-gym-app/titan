@@ -58,7 +58,7 @@ import com.titan.core.ui.theme.TitanTheme
  * @param activity what the titan is doing; the pose follows.
  * @param head the gear key worn on the head, if any. A key this build cannot draw draws nothing.
  * @param face the gear key worn on the face, if any.
- * @param ghost draws the sprite in the faint ink: the past self a spar is fought against.
+ * @param ghost draws the sprite in the faint ink.
  * @param bare leaves out the ground and the water, for a host that draws its own across a wider
  *   stage — the dock does.
  * @param still holds the pose's still frame whatever the motion setting.

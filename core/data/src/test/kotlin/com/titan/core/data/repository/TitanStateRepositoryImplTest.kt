@@ -6,12 +6,11 @@ import com.titan.core.data.db.entity.CollectedItemEntity
 import com.titan.core.data.db.entity.PetEntity
 import com.titan.core.data.db.entity.PetStateEntity
 import com.titan.core.domain.gamification.TitanRules
-import com.titan.core.domain.model.ChooseActivityResult
 import com.titan.core.domain.model.TitanActivity
 import com.titan.core.domain.model.TitanChange
+import com.titan.core.domain.model.TitanState
 import com.titan.core.domain.model.TitanVital
 import com.titan.core.domain.model.TitanVitals
-import com.titan.core.domain.usecase.ChooseActivityUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -61,9 +60,7 @@ class TitanStateRepositoryImplTest : RoomTestBase() {
             val petId = hatch()
             now = HATCHED_AT + HOUR
 
-            val result = ChooseActivityUseCase(repository)(petId, TitanActivity.REST)
-
-            val chosen = (result as ChooseActivityResult.Chosen).state
+            val chosen = repository.modify(petId) { state, _ -> TitanChange(state = state, result = state) }!!
             assertEquals(now, chosen.updatedAt)
             // A process death: a repository built afresh over the same database reads the same titan.
             assertEquals(chosen, TitanStateRepositoryImpl(db) { now }.observe(petId).first())
@@ -128,7 +125,6 @@ class TitanStateRepositoryImplTest : RoomTestBase() {
                 PetStateEntity(
                     petId = petId,
                     fuel = -40,
-                    energy = 900,
                     spirit = Int.MIN_VALUE,
                     activity = "fly",
                     activityStartedAt = HATCHED_AT + 100 * DAY,
@@ -143,7 +139,6 @@ class TitanStateRepositoryImplTest : RoomTestBase() {
 
             assertEquals(now, read.updatedAt)
             assertTrue(read.vitals.fuel in 0..TitanVitals.MAX)
-            assertTrue(read.vitals.energy in 0..TitanVitals.MAX)
             assertTrue(read.vitals.spirit in 0..TitanVitals.MAX)
             assertTrue("an unknown activity reads as idle and moves on from there", read.startedAt <= now)
             assertNull(read.resumeActivity)
@@ -156,7 +151,7 @@ class TitanStateRepositoryImplTest : RoomTestBase() {
 
             repository.observe(petId).test {
                 assertEquals(TitanActivity.IDLE, awaitItem()?.activity)
-                ChooseActivityUseCase(repository)(petId, TitanActivity.WALK)
+                repository.modify(petId) { state, now -> TitanChange(state = walking(state, now), result = Unit) }
                 assertEquals(TitanActivity.WALK, awaitItem()?.activity)
                 cancelAndIgnoreRemainingEvents()
             }
@@ -178,6 +173,18 @@ class TitanStateRepositoryImplTest : RoomTestBase() {
     }
 
     private fun egg() = CollectedItemEntity(collectibleId = "pet_egg", source = "session_finished", acquiredAt = 0)
+
+    /** [state] set walking from [now], as the titan's own choice would. */
+    private fun walking(
+        state: TitanState,
+        now: Long,
+    ) = state.copy(
+        activity = TitanActivity.WALK,
+        startedAt = now,
+        endsAt = now + TitanActivity.WALK.duration!!.inWholeMilliseconds,
+        resumeActivity = null,
+        updatedAt = now,
+    )
 
     private companion object {
         const val HOUR = 60 * 60 * 1000L

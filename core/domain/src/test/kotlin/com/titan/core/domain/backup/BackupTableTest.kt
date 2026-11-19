@@ -11,7 +11,7 @@ import org.junit.Test
  * Foreign keys stay enforced for the whole of a restore — the importer sets no
  * `defer_foreign_keys` — so a child table inserted before its parent is refused by SQLite. The
  * order that makes that work is [BackupTable]'s declaration order, and nothing about the enum
- * itself says so: it is a list of twenty-eight constants that reads as if it could be alphabetised.
+ * itself says so: it is a list of twenty-six constants that reads as if it could be alphabetised.
  * These tests are the reason it cannot be.
  */
 class BackupTableTest {
@@ -103,8 +103,6 @@ class BackupTableTest {
             BackupTable.PET to BackupTable.COLLECTED_ITEM,
             BackupTable.PET_STATE to BackupTable.PET,
             BackupTable.PET_LOADOUT to BackupTable.PET,
-            BackupTable.PET_POWER_SNAPSHOT to BackupTable.PET,
-            BackupTable.PET_SPAR to BackupTable.PET,
             BackupTable.PET_FEED to BackupTable.COLLECTED_ITEM,
             BackupTable.PET_FEED to BackupTable.PET,
         )

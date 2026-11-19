@@ -41,8 +41,8 @@ class GrowPetUseCaseTest {
             hatch()
             val session = session(SQUAT to 3)
 
-            val first = grow(session, AT)
-            val again = grow(session, AT)
+            val first = grow(session)
+            val again = grow(session)
 
             assertNotNull(first)
             val growth = first!!
@@ -57,7 +57,7 @@ class GrowPetUseCaseTest {
         runTest {
             hatch()
 
-            val growth = grow(session(SQUAT to 1, PLANK to 2), AT)!!
+            val growth = grow(session(SQUAT to 1, PLANK to 2))!!
 
             assertEquals(PetStats(strength = 1, endurance = 0, mobility = 2), growth.statsGained)
         }
@@ -67,12 +67,12 @@ class GrowPetUseCaseTest {
         runTest {
             val session = session(SQUAT to 3)
 
-            assertNull(grow(session, AT))
+            assertNull(grow(session))
             assertFalse("the claim was not taken", gamification.claimSessionPet(session))
 
             // A first pet hatched afterwards is not billed for the sessions before it.
             hatch()
-            assertNull(grow(session, AT))
+            assertNull(grow(session))
             assertEquals(0L, pets.held.single().xp)
         }
 
@@ -82,7 +82,7 @@ class GrowPetUseCaseTest {
             hatch()
             val session = session()
 
-            assertNull(grow(session, AT))
+            assertNull(grow(session))
             assertEquals(0L, pets.held.single().xp)
             assertFalse(gamification.claimSessionPet(session))
         }
@@ -94,9 +94,9 @@ class GrowPetUseCaseTest {
             val session = session(SQUAT to 3)
             val broken = GrowPetUseCase(FailingReads(sessions), exercises, pets, gamification)
 
-            assertThrows(IllegalStateException::class.java) { kotlinx.coroutines.runBlocking { broken(session, AT) } }
+            assertThrows(IllegalStateException::class.java) { kotlinx.coroutines.runBlocking { broken(session) } }
 
-            val growth = grow(session, AT)!!
+            val growth = grow(session)!!
             assertEquals(PetGrowthRates.XP_PER_SESSION + 3L * PetGrowthRates.XP_PER_SET, growth.xpGained)
         }
 
@@ -107,7 +107,7 @@ class GrowPetUseCaseTest {
             val second = pets.hatch(collectedItemId = 2, speciesId = "atlas", hatchedAt = Instant.EPOCH).pet
             pets.setActive(second.id)
 
-            grow(session(SQUAT to 3), AT)
+            grow(session(SQUAT to 3))
 
             assertEquals(listOf(0L, 65L), pets.held.map { it.xp })
         }
@@ -118,8 +118,8 @@ class GrowPetUseCaseTest {
             val juvenileAt = XpCalculator.xpRequiredForLevel(PetStage.JUVENILE.fromLevel)
             pets.put(pet(xp = juvenileAt - 1))
 
-            val crossing = grow(session(SQUAT to 1), AT)!!
-            val after = grow(session(SQUAT to 1), AT)!!
+            val crossing = grow(session(SQUAT to 1))!!
+            val after = grow(session(SQUAT to 1))!!
 
             assertTrue(crossing.leveledUp)
             assertTrue(crossing.stageChanged)
@@ -165,6 +165,5 @@ class GrowPetUseCaseTest {
     private companion object {
         const val SQUAT = 10L
         const val PLANK = 11L
-        val AT: Instant = Instant.parse("2026-11-12T18:00:00Z")
     }
 }

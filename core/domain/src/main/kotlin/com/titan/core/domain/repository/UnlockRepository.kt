@@ -23,8 +23,3 @@ interface UnlockRepository {
         at: Long,
     ): Set<String>
 }
-
-/** How many spars the titan has won. Read by unlocks; written by the spar (#292). */
-fun interface SparTally {
-    suspend fun sparsWon(): Int
-}

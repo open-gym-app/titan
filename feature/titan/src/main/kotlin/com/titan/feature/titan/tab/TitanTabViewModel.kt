@@ -13,16 +13,15 @@ import com.titan.core.domain.model.Gear
 import com.titan.core.domain.model.GearEntry
 import com.titan.core.domain.model.PantryEntry
 import com.titan.core.domain.model.Pet
-import com.titan.core.domain.model.TitanActivity
 import com.titan.core.domain.model.TitanPlace
 import com.titan.core.domain.model.TitanState
 import com.titan.core.domain.repository.CollectedItemRepository
+import com.titan.core.domain.repository.GamificationRepository
 import com.titan.core.domain.repository.LoadoutRepository
 import com.titan.core.domain.repository.PantryRepository
 import com.titan.core.domain.repository.PetRepository
 import com.titan.core.domain.repository.TitanStateRepository
 import com.titan.core.domain.repository.UnlockRepository
-import com.titan.core.domain.usecase.ChooseActivityUseCase
 import com.titan.core.domain.usecase.FeedUseCase
 import com.titan.core.domain.usecase.HatchEggUseCase
 import com.titan.core.domain.usecase.WearGearUseCase
@@ -64,7 +63,7 @@ class TitanTabViewModel @Inject constructor(
     private val unlockRepository: UnlockRepository,
     private val loadoutRepository: LoadoutRepository,
     private val collectedItemRepository: CollectedItemRepository,
-    private val chooseActivity: ChooseActivityUseCase,
+    private val gamificationRepository: GamificationRepository,
     private val feed: FeedUseCase,
     private val hatchEgg: HatchEggUseCase,
     private val wearGear: WearGearUseCase,
@@ -89,17 +88,13 @@ class TitanTabViewModel @Inject constructor(
         when (event) {
             is TitanTabEvent.SelectTab -> savedStateHandle[TAB_KEY] = event.tab.name
 
-            is TitanTabEvent.Choose -> act { petId ->
-                lastEffect.value = null
-                chooseActivity(petId, event.activity)
-            }
-
             is TitanTabEvent.Feed -> act { petId ->
                 val result = feed(petId, event.foodId)
                 lastEffect.value = (result as? FeedResult.Fed)?.effect
             }
 
             is TitanTabEvent.ToggleGear -> act { petId ->
+                lastEffect.value = null
                 val worn = loadoutRepository.observeLoadout(petId).first().containsValue(event.gearKey)
                 if (worn) wearGear.takeOff(petId, event.gearKey) else wearGear.wear(petId, event.gearKey)
             }
@@ -168,9 +163,13 @@ class TitanTabViewModel @Inject constructor(
 
     private fun titan(pet: Pet): Flow<TitanTabUiState> {
         val state = ticker().flatMapLatest { titanStateRepository.observe(pet.id) }.filterNotNull()
+        val owned = combine(
+            unlockRepository.observeUnlocked(),
+            gamificationRepository.observeUnlockedAchievements(),
+        ) { dropped, achievements -> Owned(dropped, achievements.mapTo(mutableSetOf()) { it.achievementId }) }
         val supplies = combine(
             pantryRepository.observePantry(),
-            unlockRepository.observeUnlocked(),
+            owned,
             loadoutRepository.observeLoadout(pet.id),
         ) { pantry, unlocked, loadout -> Triple(pantry, unlocked, loadout) }
         val chrome = combine(tab, lastEffect, renameDraft, renameRefusal) { tab, effect, draft, refusal ->
@@ -186,12 +185,11 @@ class TitanTabViewModel @Inject constructor(
         pet: Pet,
         state: TitanState,
         pantry: List<PantryEntry>,
-        unlocked: Set<String>,
+        unlocked: Owned,
         loadout: Map<String, String>,
         chrome: Chrome,
-    ): TitanTabUiState.Titan {
-        val owned = TitanPlace.owned(unlocked)
-        return TitanTabUiState.Titan(
+    ): TitanTabUiState.Titan =
+        TitanTabUiState.Titan(
             petId = pet.id,
             speciesId = pet.speciesId,
             name = pet.nickname,
@@ -205,14 +203,14 @@ class TitanTabViewModel @Inject constructor(
             face = loadout["face"],
             tab = chrome.tab,
             pantry = pantry,
+            // Nothing locked is shown: what the user sees is what the titan has.
             gear = Gear.entries
-                .map { GearEntry(it, owned = it.isOwned(unlocked), worn = loadout[it.slot.key] == it.key) }
-                .sortedByDescending { it.owned },
-            places = TitanPlace.entries.map { it to (it in owned) }.sortedByDescending { it.second },
+                .filter { it.isOwned(unlocked.dropped, unlocked.achievements) }
+                .map { GearEntry(it, worn = loadout[it.slot.key] == it.key) },
+            places = TitanPlace.entries.filter { it.isOwned(unlocked.dropped, unlocked.achievements) },
             lastEffect = chrome.effect,
             rename = chrome.rename,
         )
-    }
 
     private fun ticker(): Flow<Unit> =
         flow {
@@ -221,6 +219,12 @@ class TitanTabViewModel @Inject constructor(
                 delay(refresh)
             }
         }
+
+    /** What the titan owns: the level-up drops stored, and the achievements held. */
+    private data class Owned(
+        val dropped: Set<String>,
+        val achievements: Set<String>,
+    )
 
     private data class Chrome(
         val tab: SuppliesTab,
@@ -235,13 +239,3 @@ class TitanTabViewModel @Inject constructor(
         const val MINUTE_MILLIS = 60_000L
     }
 }
-
-/** The options "What next" offers, in the canvas's order. */
-internal val WHAT_NEXT: List<TitanActivity> = listOf(
-    TitanActivity.WALK,
-    TitanActivity.RUN,
-    TitanActivity.SWIM,
-    TitanActivity.TRAIN,
-    TitanActivity.SPAR,
-    TitanActivity.REST,
-)

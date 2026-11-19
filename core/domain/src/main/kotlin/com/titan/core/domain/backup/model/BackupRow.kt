@@ -364,7 +364,6 @@ data class PetRow(
 data class PetStateRow(
     @SerialName("pet_id") val petId: Long,
     @SerialName("fuel") val fuel: Int,
-    @SerialName("energy") val energy: Int,
     @SerialName("spirit") val spirit: Int,
     @SerialName("activity") val activity: String,
     @SerialName("activity_started_at") val activityStartedAt: Long,
@@ -411,28 +410,4 @@ data class PetLoadoutRow(
     @SerialName("pet_id") val petId: Long,
     @SerialName("slot") val slot: String,
     @SerialName("gear") val gear: String,
-) : BackupRow
-
-/** A row of `pet_power_snapshot`: a pet's level and power as of one UTC week. */
-@Serializable
-data class PetPowerSnapshotRow(
-    @SerialName("pet_id") val petId: Long,
-    @SerialName("week_start") val weekStart: Long,
-    @SerialName("level") val level: Int,
-    @SerialName("power") val power: Int,
-) : BackupRow
-
-/** A row of `pet_spar`: one bout against a past self. [rival] is not validated. */
-@Serializable
-data class PetSparRow(
-    @SerialName("id") val id: Long,
-    @SerialName("pet_id") val petId: Long,
-    @SerialName("rival") val rival: String,
-    @SerialName("rival_week") val rivalWeek: Long,
-    @SerialName("power") val power: Int,
-    @SerialName("rival_power") val rivalPower: Int,
-    @SerialName("won") val won: Boolean,
-    @SerialName("rounds_won") val roundsWon: Int,
-    @SerialName("rounds_lost") val roundsLost: Int,
-    @SerialName("fought_at") val foughtAt: Long,
 ) : BackupRow

@@ -1,50 +1,35 @@
 package com.titan.core.domain.usecase
 
 import com.titan.core.domain.gamification.Unlocks
-import com.titan.core.domain.gamification.XpCalculator
-import com.titan.core.domain.model.UnlockProgress
-import com.titan.core.domain.repository.GamificationRepository
-import com.titan.core.domain.repository.SessionRepository
-import com.titan.core.domain.repository.SparTally
+import com.titan.core.domain.random.RandomSource
+import com.titan.core.domain.repository.PetRepository
 import com.titan.core.domain.repository.UnlockRepository
 import kotlinx.coroutines.flow.first
 
 /**
- * Stores whatever the user's training has newly earned.
+ * Drops the titan's level-up rewards: one random place or piece of gear per level the user
+ * gained in a session, from what has not dropped yet.
  *
- * Runs after a finished session (the cascade's last step) and after a spar. Idempotent by the
- * store's key: a re-run writes nothing new, and an unlock is never taken back when its condition
- * lapses.
+ * Runs as the cascade's last step. Only for a user who owns a titan — the pool would otherwise
+ * be spent before there was anyone to wear it. The levels come from the session's own XP
+ * awards, which a re-entered cascade does not repeat, so a re-run drops nothing.
  *
- * It reads the user's training — the streak, the distance, the level — and nothing it writes is
- * ever read back by XP, records, the streak, quests or drops.
+ * Items tied to an achievement are not dropped here: they are owned as soon as the achievement
+ * is held (see [com.titan.core.domain.model.UnlockCondition.Achievement]).
  */
 class EvaluateUnlocksUseCase(
-    private val gamificationRepository: GamificationRepository,
-    private val sessionRepository: SessionRepository,
-    private val sparTally: SparTally,
+    private val petRepository: PetRepository,
     private val unlockRepository: UnlockRepository,
+    private val random: RandomSource = RandomSource.SYSTEM,
 ) {
 
-    /** @return the keys this call unlocked, in no particular order. */
-    suspend operator fun invoke(at: Long): Set<String> {
-        val progress = gamificationRepository.observeProgress().first()
-        val distance = sessionRepository.getTotals().first().values
-            .fold(0L) { total, session -> saturatingAdd(total, session.totalDistance) }
-
-        val earned = Unlocks.earned(
-            UnlockProgress(
-                bestStreakWeeks = maxOf(progress?.currentStreak ?: 0, progress?.longestStreak ?: 0),
-                distanceCentimetres = distance,
-                level = progress?.level ?: XpCalculator.FIRST_LEVEL,
-                sparsWon = sparTally.sparsWon(),
-            ),
-        )
-        return if (earned.isEmpty()) emptySet() else unlockRepository.unlock(earned, at)
+    /** @return the keys this call dropped. */
+    suspend operator fun invoke(
+        levelsGained: Int,
+        at: Long,
+    ): Set<String> {
+        if (levelsGained <= 0 || petRepository.count() == 0) return emptySet()
+        val drops = Unlocks.levelUpDrops(levelsGained, unlockRepository.observeUnlocked().first(), random)
+        return if (drops.isEmpty()) emptySet() else unlockRepository.unlock(drops, at)
     }
-
-    private fun saturatingAdd(
-        a: Long,
-        b: Long,
-    ): Long = if (b > 0 && a > Long.MAX_VALUE - b) Long.MAX_VALUE else a + b.coerceAtLeast(0)
 }

@@ -7,8 +7,6 @@ import com.titan.core.data.db.entity.FoodSeenEntity
 import com.titan.core.data.db.entity.PetEntity
 import com.titan.core.data.db.entity.PetFeedEntity
 import com.titan.core.data.db.entity.PetLoadoutEntity
-import com.titan.core.data.db.entity.PetPowerSnapshotEntity
-import com.titan.core.data.db.entity.PetSparEntity
 import com.titan.core.data.db.entity.PetStateEntity
 import com.titan.core.data.db.entity.PetUnlockEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
@@ -251,17 +249,15 @@ private suspend fun TitanDatabase.seedPets() {
 private suspend fun TitanDatabase.seedTitanState() {
     backupDao().insertPetStates(
         listOf(
-            PetStateEntity(1, fuel = 22, energy = 80, spirit = 55, "train", FINISHED_AT, FINISHED_AT + 900_000, null, FINISHED_AT),
+            PetStateEntity(1, fuel = 22, spirit = 55, "train", FINISHED_AT, FINISHED_AT + 900_000, null, FINISHED_AT),
             // An activity this build has never heard of, kept as written.
-            PetStateEntity(2, fuel = 64, energy = 80, spirit = 55, "fly", FINISHED_AT, null, "train", FINISHED_AT),
+            PetStateEntity(2, fuel = 64, spirit = 55, "fly", FINISHED_AT, null, "train", FINISHED_AT),
         ),
     )
     backupDao().insertPetFeeds(listOf(PetFeedEntity(collectedItemId = 5, petId = 1, fedAt = FINISHED_AT)))
     backupDao().insertPetLoadouts(
         listOf(PetLoadoutEntity(1, "head", "headband"), PetLoadoutEntity(2, "tail", "a_newer_gear")),
     )
-    backupDao().insertPowerSnapshots(listOf(PetPowerSnapshotEntity(1, WEEK_START, level = 3, power = 7)))
-    backupDao().insertSpars(listOf(PetSparEntity(1, 1, "last_week", WEEK_START, 7, 2, won = true, 3, 1, FINISHED_AT)))
     backupDao().insertFoodSeen(listOf(FoodSeenEntity(collectibleId = "steak", seenUpTo = 5)))
     backupDao().insertPetUnlocks(
         // In key order, which is the order an export reads them back in.
@@ -289,6 +285,3 @@ fun TitanDatabase.dumpEverything(): Map<BackupTable, List<Map<String, String?>>>
 
 const val STARTED_AT: Long = 1_788_600_000_000L
 const val FINISHED_AT: Long = 1_788_603_600_000L
-
-/** A Monday, 00:00 UTC: the shape every snapshot's week takes. */
-private const val WEEK_START = 1_788_480_000_000L

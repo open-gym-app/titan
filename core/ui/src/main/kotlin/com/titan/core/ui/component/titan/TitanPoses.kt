@@ -47,13 +47,12 @@ internal object TitanPoses {
             TitanActivity.EAT -> EAT_LOOP
             TitanActivity.TRAIN -> TRAIN_LOOP
             TitanActivity.SWIM -> SWIM_LOOP
-            TitanActivity.SPAR -> SPAR_LOOP
             TitanActivity.REST -> REST_LOOP
         }
 
-    /** Whether the pose shows sparks: only while the titan is exerting. */
-    fun sparks(activity: TitanActivity): Boolean =
-        activity == TitanActivity.RUN || activity == TitanActivity.TRAIN || activity == TitanActivity.SPAR
+    /** Whether the pose shows sparks: only while the titan is exerting. The spar's ghost and its
+     *  spark stay in the drawing, unused, so the art can bring them back without a regeneration. */
+    fun sparks(activity: TitanActivity): Boolean = activity == TitanActivity.RUN || activity == TitanActivity.TRAIN
 
     /** The frame of [activity] at [millis] into it, or its still frame. */
     @Suppress("CyclomaticComplexMethod", "LongMethod")
@@ -136,28 +135,6 @@ internal object TitanPoses {
                     alphas[if (at(SPLASH) < HALF) SpritePart.SPLASH_2 else SpritePart.SPLASH_1] = 0f
                     wave = -WAVE_TRAVEL + floor(at(WAVE) * DASH_STEPS).toInt() * WAVE_TRAVEL / DASH_STEPS.toInt()
                 }
-            }
-
-            TitanActivity.SPAR -> {
-                shown += SpritePart.FX
-                shown += SpritePart.RIVAL_ACC
-                shown += SpritePart.SPARK_ACC
-                clip = true
-                offsets[SpritePart.ME] = SPAR_STANCE to 0
-                val t = at(SPAR_LOOP)
-                offsets[SpritePart.LEAN] = (
-                    if (still) {
-                        JAB
-                    } else if (t >= JAB_FROM && t < JAB_TO) {
-                        JAB
-                    } else {
-                        0
-                    }
-                    ) to 0
-                offsets[SpritePart.RIVAL] = (if (!still && t >= RECOIL_FROM && t < RECOIL_TO) JAB else 0) to 0
-                // Still, the spark shows: the canvas's still frame is the jab landing.
-                if (!still && (t < JAB_FROM || t >= JAB_TO)) alphas[SpritePart.SPARK] = 0f
-                if (!still && at(PULSE) >= HALF) alphas[SpritePart.CORE] = PULSE_LOW
             }
 
             TitanActivity.REST -> {
@@ -263,7 +240,6 @@ internal object TitanPoses {
     private const val EAT_LOOP = 2_000L
     private const val TRAIN_LOOP = 1_800L
     private const val SWIM_LOOP = 2_000L
-    private const val SPAR_LOOP = 1_200L
     private const val REST_LOOP = 3_600L
 
     private const val WALK_STRIDE = 900L
@@ -290,12 +266,6 @@ internal object TitanPoses {
     private const val FEED_STEP = 0.12f
     private const val BITE_FROM = 0.5f
     private const val FEED_GONE = 0.7f
-    private const val JAB_FROM = 0.40f
-    private const val JAB_TO = 0.55f
-    private const val RECOIL_FROM = 0.45f
-    private const val RECOIL_TO = 0.60f
-    private const val JAB = 2
-    private const val SPAR_STANCE = -15
     private const val DASH_STEPS = 8f
     private const val DASH_TRAVEL = 8f
     private const val WAVE_TRAVEL = 8

@@ -8,7 +8,7 @@ import com.titan.core.domain.model.CollectedItem
 import com.titan.core.domain.model.Pet
 import com.titan.core.domain.model.PetStats
 import com.titan.core.domain.model.TitanActivity
-import com.titan.core.domain.usecase.ChooseActivityUseCase
+import com.titan.core.domain.model.TitanPlace
 import com.titan.core.domain.usecase.FeedUseCase
 import com.titan.core.domain.usecase.HatchEggUseCase
 import com.titan.core.domain.usecase.WearGearUseCase
@@ -35,6 +35,7 @@ class TitanTabViewModelTest {
     private val titans = FakeTitans(NOW)
     private val pantry = FakePantry()
     private val unlocks = FakeUnlocks()
+    private val achievements = FakeAchievements(setOf("first_session", "first_record"))
     private val loadout = FakeLoadout()
     private val eggs = FakeEggs()
     private val saved = SavedStateHandle()
@@ -53,10 +54,10 @@ class TitanTabViewModelTest {
             unlockRepository = unlocks,
             loadoutRepository = loadout,
             collectedItemRepository = eggs,
-            chooseActivity = ChooseActivityUseCase(titans),
+            gamificationRepository = achievements,
             feed = FeedUseCase(pantry, titans),
             hatchEgg = HatchEggUseCase(eggs, pets, random = { 0 }, clock = { NOW }),
-            wearGear = WearGearUseCase(pets, unlocks, loadout),
+            wearGear = WearGearUseCase(pets, unlocks, achievements, loadout),
             savedStateHandle = handle,
         ).also {
             // No timed refresh: the store's writes drive every emission these tests wait for, and
@@ -90,18 +91,13 @@ class TitanTabViewModelTest {
         }
 
     @Test
-    fun `choosing an activity updates the stage and the energy without leaving the screen`() =
+    fun `the titan moves on by itself, with nothing to choose`() =
         runTest(dispatcher) {
             pets.pets.value = listOf(brick())
-            val vm = viewModel()
-
-            vm.uiState.test {
-                val before = awaitUntil<TitanTabUiState.Titan>()
-                assertEquals(TitanActivity.IDLE, before.activity)
-
-                vm.onEvent(TitanTabEvent.Choose(TitanActivity.RUN))
-                val after = awaitUntil<TitanTabUiState.Titan> { it.activity == TitanActivity.RUN }
-                assertEquals(before.vitals.energy - TitanActivity.RUN.energyCost, after.vitals.energy)
+            viewModel().uiState.test {
+                val state = awaitUntil<TitanTabUiState.Titan>()
+                assertEquals(TitanActivity.IDLE, state.activity)
+                assertTrue(TitanTabEvent::class.sealedSubclasses.none { it.simpleName == "Choose" })
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -119,7 +115,7 @@ class TitanTabViewModelTest {
                 assertEquals(TitanActivity.EAT, fed.activity)
                 assertEquals(listOf("steak"), pantry.eaten)
 
-                vm.onEvent(TitanTabEvent.Choose(TitanActivity.WALK))
+                vm.onEvent(TitanTabEvent.ToggleGear("headband"))
                 awaitUntil<TitanTabUiState.Titan> { it.lastEffect == null }
                 cancelAndIgnoreRemainingEvents()
             }
@@ -186,13 +182,19 @@ class TitanTabViewModelTest {
         }
 
     @Test
-    fun `the gear list puts owned pieces first`() =
+    fun `only what the titan owns is shown, and an item appears the moment it is earned`() =
         runTest(dispatcher) {
             pets.pets.value = listOf(brick())
             viewModel().uiState.test {
                 val state = awaitUntil<TitanTabUiState.Titan>()
-                assertTrue(state.gear.take(3).all { it.owned })
-                assertTrue(state.gear.drop(3).none { it.owned })
+                assertEquals(listOf("headband", "crown"), state.gear.map { it.gear.key })
+                assertEquals(listOf("track", "rack", "pool", "ring"), state.places.map { it.key })
+
+                unlocks.unlock(setOf("cape", "dojo"), at = NOW)
+                achievements.held.value += "four_week_streak"
+                val after = awaitUntil<TitanTabUiState.Titan> { it.places.size == 6 && it.gear.size == 3 }
+                assertEquals(listOf("headband", "crown", "cape"), after.gear.map { it.gear.key })
+                assertTrue(after.places.containsAll(listOf(TitanPlace.SAUNA, TitanPlace.DOJO)))
                 cancelAndIgnoreRemainingEvents()
             }
         }

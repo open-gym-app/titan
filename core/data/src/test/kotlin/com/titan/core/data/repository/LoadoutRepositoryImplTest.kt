@@ -19,7 +19,16 @@ class LoadoutRepositoryImplTest : RoomTestBase() {
 
     private val pets by lazy { PetRepositoryImpl(db.petDao()) }
     private val loadout by lazy { LoadoutRepositoryImpl(db.loadoutDao()) }
-    private val gear by lazy { WearGearUseCase(pets, UnlockRepositoryImpl(db.petUnlockDao()), loadout) }
+    private val achievements by lazy {
+        GamificationRepositoryImpl(
+            userProgressDao = db.userProgressDao(),
+            achievementDao = db.achievementDao(),
+            sessionXpClaimDao = db.sessionXpClaimDao(),
+            sessionLootClaimDao = db.sessionLootClaimDao(),
+            sessionPetClaimDao = db.sessionPetClaimDao(),
+        )
+    }
+    private val gear by lazy { WearGearUseCase(pets, UnlockRepositoryImpl(db.petUnlockDao()), achievements, loadout) }
 
     @Test
     fun `a pet holds one piece per slot, enforced by the database`() =
@@ -40,6 +49,8 @@ class LoadoutRepositoryImplTest : RoomTestBase() {
     fun `wearing and taking off go through the use case against the real store`() =
         runBlocking {
             val pet = hatch()
+            assertEquals("not owned yet", WearResult.Locked, gear.wear(pet, "shades"))
+            achievements.unlockAchievement("ten_sessions", Instant.EPOCH)
 
             assertEquals(WearResult.Worn(replaced = null), gear.wear(pet, "shades"))
             gear.takeOff(pet, "shades")

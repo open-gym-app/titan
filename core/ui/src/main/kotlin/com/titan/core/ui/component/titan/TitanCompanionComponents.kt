@@ -2,9 +2,7 @@ package com.titan.core.ui.component.titan
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,7 +39,6 @@ import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.role
@@ -51,7 +48,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.titan.core.domain.model.ThemePreference
-import com.titan.core.domain.model.TitanActivity
 import com.titan.core.domain.model.TitanVital
 import com.titan.core.domain.model.TitanVitals
 import com.titan.core.ui.R
@@ -62,8 +58,8 @@ import com.titan.core.ui.theme.TitanTheme
 import com.titan.core.ui.theme.vital
 
 /*
- * The four small pieces the titan's screens are built from (canvas *04 Components*): the vital
- * row, the item tile, the activity option and the effect chip. Stateless and hoisted, like every
+ * The small pieces the titan's screens are built from (canvas *04 Components*): the vital row,
+ * the item tile and the effect chip. Stateless and hoisted, like every
  * shared component; each is one node to a screen reader, with its state in what it says.
  */
 
@@ -292,109 +288,6 @@ fun TitanItemTile(
     }
 }
 
-// ─── Activity option ────────────────────────────────────────────────────────────────────
-
-/** Where one of "What next"'s options stands. */
-sealed interface TitanOptionState {
-
-    /** Doing it now: the app's selectable-option pattern — accent outline, accent-soft fill. */
-    data object Now : TitanOptionState
-
-    /** Can be started, at [cost] energy; zero for one that refills it. */
-    data class Available(val cost: Int) : TitanOptionState
-
-    /** Costs [needs] energy and the titan has less: faint, still listed, does nothing. */
-    data class Unaffordable(val needs: Int) : TitanOptionState
-}
-
-/** One option of "What next": the activity's icon, its name, and what it costs or needs. */
-@Composable
-fun TitanActivityOption(
-    activity: TitanActivity,
-    state: TitanOptionState,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val now = state == TitanOptionState.Now
-    val broke = state is TitanOptionState.Unaffordable
-    val name = activity.label()
-    val (sub, spokenSub) = when (state) {
-        TitanOptionState.Now -> stringResource(
-            R.string.titan_activity_now,
-        ) to stringResource(R.string.titan_activity_now_description)
-
-        is TitanOptionState.Unaffordable ->
-            stringResource(R.string.titan_activity_needs, state.needs) to
-                stringResource(R.string.titan_activity_needs_description, state.needs)
-
-        is TitanOptionState.Available ->
-            if (state.cost > 0) {
-                stringResource(R.string.titan_activity_cost, state.cost) to
-                    stringResource(R.string.titan_activity_cost_description, state.cost)
-            } else {
-                stringResource(
-                    R.string.titan_activity_refills,
-                ) to stringResource(R.string.titan_activity_refills_description)
-            }
-    }
-    val spoken = listOf(name, spokenSub).joinToString(stringResource(R.string.spoken_separator))
-    val faint = MaterialTheme.colorScheme.onSurfaceVariant
-    val content = when {
-        now -> MaterialTheme.colorScheme.onPrimaryContainer
-        broke -> faint
-        else -> MaterialTheme.colorScheme.onSurface
-    }
-
-    Surface(
-        onClick = onClick,
-        enabled = !broke,
-        shape = RoundedCornerShape(6.dp),
-        color = if (now) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(
-            if (now) 1.5.dp else HAIRLINE_WIDTH,
-            when {
-                now -> MaterialTheme.colorScheme.primary
-                broke -> MaterialTheme.colorScheme.surfaceContainerHighest
-                else -> MaterialTheme.colorScheme.outlineVariant
-            },
-        ),
-        modifier = modifier
-            .heightIn(min = MIN_TOUCH_TARGET)
-            .clearAndSetSemantics {
-                contentDescription = spoken
-                role = Role.Button
-                selected = now
-                if (broke) disabled()
-                onClick {
-                    onClick()
-                    true
-                }
-            },
-    ) {
-        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Icon(
-                TitanIcons.of(activity),
-                contentDescription = null,
-                tint = if (now) MaterialTheme.colorScheme.primary else content,
-                modifier = Modifier.size(22.dp),
-            )
-            Text(
-                name,
-                style = MaterialTheme.typography.labelLarge,
-                color = content,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                sub.uppercase(),
-                style = TitanTheme.typography.eyebrow,
-                color = if (now) content else faint,
-                maxLines = 1,
-            )
-        }
-    }
-}
-
 // ─── Effect chip ────────────────────────────────────────────────────────────────────────
 
 /** `+40 FUEL`, in mono caps on the vital's container: what a feed or a bout just did. */
@@ -444,7 +337,6 @@ private fun ComponentCatalogue() {
             verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md),
         ) {
             TitanVitalRow(TitanVital.FUEL, value = 22, alert = true)
-            TitanVitalRow(TitanVital.ENERGY, value = 80, alert = false)
             TitanVitalRow(TitanVital.SPIRIT, value = 55, alert = false)
             val fuel = TitanTheme.vital(TitanVital.FUEL)
             Row(horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md)) {
@@ -468,16 +360,6 @@ private fun ComponentCatalogue() {
                     MaterialTheme.colorScheme.onSurface,
                     {},
                     modifier = Modifier.weight(1f),
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md)) {
-                TitanActivityOption(TitanActivity.TRAIN, TitanOptionState.Now, {}, Modifier.weight(1f))
-                TitanActivityOption(TitanActivity.SWIM, TitanOptionState.Available(cost = 12), {}, Modifier.weight(1f))
-                TitanActivityOption(
-                    TitanActivity.SPAR,
-                    TitanOptionState.Unaffordable(needs = 20),
-                    {},
-                    Modifier.weight(1f),
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md)) {

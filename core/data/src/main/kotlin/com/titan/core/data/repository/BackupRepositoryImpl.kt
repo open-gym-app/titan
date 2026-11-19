@@ -160,10 +160,6 @@ class BackupRepositoryImpl @Inject constructor(
 
                 BackupTable.PET_LOADOUT -> dao.readPetLoadouts(limit, offset).map { it.toRow() }
 
-                BackupTable.PET_POWER_SNAPSHOT -> dao.readPowerSnapshots(limit, offset).map { it.toRow() }
-
-                BackupTable.PET_SPAR -> dao.readSpars(limit, offset).map { it.toRow() }
-
                 BackupTable.PET_FEED -> dao.readPetFeeds(limit, offset).map { it.toRow() }
 
                 BackupTable.FOOD_SEEN -> dao.readFoodSeen(limit, offset).map { it.toRow() }
@@ -249,8 +245,6 @@ class BackupRepositoryImpl @Inject constructor(
                 BackupTable.PET -> dao.deletePets()
                 BackupTable.PET_STATE -> dao.deletePetStates()
                 BackupTable.PET_LOADOUT -> dao.deletePetLoadouts()
-                BackupTable.PET_POWER_SNAPSHOT -> dao.deletePowerSnapshots()
-                BackupTable.PET_SPAR -> dao.deleteSpars()
                 BackupTable.PET_FEED -> dao.deletePetFeeds()
                 BackupTable.FOOD_SEEN -> dao.deleteFoodSeen()
                 BackupTable.PET_UNLOCK -> dao.deletePetUnlocks()
@@ -326,12 +320,6 @@ class BackupRepositoryImpl @Inject constructor(
         into.table(BackupTable.PET, document.pet, dao::insertPets) { it.toEntity() }
         into.table(BackupTable.PET_STATE, document.petState, dao::insertPetStates) { it.toEntity() }
         into.table(BackupTable.PET_LOADOUT, document.petLoadout, dao::insertPetLoadouts) { it.toEntity() }
-        into.table(
-            BackupTable.PET_POWER_SNAPSHOT,
-            document.petPowerSnapshot,
-            dao::insertPowerSnapshots,
-        ) { it.toEntity() }
-        into.table(BackupTable.PET_SPAR, document.petSpar, dao::insertSpars) { it.toEntity() }
         into.table(BackupTable.PET_FEED, document.petFeed, dao::insertPetFeeds) { it.toEntity() }
         into.table(BackupTable.FOOD_SEEN, document.foodSeen, dao::insertFoodSeen) { it.toEntity() }
         into.table(BackupTable.PET_UNLOCK, document.petUnlock, dao::insertPetUnlocks) { it.toEntity() }

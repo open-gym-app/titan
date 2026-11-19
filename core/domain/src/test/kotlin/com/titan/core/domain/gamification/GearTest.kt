@@ -3,7 +3,6 @@ package com.titan.core.domain.gamification
 import com.titan.core.domain.model.Gear
 import com.titan.core.domain.model.GearSlot
 import com.titan.core.domain.model.UnlockCondition
-import com.titan.core.domain.model.UnlockProgress
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -22,31 +21,32 @@ class GearTest {
     }
 
     @Test
-    fun `headband, shades and crown are owned from hatch, the rest are earned`() {
-        assertEquals(
-            listOf(Gear.HEADBAND, Gear.SHADES, Gear.CROWN),
-            Gear.entries.filter { it.isOwned(unlocked = emptySet()) },
-        )
-        assertTrue(Gear.CAPE.isOwned(setOf("cape")))
+    fun `a titan hatches with no gear`() {
+        assertTrue(Gear.entries.none { it.isOwned(dropped = emptySet(), achievements = emptySet()) })
     }
 
     @Test
-    fun `each piece unlocks on the canvas's condition`() {
-        assertEquals(UnlockCondition.Level(20), Gear.CHALK.condition)
-        assertEquals(UnlockCondition.DistanceKm(100), Gear.CAP.condition)
-        assertEquals(UnlockCondition.Level(40), Gear.CAPE.condition)
-        assertEquals(UnlockCondition.SparsWon(10), Gear.SCARF.condition)
-        assertEquals(UnlockCondition.Level(LevelTitles.LEGEND.fromLevel), Gear.MEDAL.condition)
+    fun `three pieces come with an achievement, the rest drop on a level-up`() {
+        assertEquals(UnlockCondition.Achievement("first_session"), Gear.HEADBAND.condition)
+        assertEquals(UnlockCondition.Achievement("ten_sessions"), Gear.SHADES.condition)
+        assertEquals(UnlockCondition.Achievement("first_record"), Gear.CROWN.condition)
+        assertEquals(
+            listOf(Gear.CHALK, Gear.CAP, Gear.CAPE, Gear.SCARF, Gear.MEDAL),
+            Gear.entries.filter { it.condition == UnlockCondition.LevelUpDrop },
+        )
+    }
+
+    @Test
+    fun `an achievement piece is owned while the achievement is held, a dropped one once stored`() {
+        assertTrue(Gear.HEADBAND.isOwned(dropped = emptySet(), achievements = setOf("first_session")))
+        assertFalse(Gear.HEADBAND.isOwned(dropped = setOf("headband"), achievements = emptySet()))
+        assertTrue(Gear.CAPE.isOwned(dropped = setOf("cape"), achievements = emptySet()))
+        assertFalse(Gear.CAPE.isOwned(dropped = emptySet(), achievements = setOf("first_session")))
     }
 
     @Test
     fun `gear joins the unlocks, with no key shared with a place`() {
         assertEquals(Unlocks.ALL.size, Unlocks.ALL.map { it.key }.toSet().size)
-        assertTrue(
-            "chalk" in Unlocks.earned(
-                UnlockProgress(bestStreakWeeks = 0, distanceCentimetres = 0, level = 20, sparsWon = 0),
-            ),
-        )
     }
 
     @Test

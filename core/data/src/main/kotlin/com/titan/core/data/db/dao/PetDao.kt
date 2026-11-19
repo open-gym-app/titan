@@ -5,9 +5,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
-import androidx.room.Upsert
 import com.titan.core.data.db.entity.PetEntity
-import com.titan.core.data.db.entity.PetPowerSnapshotEntity
 import com.titan.core.data.db.entity.PetStateEntity
 import com.titan.core.data.mapper.toEntity
 import com.titan.core.domain.gamification.TitanRules
@@ -101,18 +99,10 @@ interface PetDao {
      * needs both rows to report what the write did without reading again.
      */
     @Transaction
-    suspend fun changeActive(
-        change: (PetEntity) -> PetEntity,
-        snapshotOf: (PetEntity) -> PetPowerSnapshotEntity,
-    ): Pair<PetEntity, PetEntity>? {
+    suspend fun changeActive(change: (PetEntity) -> PetEntity): Pair<PetEntity, PetEntity>? {
         val before = active() ?: return null
         val after = change(before)
         update(after)
-        upsertSnapshot(snapshotOf(after))
         return before to after
     }
-
-    /** The week's snapshot, replacing an earlier one for the same week. */
-    @Upsert
-    suspend fun upsertSnapshot(snapshot: PetPowerSnapshotEntity)
 }

@@ -263,22 +263,26 @@ class SessionCompletionPipeline(
         }
 
         val petGrowth: PetGrowth? = runStep(SessionProgressionStep.PET, failures) {
-            growPet(sessionId, finishedAt)
+            growPet(sessionId)
         }
 
+        // The unlocks' own awards join the ledger so `xp` is the whole breakdown rather than the
+        // part this class emitted; `achievementsUnlocked` keeps them attached to what earned
+        // them, which is what a celebration draws.
+        val ledger = xp +
+            unlocks.map { XpGrant(XpEvent.AchievementUnlocked(it.achievement.id), it.xp) } +
+            quests.map { XpGrant(XpEvent.QuestCompleted(it.quest.id, it.quest.xpReward), it.xp) }
+
+        // The levels this run's awards crossed: none on a re-run, whose awards are claimed.
+        val levelsGained = (ledger.lastOrNull()?.award?.level ?: 0) - (ledger.firstOrNull()?.award?.previousLevel ?: 0)
         val unlocked = runStep(SessionProgressionStep.UNLOCKS, failures) {
-            evaluateUnlocks(finishedAt.toEpochMilli())
+            evaluateUnlocks(levelsGained, finishedAt.toEpochMilli())
         }.orEmpty()
 
         return SessionProgression(
             sessionId = sessionId,
             recordsBroken = records,
-            // The unlocks' own awards join the ledger so `xp` is the whole breakdown rather
-            // than the part this class emitted; `achievementsUnlocked` keeps them attached to
-            // what earned them, which is what a celebration draws.
-            xp = xp +
-                unlocks.map { XpGrant(XpEvent.AchievementUnlocked(it.achievement.id), it.xp) } +
-                quests.map { XpGrant(XpEvent.QuestCompleted(it.quest.id, it.quest.xpReward), it.xp) },
+            xp = ledger,
             streak = streak,
             achievementsUnlocked = unlocks,
             questsCompleted = quests,

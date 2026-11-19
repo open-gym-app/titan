@@ -5,13 +5,11 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHeightIsAtLeast
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import com.titan.core.domain.model.Gear
-import com.titan.core.domain.model.TitanActivity
 import com.titan.core.domain.model.TitanVital
 import com.titan.core.ui.theme.MIN_TOUCH_TARGET
 import com.titan.core.ui.theme.TitanTheme
@@ -39,10 +37,10 @@ class TitanComponentsTest {
     @Test
     fun `a vital that is not alerting reads its value`() {
         composeTestRule.setContent {
-            TitanTheme(reducedMotion = true) { TitanVitalRow(TitanVital.ENERGY, value = 80, alert = false) }
+            TitanTheme(reducedMotion = true) { TitanVitalRow(TitanVital.SPIRIT, value = 80, alert = false) }
         }
 
-        composeTestRule.onNodeWithContentDescription("Energy, 80 of 100").assertExists()
+        composeTestRule.onNodeWithContentDescription("Spirit, 80 of 100").assertExists()
     }
 
     @Test
@@ -118,43 +116,6 @@ class TitanComponentsTest {
         }
 
         composeTestRule.onNodeWithContentDescription("Headband, worn, Worn").assertIsSelected()
-    }
-
-    @Test
-    fun `the option being done is selected and says now`() {
-        composeTestRule.setContent {
-            TitanTheme { TitanActivityOption(TitanActivity.TRAIN, TitanOptionState.Now, {}) }
-        }
-
-        composeTestRule.onNodeWithContentDescription("Train, doing it now").assertIsSelected()
-    }
-
-    @Test
-    fun `an unaffordable option is still listed, does nothing, and says what it needs`() {
-        var taps = 0
-        composeTestRule.setContent {
-            TitanTheme { TitanActivityOption(TitanActivity.SPAR, TitanOptionState.Unaffordable(20), { taps++ }) }
-        }
-
-        composeTestRule.onNodeWithContentDescription("Spar, needs 20 energy")
-            .assertIsNotEnabled()
-            .assertHeightIsAtLeast(MIN_TOUCH_TARGET)
-        assertEquals(0, taps)
-    }
-
-    @Test
-    fun `an available option says what it costs, and rest says it refills`() {
-        composeTestRule.setContent {
-            TitanTheme {
-                androidx.compose.foundation.layout.Column {
-                    TitanActivityOption(TitanActivity.SWIM, TitanOptionState.Available(12), {})
-                    TitanActivityOption(TitanActivity.REST, TitanOptionState.Available(0), {})
-                }
-            }
-        }
-
-        composeTestRule.onNodeWithContentDescription("Swim, costs 12 energy").assertExists()
-        composeTestRule.onNodeWithContentDescription("Rest, refills energy").assertExists()
     }
 
     @Test

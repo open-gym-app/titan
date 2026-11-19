@@ -18,7 +18,6 @@
     <string name="titan_status_run">Corriendo</string>
     <string name="titan_status_swim">Nadando largos</string>
     <string name="titan_status_train">Haciendo sentadillas</string>
-    <string name="titan_status_spar">Combatiendo</string>
     <string name="titan_status_rest">Descansando</string>
     <string name="titan_status_eat">Comiendo</string>
     <string name="titan_note_idle">Decidiendo qué hacer</string>
@@ -26,10 +25,8 @@
     <string name="titan_note_run">Series en la pista</string>
     <string name="titan_note_swim">Largos en la piscina</string>
     <string name="titan_note_train">En el rack</string>
-    <string name="titan_note_spar">En el ring</string>
-    <string name="titan_note_rest">La energía se recarga al descansar</string>
+    <string name="titan_note_rest">Recuperando el aliento</string>
     <string name="titan_note_eat">Vuelve en un momento</string>
-    <string name="titan_what_next">Qué sigue</string>
     <string name="titan_vitals">Constantes</string>
     <string name="titan_supplies">Provisiones</string>
     <string name="titan_inventory">Inventario</string>
@@ -37,8 +34,8 @@
     <string name="titan_tab_gear">Equipo</string>
     <string name="titan_tab_habitat">Hábitat</string>
     <string name="titan_hint_food">Se gana entrenando: cada entrenamiento terminado da comida. Toca un alimento para dárselo a %1$s.</string>
-    <string name="titan_hint_gear">El equipo es estético: cambia el aspecto de %1$s, nunca su fuerza. Se desbloquea con tu entrenamiento.</string>
-    <string name="titan_hint_habitat">Los lugares desbloquean actividades. Las rachas, la distancia y los combates abren otros nuevos.</string>
+    <string name="titan_hint_gear">El equipo es estético: cambia el aspecto de %1$s, nunca su fuerza. Los logros y las subidas de nivel traen piezas nuevas.</string>
+    <string name="titan_hint_habitat">Los lugares desbloquean actividades. Los logros y las subidas de nivel abren otros nuevos.</string>
     <string name="titan_gear_wear">Poner</string>
     <string name="titan_none_title">Aún no tienes titán</string>
     <string name="titan_none_body">Un titán es un compañero que crece con tu entrenamiento. A veces cae un huevo al terminar un entrenamiento.</string>

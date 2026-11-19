@@ -11,15 +11,12 @@ import com.titan.core.domain.repository.PetRepository
 import com.titan.core.domain.repository.ProgressionRepository
 import com.titan.core.domain.repository.QuestRepository
 import com.titan.core.domain.repository.SessionRepository
-import com.titan.core.domain.repository.SparRepository
-import com.titan.core.domain.repository.SparTally
 import com.titan.core.domain.repository.TitanStateRepository
 import com.titan.core.domain.repository.UnlockRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
 import com.titan.core.domain.time.Clock
 import com.titan.core.domain.usecase.AchievementTriggerUseCase
 import com.titan.core.domain.usecase.AwardXpUseCase
-import com.titan.core.domain.usecase.ChooseActivityUseCase
 import com.titan.core.domain.usecase.EvaluateUnlocksUseCase
 import com.titan.core.domain.usecase.FeedUseCase
 import com.titan.core.domain.usecase.GrowPetUseCase
@@ -29,7 +26,6 @@ import com.titan.core.domain.usecase.PrDetectionUseCase
 import com.titan.core.domain.usecase.QuestCompletionUseCase
 import com.titan.core.domain.usecase.QuestProgressUseCase
 import com.titan.core.domain.usecase.SessionCompletionPipeline
-import com.titan.core.domain.usecase.SparUseCase
 import com.titan.core.domain.usecase.WearGearUseCase
 import dagger.Module
 import dagger.Provides
@@ -195,52 +191,23 @@ object GamificationUseCaseModule {
         )
 
     @Provides
-    fun provideChooseActivityUseCase(titanStateRepository: TitanStateRepository): ChooseActivityUseCase =
-        ChooseActivityUseCase(titanStateRepository)
-
-    @Provides
     fun provideFeedUseCase(
         pantryRepository: PantryRepository,
         titanStateRepository: TitanStateRepository,
     ): FeedUseCase = FeedUseCase(pantryRepository, titanStateRepository)
 
+    /** On the real random source: a seeded one would drop the same items for every install. */
     @Provides
     fun provideEvaluateUnlocksUseCase(
-        gamificationRepository: GamificationRepository,
-        sessionRepository: SessionRepository,
-        sparTally: SparTally,
+        petRepository: PetRepository,
         unlockRepository: UnlockRepository,
-    ): EvaluateUnlocksUseCase =
-        EvaluateUnlocksUseCase(
-            gamificationRepository = gamificationRepository,
-            sessionRepository = sessionRepository,
-            sparTally = sparTally,
-            unlockRepository = unlockRepository,
-        )
+    ): EvaluateUnlocksUseCase = EvaluateUnlocksUseCase(petRepository, unlockRepository)
 
     @Provides
     fun provideWearGearUseCase(
         petRepository: PetRepository,
         unlockRepository: UnlockRepository,
         loadoutRepository: LoadoutRepository,
-    ): WearGearUseCase = WearGearUseCase(petRepository, unlockRepository, loadoutRepository)
-
-    /** On the real random source, and the graph's clock so a pinned "now" picks the same rivals. */
-    @Provides
-    fun provideSparUseCase(
-        petRepository: PetRepository,
-        sparRepository: SparRepository,
-        titanStateRepository: TitanStateRepository,
-        unlockRepository: UnlockRepository,
-        evaluateUnlocks: EvaluateUnlocksUseCase,
-        clock: Clock,
-    ): SparUseCase =
-        SparUseCase(
-            petRepository = petRepository,
-            sparRepository = sparRepository,
-            titanStateRepository = titanStateRepository,
-            unlockRepository = unlockRepository,
-            evaluateUnlocks = evaluateUnlocks,
-            clock = clock,
-        )
+        gamificationRepository: GamificationRepository,
+    ): WearGearUseCase = WearGearUseCase(petRepository, unlockRepository, gamificationRepository, loadoutRepository)
 }

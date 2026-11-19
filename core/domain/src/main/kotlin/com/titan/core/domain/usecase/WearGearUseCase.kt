@@ -2,6 +2,7 @@ package com.titan.core.domain.usecase
 
 import com.titan.core.domain.model.Gear
 import com.titan.core.domain.model.WearResult
+import com.titan.core.domain.repository.GamificationRepository
 import com.titan.core.domain.repository.LoadoutRepository
 import com.titan.core.domain.repository.PetRepository
 import com.titan.core.domain.repository.UnlockRepository
@@ -10,13 +11,14 @@ import kotlinx.coroutines.flow.first
 /**
  * Puts a piece of gear on a pet, or takes it off.
  *
- * WEAR on an occupied slot replaces what was there; tapping WORN takes it off. A locked piece
- * cannot be worn and says what it needs. Gear is cosmetic: nothing here touches a stat, a vital
+ * WEAR on an occupied slot replaces what was there; tapping WORN takes it off. A piece not owned
+ * is never shown, and is refused if asked for anyway. Gear is cosmetic: nothing here touches a stat, a vital
  * or power.
  */
 class WearGearUseCase(
     private val petRepository: PetRepository,
     private val unlockRepository: UnlockRepository,
+    private val gamificationRepository: GamificationRepository,
     private val loadoutRepository: LoadoutRepository,
 ) {
 
@@ -27,7 +29,11 @@ class WearGearUseCase(
     ): WearResult {
         val gear = Gear.byKey(gearKey) ?: return WearResult.NotGear
         if (petRepository.observeAll().first().none { it.id == petId }) return WearResult.NotFound
-        if (!gear.isOwned(unlockRepository.observeUnlocked().first())) return WearResult.Locked(gear.condition)
+        val owned = gear.isOwned(
+            unlockRepository.observeUnlocked().first(),
+            gamificationRepository.unlockedAchievementIds(),
+        )
+        if (!owned) return WearResult.Locked
 
         val replaced = loadoutRepository.observeLoadout(petId).first()[gear.slot.key]?.let(Gear::byKey)
         loadoutRepository.wear(petId, gear.slot, gear.key)

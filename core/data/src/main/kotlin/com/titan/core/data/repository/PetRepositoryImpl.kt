@@ -3,12 +3,10 @@ package com.titan.core.data.repository
 import android.database.sqlite.SQLiteConstraintException
 import com.titan.core.data.db.dao.PetDao
 import com.titan.core.data.db.entity.PetEntity
-import com.titan.core.data.db.entity.PetPowerSnapshotEntity
 import com.titan.core.data.mapper.repaired
 import com.titan.core.data.mapper.toDomain
 import com.titan.core.domain.gamification.PetNickname
 import com.titan.core.domain.gamification.PetNicknameResult
-import com.titan.core.domain.gamification.SparRules
 import com.titan.core.domain.gamification.XpCalculator
 import com.titan.core.domain.gamification.level
 import com.titan.core.domain.gamification.stage
@@ -75,15 +73,8 @@ class PetRepositoryImpl @Inject constructor(private val petDao: PetDao) : PetRep
         return HatchedPet(pet = pet, isNew = isNew)
     }
 
-    override suspend fun grow(
-        gain: PetGain,
-        at: Long,
-    ): PetGrowth? {
-        val snapshotOf = { row: PetEntity ->
-            val pet = row.toDomain(isActive = true)
-            PetPowerSnapshotEntity(pet.id, SparRules.weekStart(at), pet.level, SparRules.powerOf(pet))
-        }
-        val (before, after) = petDao.changeActive(snapshotOf = snapshotOf, change = { stored ->
+    override suspend fun grow(gain: PetGain): PetGrowth? {
+        val (before, after) = petDao.changeActive { stored ->
             // Repaired first, so the increment lands on a row inside its ranges and the figures
             // reported below are differences of two valid rows.
             val row = stored.repaired()
@@ -93,7 +84,7 @@ class PetRepositoryImpl @Inject constructor(private val petDao: PetDao) : PetRep
                 endurance = (row.endurance + gain.stats.endurance).coerceAtMost(PetStats.MAX),
                 mobility = (row.mobility + gain.stats.mobility).coerceAtMost(PetStats.MAX),
             )
-        })?.let { (stored, written) -> stored.toDomain(isActive = true) to written.toDomain(isActive = true) }
+        }?.let { (stored, written) -> stored.toDomain(isActive = true) to written.toDomain(isActive = true) }
             ?: return null
 
         return PetGrowth(

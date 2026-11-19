@@ -329,10 +329,8 @@ fun TitanNavHost(
                 ),
             )
             titanGraph(
-                // The inventory (#298) and the spar screen (#299) land with their own issues;
-                // until then the link and the option do nothing.
+                // The inventory (#298) lands with its own issue; until then the link does nothing.
                 onOpenInventory = {},
-                onOpenSpar = {},
             )
         }
 

@@ -2,7 +2,6 @@ package com.titan.core.domain.usecase
 
 import com.titan.core.domain.model.Gear
 import com.titan.core.domain.model.GearSlot
-import com.titan.core.domain.model.UnlockCondition
 import com.titan.core.domain.model.WearResult
 import com.titan.core.domain.repository.LoadoutRepository
 import kotlinx.coroutines.flow.Flow
@@ -17,8 +16,9 @@ class WearGearUseCaseTest {
 
     private val pets = FakePetRepository()
     private val unlocks = FakeUnlockRepository()
+    private val achievements = FakeGamificationRepository()
     private val loadout = FakeLoadout()
-    private val gear = WearGearUseCase(pets, unlocks, loadout)
+    private val gear = WearGearUseCase(pets, unlocks, achievements, loadout)
 
     @Test
     fun `owned gear goes on in its slot`() =
@@ -43,6 +43,7 @@ class WearGearUseCaseTest {
     fun `pieces in different slots are worn together`() =
         runTest {
             val pet = hatch()
+            achievements.unlockAchievement("ten_sessions", Instant.EPOCH)
             gear.wear(pet, "headband")
             gear.wear(pet, "shades")
 
@@ -50,15 +51,25 @@ class WearGearUseCaseTest {
         }
 
     @Test
-    fun `a locked piece cannot be worn and says what it needs`() =
+    fun `a piece not owned cannot be worn, until it drops or its achievement is held`() =
         runTest {
             val pet = hatch()
 
-            assertEquals(WearResult.Locked(UnlockCondition.Level(40)), gear.wear(pet, "cape"))
+            assertEquals(WearResult.Locked, gear.wear(pet, "cape"))
             assertEquals(emptyMap<String, String>(), loadout.of(pet))
 
             unlocks.unlock(setOf("cape"), at = 1)
             assertEquals(WearResult.Worn(replaced = null), gear.wear(pet, "cape"))
+        }
+
+    @Test
+    fun `an achievement piece is worn once its achievement is held`() =
+        runTest {
+            val pet = hatch()
+            assertEquals(WearResult.Locked, gear.wear(pet, "shades"))
+
+            achievements.unlockAchievement("ten_sessions", Instant.EPOCH)
+            assertEquals(WearResult.Worn(replaced = null), gear.wear(pet, "shades"))
         }
 
     @Test
@@ -96,8 +107,14 @@ class WearGearUseCaseTest {
             assertEquals(before, pets.held.single())
         }
 
-    private suspend fun hatch(): Long =
-        pets.hatch(collectedItemId = 1, speciesId = "iron_cub", hatchedAt = Instant.EPOCH).pet.id
+    /** A titan, with the achievements the hatch-day gear comes with already held. */
+
+    // A titan, with the headband's and the crown's achievements held.
+    private suspend fun hatch(): Long {
+        achievements.unlockAchievement("first_session", Instant.EPOCH)
+        achievements.unlockAchievement("first_record", Instant.EPOCH)
+        return pets.hatch(collectedItemId = 1, speciesId = "iron_cub", hatchedAt = Instant.EPOCH).pet.id
+    }
 
     private class FakeLoadout : LoadoutRepository {
 

@@ -12,9 +12,7 @@ import com.titan.core.domain.backup.model.MuscleGroupRow
 import com.titan.core.domain.backup.model.PersonalRecordRow
 import com.titan.core.domain.backup.model.PetFeedRow
 import com.titan.core.domain.backup.model.PetLoadoutRow
-import com.titan.core.domain.backup.model.PetPowerSnapshotRow
 import com.titan.core.domain.backup.model.PetRow
-import com.titan.core.domain.backup.model.PetSparRow
 import com.titan.core.domain.backup.model.PetStateRow
 import com.titan.core.domain.backup.model.PetUnlockRow
 import com.titan.core.domain.backup.model.PlateStockPayload
@@ -107,16 +105,14 @@ fun sampleDocument(
         pet = samplePets(),
         // A headband on the first pet, and on the second a piece and a slot this build does not know.
         petLoadout = listOf(PetLoadoutRow(1, "head", "headband"), PetLoadoutRow(2, "tail", "a_newer_gear")),
-        petPowerSnapshot = listOf(PetPowerSnapshotRow(petId = 1, weekStart = WEEK_START, level = 3, power = 7)),
-        petSpar = listOf(PetSparRow(1, petId = 1, "last_week", WEEK_START, 7, 2, won = true, 3, 1, FINISHED_AT)),
         petFeed = listOf(PetFeedRow(collectedItemId = 5, petId = 1, fedAt = FINISHED_AT)),
         foodSeen = listOf(FoodSeenRow(collectibleId = "steak", seenUpTo = 5)),
         // One this build knows and one it does not: both are kept.
         petUnlock = listOf(PetUnlockRow("from_a_newer_version", FINISHED_AT), PetUnlockRow("sauna", FINISHED_AT)),
         petState = listOf(
-            PetStateRow(1, fuel = 22, energy = 80, spirit = 55, "train", FINISHED_AT, FINISHED_AT + 900_000, null, FINISHED_AT),
+            PetStateRow(1, fuel = 22, spirit = 55, "train", FINISHED_AT, FINISHED_AT + 900_000, null, FINISHED_AT),
             // An activity this build has never heard of, kept as written.
-            PetStateRow(2, fuel = 64, energy = 80, spirit = 55, "fly", FINISHED_AT, null, "train", FINISHED_AT),
+            PetStateRow(2, fuel = 64, spirit = 55, "fly", FINISHED_AT, null, "train", FINISHED_AT),
         ),
     )
 
@@ -353,6 +349,3 @@ const val EXPORTED_AT: Long = 1_788_686_970_491L
 const val STARTED_AT: Long = 1_788_600_000_000L
 const val FINISHED_AT: Long = 1_788_603_600_000L
 const val APP_VERSION: String = "1.0-debug"
-
-/** A Monday, 00:00 UTC: the shape every snapshot's week takes. */
-private const val WEEK_START = 1_788_480_000_000L

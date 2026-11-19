@@ -12,7 +12,6 @@ import com.titan.core.domain.model.TitanActivity
 import com.titan.core.domain.model.TitanPlace
 import com.titan.core.domain.model.TitanVital
 import com.titan.core.domain.model.TitanVitals
-import com.titan.core.domain.model.UnlockCondition
 import com.titan.core.ui.theme.TitanTheme
 import java.time.Instant
 
@@ -27,7 +26,7 @@ internal fun previewTitan(tab: SuppliesTab = SuppliesTab.FOOD) =
         power = 48,
         activity = TitanActivity.TRAIN,
         minutesLeft = 3,
-        vitals = TitanVitals(fuel = 22, energy = 80, spirit = 55),
+        vitals = TitanVitals(fuel = 22, spirit = 55),
         alert = TitanVital.FUEL,
         head = "headband",
         face = null,
@@ -35,21 +34,18 @@ internal fun previewTitan(tab: SuppliesTab = SuppliesTab.FOOD) =
         pantry = Collectibles.FOOD.mapIndexed { i, food ->
             PantryEntry(food, count = PREVIEW_STOCK[i], isNew = food.id == "steak", newestFrom = null)
         },
-        gear = Gear.entries.map {
-            GearEntry(
-                it,
-                owned = it.condition == UnlockCondition.FromHatch,
-                worn = it == Gear.HEADBAND,
-            )
-        },
-        places = TitanPlace.entries.map { it to (it in TitanPlace.STARTING) },
+        gear = listOf(
+            GearEntry(Gear.HEADBAND, worn = true),
+            GearEntry(Gear.CROWN, worn = false),
+        ),
+        places = TitanPlace.STARTING.toList(),
     )
 
 @Preview(name = "Titan tab", widthDp = 390, heightDp = 1200)
 @Composable
 fun TitanTabPreview() {
     TitanTheme(theme = ThemePreference.LIGHT, reducedMotion = true) {
-        TitanTabScreen(previewTitan(), {}, {}, {})
+        TitanTabScreen(previewTitan(), {}, {})
     }
 }
 
@@ -57,7 +53,7 @@ fun TitanTabPreview() {
 @Composable
 fun TitanTabDarkPreview() {
     TitanTheme(theme = ThemePreference.DARK, reducedMotion = true) {
-        TitanTabScreen(previewTitan(SuppliesTab.GEAR), {}, {}, {})
+        TitanTabScreen(previewTitan(SuppliesTab.GEAR), {}, {})
     }
 }
 
@@ -65,7 +61,7 @@ fun TitanTabDarkPreview() {
 @Composable
 fun TitanTabLargeFontPreview() {
     TitanTheme(theme = ThemePreference.LIGHT, reducedMotion = true) {
-        TitanTabScreen(previewTitan(SuppliesTab.HABITAT), {}, {}, {})
+        TitanTabScreen(previewTitan(SuppliesTab.HABITAT), {}, {})
     }
 }
 
@@ -77,7 +73,6 @@ fun TitanTabNoTitanPreview() {
             TitanTabUiState.NoTitan(
                 eggs = listOf(CollectedItem(1, "pet_egg", "session_finished", Instant.parse("2026-11-12T18:00:00Z"))),
             ),
-            {},
             {},
             {},
         )

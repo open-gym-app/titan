@@ -50,7 +50,7 @@ class TitanSpriteTest {
     // ─── Sparks and props ───────────────────────────────────────────────────────────────
 
     @Test
-    fun `sparks show while running, training and sparring, and nowhere else`() {
+    fun `sparks show while running and training, and nowhere else`() {
         TitanActivity.entries.forEach { activity ->
             val sparking = (0L until 4_000L step 37).any { millis ->
                 val frame = TitanPoses.frame(activity, millis, still = false)
@@ -69,7 +69,7 @@ class TitanSpriteTest {
 
         assertEquals(listOf(TitanActivity.TRAIN), TitanActivity.entries.filter { shows(it, SpritePart.BAR) })
         assertEquals(listOf(TitanActivity.EAT), TitanActivity.entries.filter { shows(it, SpritePart.FOOD_ACC) })
-        assertEquals(listOf(TitanActivity.SPAR), TitanActivity.entries.filter { shows(it, SpritePart.RIVAL_ACC) })
+        assertEquals(emptyList<TitanActivity>(), TitanActivity.entries.filter { shows(it, SpritePart.RIVAL_ACC) })
         assertEquals(
             listOf(TitanActivity.SWIM),
             TitanActivity.entries.filter { TitanPoses.frame(it, 0, true).showWater },
@@ -151,7 +151,7 @@ class TitanSpriteTest {
         composeTestRule.setContent {
             TitanTheme {
                 TitanSprite(
-                    TitanActivity.SPAR,
+                    TitanActivity.TRAIN,
                     head = "jetpack",
                     face = "monocle",
                     contentDescription = "x",

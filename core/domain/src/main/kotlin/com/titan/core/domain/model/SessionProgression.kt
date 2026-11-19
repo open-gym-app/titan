@@ -60,8 +60,8 @@ package com.titan.core.domain.model
  *   answers: no active pet, a session with no paid set, a re-run whose claim was already spent,
  *   and a pet step that threw (see [failures]). None of them is a gain to show. The figures were
  *   produced inside the write that persisted them, so nothing re-reads the pet to learn them.
- * @property unlocked what the session's training newly unlocked for the titan, by key — empty on
- *   a re-run, since an unlock is stored once.
+ * @property unlocked the places and gear the session's level-ups dropped for the titan, by key —
+ *   empty on a re-run, whose awards are already claimed.
  * @property failures the steps that threw, in the order they were attempted.
  */
 data class SessionProgression(
@@ -179,6 +179,6 @@ enum class SessionProgressionStep {
      */
     PET,
 
-    /** What the session's training newly unlocks for the titan: places, and later gear. Last. */
+    /** One random place or piece of gear per level the session gained, for a titan's owner. Last. */
     UNLOCKS,
 }

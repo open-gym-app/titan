@@ -27,14 +27,15 @@ sealed interface TitanTabUiState {
     ) : TitanTabUiState
 
     /**
-     * The active titan.
+     * The active titan. It picks what it does itself; the tab only shows it.
      *
      * @property name the nickname, or null to show the species' name.
      * @property minutesLeft how long the current activity has to run, or null when it ends on a
      *   condition (rest) or is nearly over.
      * @property alert the one vital to flag, if any.
      * @property lastEffect what the last feed did, shown as a chip until the next action.
-     * @property places every place, owned or not.
+     * @property gear the gear the titan owns: nothing locked is shown.
+     * @property places the places the titan owns.
      */
     data class Titan(
         val petId: Long,
@@ -51,7 +52,7 @@ sealed interface TitanTabUiState {
         val tab: SuppliesTab,
         val pantry: List<PantryEntry>,
         val gear: List<GearEntry>,
-        val places: List<Pair<TitanPlace, Boolean>>,
+        val places: List<TitanPlace>,
         val lastEffect: FeedEffect? = null,
         val rename: RenameState? = null,
     ) : TitanTabUiState
@@ -69,7 +70,6 @@ sealed interface TitanTabUiState {
 
 /** What the Titan tab can be asked to do. */
 sealed interface TitanTabEvent {
-    data class Choose(val activity: TitanActivity) : TitanTabEvent
     data class SelectTab(val tab: SuppliesTab) : TitanTabEvent
     data class Feed(val foodId: String) : TitanTabEvent
     data class ToggleGear(val gearKey: String) : TitanTabEvent

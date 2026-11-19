@@ -20,7 +20,7 @@ import org.junit.Test
 
 class FeedUseCaseTest {
 
-    private val titan = MutableStateFlow(TitanRules.starting(NOW).copy(vitals = TitanVitals(22, 80, 55)))
+    private val titan = MutableStateFlow(TitanRules.starting(NOW).copy(vitals = TitanVitals(22, 55)))
     private val pantry = FakePantry(mutableMapOf("steak" to mutableListOf(11L, 12L)))
     private val feed = FeedUseCase(pantry, OneTitan(titan))
 
@@ -40,7 +40,7 @@ class FeedUseCaseTest {
     @Test
     fun `a full titan is not fed, and nothing is eaten`() =
         runTest {
-            titan.value = titan.value.copy(vitals = TitanVitals(100, 80, 55))
+            titan.value = titan.value.copy(vitals = TitanVitals(100, 55))
             val before = titan.value
 
             assertEquals(FeedResult.Full, feed(PET, "steak"))

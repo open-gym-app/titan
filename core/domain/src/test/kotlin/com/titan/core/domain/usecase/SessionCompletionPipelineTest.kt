@@ -923,7 +923,7 @@ class SessionCompletionPipelineTest {
                 petRepository = pets,
                 gamificationRepository = observedGamification,
             ),
-            evaluateUnlocks = EvaluateUnlocksUseCase(observedGamification, sessions, { 0 }, unlocks),
+            evaluateUnlocks = EvaluateUnlocksUseCase(pets, unlocks),
             sessionRepository = sessions,
             personalRecordRepository = observedRecords,
             gamificationRepository = observedGamification,
