@@ -30,6 +30,7 @@ import com.titan.core.domain.usecase.SessionLifecycleLock
 import com.titan.core.domain.usecase.StartPlannedSessionUseCase
 import com.titan.core.domain.usecase.StartSessionUseCase
 import com.titan.core.domain.usecase.SwapSessionExerciseUseCase
+import com.titan.core.domain.usecase.SyncToHealthConnectUseCase
 import com.titan.core.domain.usecase.UnlinkSupersetUseCase
 import dagger.Module
 import dagger.Provides
@@ -135,6 +136,7 @@ object SessionUseCaseModule {
         exerciseRepository: ExerciseRepository,
         userPreferencesRepository: UserPreferencesRepository,
         bodyMeasurementRepository: BodyMeasurementRepository,
+        syncToHealthConnect: SyncToHealthConnectUseCase,
         clock: Clock,
     ): FinishSessionUseCase =
         FinishSessionUseCase(
@@ -169,6 +171,12 @@ object SessionUseCaseModule {
                 userPreferencesRepository = userPreferencesRepository,
                 bodyMeasurementRepository = bodyMeasurementRepository,
             ),
+            // The finished workout, written to Health Connect when the user has granted the
+            // write (#54). Non-optional for the reason the two above are: the finish that would
+            // otherwise be missing from Health Connect is the idle nudge's, which has no screen
+            // to do it from. Whether anything is written is the permission's business, asked by
+            // the use case at the moment it runs.
+            syncToHealthConnect = syncToHealthConnect,
         )
 
     @Provides

@@ -13,6 +13,17 @@ package com.titan.core.domain.model
  * @property rating how the workout went as a whole, from 1 (rough) to 5 (great). A figure for
  *   the session rather than for any set, which is what RPE already is; null until the user gives
  *   one. Both are bounded by `SessionEffortValidator`, not by the schema.
+ * @property healthConnectId the Health Connect record this session was imported from, or **null**
+ *   for one logged in Titan. An imported session is a finished row with no exercises and no sets:
+ *   what another app recorded is a type, a title and two times, and nothing in it says which
+ *   lifts were done. It shows in the history and counts as a day trained, and earns nothing —
+ *   it never passed through `FinishSessionUseCase`, so no cascade ran for it, and the lifetime
+ *   counts the achievements and quests read leave it out. See
+ *   [com.titan.core.domain.usecase.ImportFromHealthConnectUseCase].
+ * @property healthConnectActivity what Health Connect said an imported session was, or **null**
+ *   for one logged in Titan, whose activity is worked out from its exercises instead
+ *   ([WorkoutActivity.of]). Stored because an imported session has no exercises to work it out
+ *   from, and the import's duplicate check compares it.
  */
 data class WorkoutSession(
     val id: Long = 0,
@@ -26,7 +37,13 @@ data class WorkoutSession(
     val rating: Int? = null,
     val createdAt: Long,
     val updatedAt: Long,
+    val healthConnectId: String? = null,
+    val healthConnectActivity: WorkoutActivity? = null,
 ) {
+
+    /** Whether this session came from Health Connect rather than being logged here. */
+    val isImported: Boolean get() = healthConnectId != null
+
     companion object {
 
         /**

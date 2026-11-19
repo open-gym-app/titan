@@ -83,6 +83,10 @@ import java.time.Instant
  * replay re-derives their records and changes nothing else about them — which is the
  * pipeline's re-entry contract doing exactly what it was built for.
  *
+ * A session the device imported from Health Connect is never replayed. It claimed nothing when it
+ * came in, because an import from there earns nothing (see [WorkoutSession.healthConnectId]), so
+ * the cascade would not find it already paid: it would pay it.
+ *
  * Two things a replay cannot rewrite in that case, and does not try to: the streak only advances
  * from the last session counted, so imported weeks older than it do not join a streak; and an
  * achievement already unlocked keeps the date it was first unlocked here.
@@ -317,7 +321,7 @@ class ImportHistoryUseCase(
     ) {
         val earliest = workouts.firstOrNull()?.finishedAt ?: return
         val existing = existingSessions.filter { session ->
-            !session.isInProgress && (session.completedAt ?: Long.MIN_VALUE) >= earliest
+            !session.isInProgress && !session.isImported && (session.completedAt ?: Long.MIN_VALUE) >= earliest
         }
         if (existing.isNotEmpty()) historyImportRepository.forgetRecordsOfSessionsFinishedFrom(earliest)
 

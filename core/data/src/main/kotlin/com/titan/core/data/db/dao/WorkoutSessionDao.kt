@@ -7,6 +7,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.titan.core.data.db.entity.WorkoutSessionEntity
+import com.titan.core.data.db.projection.SessionDisciplineRow
 import com.titan.core.data.db.projection.WeeklyTrainingRow
 import kotlinx.coroutines.flow.Flow
 
@@ -15,6 +16,58 @@ interface WorkoutSessionDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(session: WorkoutSessionEntity): Long
+
+    /**
+     * Inserts sessions read from Health Connect, skipping any whose `health_connect_id` is
+     * already stored. Returns one rowid per session, [NOT_INSERTED] for each one skipped.
+     */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertImported(sessions: List<WorkoutSessionEntity>): List<Long>
+
+    /** The session [id], if it is finished — the same "finished" [countFinishedBy] counts. */
+    @Query("SELECT * FROM workout_session WHERE id = :id AND is_in_progress = 0 AND completed_at IS NOT NULL")
+    suspend fun getFinished(id: Long): WorkoutSessionEntity?
+
+    /**
+     * Every finished session that started in `[startedFrom, startedUntil)`, oldest first.
+     *
+     * A range scan on the `created_at` index — the month the Health Connect import compares
+     * against is a few dozen rows of a table that may hold thousands.
+     */
+    @Query(
+        """
+        SELECT * FROM workout_session
+        WHERE created_at >= :startedFrom AND created_at < :startedUntil
+            AND is_in_progress = 0 AND completed_at IS NOT NULL
+        ORDER BY created_at
+        """,
+    )
+    suspend fun getFinishedStartedBetween(
+        startedFrom: Long,
+        startedUntil: Long,
+    ): List<WorkoutSessionEntity>
+
+    /**
+     * The discipline of every exercise with at least one completed set, in each of [sessionIds].
+     *
+     * One row per `session_exercise`, so an exercise done twice in one session appears twice —
+     * which changes nothing for `WorkoutActivity.of`, whose answer depends on which disciplines
+     * appear and not on how often. An exercise whose sets were all left unticked is not here: it
+     * was planned and not done, and a session is what was done in it.
+     */
+    @Query(
+        """
+        SELECT se.session_id AS session_id, e.discipline AS discipline
+        FROM session_exercise se
+        JOIN exercise e ON e.id = se.exercise_id
+        WHERE se.session_id IN (:sessionIds)
+            AND EXISTS (
+                SELECT 1 FROM workout_set ws
+                WHERE ws.session_exercise_id = se.id AND ws.is_completed = 1
+            )
+        """,
+    )
+    suspend fun getPerformedDisciplines(sessionIds: List<Long>): List<SessionDisciplineRow>
 
     @Update
     suspend fun update(session: WorkoutSessionEntity)
@@ -45,8 +98,18 @@ interface WorkoutSessionDao {
      * a `Flow`: its caller is the post-session cascade, which needs the total including the
      * session it has just closed out. `completed_at <= :atMillis` already excludes a NULL, so
      * the bound is the whole of the "has a `completed_at`" half.
+     *
+     * Sessions imported from Health Connect are left out, and that is the one way this differs
+     * from the charts. The figure is what the session-count achievements are judged against, and
+     * an import from there earns nothing — see `WorkoutSession.healthConnectId`. Counting it here
+     * would pay for it anyway, at the next workout's cascade.
      */
-    @Query("SELECT COUNT(*) FROM workout_session WHERE is_in_progress = 0 AND completed_at <= :atMillis")
+    @Query(
+        """
+        SELECT COUNT(*) FROM workout_session
+        WHERE is_in_progress = 0 AND completed_at <= :atMillis AND health_connect_id IS NULL
+        """,
+    )
     suspend fun countFinishedBy(atMillis: Long): Int
 
     /**
@@ -196,8 +259,10 @@ interface WorkoutSessionDao {
      * [getTrainingByWeek] takes for consistency. The two figures differ for anyone who trains
      * twice in a day, and both are correct for what they are asked.
      *
-     * The same filter as every other aggregate here, so a session counts towards a quest
-     * exactly when it counts towards the charts.
+     * The same filter as every other aggregate here, except that a session imported from Health
+     * Connect is not counted: a quest pays XP, and an import earns nothing. It still counts towards
+     * the charts — it was a day trained — which is why that exception is here and nowhere else in
+     * this file. See [countFinishedBy], which makes it for the achievements.
      */
     @Query(
         """
@@ -205,6 +270,7 @@ interface WorkoutSessionDao {
         FROM workout_session s
         WHERE s.is_in_progress = 0
             AND s.completed_at IS NOT NULL
+            AND s.health_connect_id IS NULL
             AND s.completed_at >= :startEpochDay * 86400000
             AND s.completed_at < :endEpochDayExclusive * 86400000
         """,

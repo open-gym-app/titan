@@ -108,6 +108,39 @@
         </activity>
 
         <!--
+          What Titan does with Health Connect data (#54), for Health Connect to show.
+
+          Two entry points for one page, because the platform has had two names for it. Up to
+          Android 13, Health Connect is an app and opens this from its permission dialog with
+          `ACTION_SHOW_PERMISSIONS_RATIONALE`; without an activity answering that, the dialog is
+          never shown. From Android 14 it is part of the system and opens the alias below from its
+          settings, guarded by `START_VIEW_PERMISSION_USAGE` so that only the system can.
+
+          Exported because another app starts it, and harmless to be: it draws a page of text and
+          a link, reads nothing and changes nothing. Not locked to portrait like `MainActivity`: a
+          page of text has no layout to keep, and it is opened over Health Connect, not over Titan.
+        -->
+        <activity
+            android:name=".HealthConnectPrivacyActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Titan">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
+
+        <activity-alias
+            android:name="ViewPermissionUsageActivity"
+            android:exported="true"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE"
+            android:targetActivity=".HealthConnectPrivacyActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+
+        <!--
           WorkManager, initialised on demand rather than at launch.
 
           `androidx.startup` runs `WorkManagerInitializer` from the library's own manifest,

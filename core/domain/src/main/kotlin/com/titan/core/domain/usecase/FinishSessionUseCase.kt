@@ -90,6 +90,17 @@ import java.time.Instant
  * after the row: a failure to read what it needs leaves the calories empty, never the workout
  * unsaved.
  *
+ * ### And the workout is written to Health Connect from here
+ *
+ * Last of all, [syncToHealthConnect] writes the session as an `ExerciseSessionRecord` when the
+ * user has granted the write (#54). From here for the reason the cascade is: the idle nudge's
+ * finish has no screen to do it from, and a sync that only the workout screen remembered would
+ * be a Health Connect history with holes where those workouts were. Outside the lock and
+ * best-effort for the reason the announcement is — it is an IPC into another app's provider, and
+ * a provider that refuses must not turn a saved workout into a finish that failed. Most users
+ * never connect Health Connect at all, and for them it is one cheap availability check that ends
+ * in a refusal nobody hears about.
+ *
  * @param completeSession the cascade, or **null** to close sessions out without one. The app
  *   always passes one — `SessionUseCaseModule` binds it non-optionally, since a workout that
  *   silently pays nothing is the failure this would otherwise hide. Null is for the tests of the
@@ -99,6 +110,8 @@ import java.time.Instant
  *   to announce, and one that does not care to announce should not have to supply a no-op.
  * @param estimateCalories what prices the workout in kilocalories, or **null** to leave the
  *   calories as they are. The app always passes one; null is for the tests of the lifecycle.
+ * @param syncToHealthConnect what writes the finished session to Health Connect, or **null** to
+ *   write nothing. The app always passes one; whether it writes is the permission's business.
  */
 class FinishSessionUseCase(
     private val sessionRepository: SessionRepository,
@@ -109,6 +122,7 @@ class FinishSessionUseCase(
     private val completeSession: SessionCompletionPipeline? = null,
     private val announce: ProgressionAnnouncer? = null,
     private val estimateCalories: EstimateSessionCaloriesUseCase? = null,
+    private val syncToHealthConnect: SyncToHealthConnectUseCase? = null,
 ) {
 
     /**
@@ -139,6 +153,11 @@ class FinishSessionUseCase(
             val failure = runCatching { announce?.announce(progression, origin) }.exceptionOrNull()
             if (failure is CancellationException) throw failure
         }
+
+        // Best-effort in the same way, and after the announcement because it is the slower of
+        // the two: the use case reports a refusal or a provider failure in its own `Result`,
+        // which is dropped here, and rethrows only a cancellation.
+        outcome.getOrNull()?.let { finished -> syncToHealthConnect?.invoke(finished.summary.sessionId) }
 
         return outcome
     }

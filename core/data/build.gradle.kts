@@ -91,6 +91,20 @@ dependencies {
     implementation(libs.androidx.hilt.work)
     ksp(libs.androidx.hilt.compiler)
 
+    // Health Connect (#54). Here because the client is I/O — `HealthConnectAdapter` is the only
+    // class that talks to it. `:feature:settings` depends on it too, for the one thing a screen
+    // has to own: the system permission dialog's `ActivityResultContract`.
+    implementation(libs.androidx.health.connect.client)
+    constraints {
+        // The Guava Health Connect brings with it, raised to one whose every dependency is under
+        // a licence the open source licences screen accepts — see the catalog entry. A
+        // constraint rather than a dependency, so nothing here can start calling Guava, and it
+        // stops applying the day the client stops needing it.
+        implementation(libs.guava) {
+            because("guava before 33.4.0 depends on the MIT-licensed checker-qual")
+        }
+    }
+
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     // The backup round trip asserts on the *document*, not only on the rows it restores: which
@@ -110,7 +124,11 @@ dependencies {
     // rather than a timeout's — see `UserProgressDaoTest`.
     testImplementation(libs.turbine)
 
+    // The Health Connect round trip (#54), the one test here that needs a device: the provider
+    // cannot be driven from Robolectric. See `HealthConnectAdapterTest`.
+    androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.room.testing)
     androidTestImplementation(libs.kotlinx.coroutines.test)
 }

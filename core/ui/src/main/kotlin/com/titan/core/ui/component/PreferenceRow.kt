@@ -42,7 +42,7 @@ import com.titan.core.ui.theme.TitanTheme
  * ### Why it is here rather than in `:feature:settings`, where it was written
  *
  * Because it is not only a settings row. #M5-15's body screen carries the Health Connect row,
- * disabled until #54 lands, and its acceptance criterion is that it *matches the settings
+ * disabled while body measurements do not sync (#350), and its acceptance criterion is that it *matches the settings
  * screen's pattern* — which a feature module cannot do by importing another feature module
  * (`checkArchitecture` fails the build) and should not do by copying, because two copies of
  * "present, in its final position, and visibly unavailable" is two chances to disagree about

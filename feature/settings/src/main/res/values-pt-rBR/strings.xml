@@ -71,6 +71,7 @@
     <string name="settings_import">Importar de outro app</string>
     <string name="settings_import_detail">Traga seu histórico do Strong, Hevy e outros. Ele se soma ao que já está aqui; nada é substituído</string>
     <string name="settings_health_connect">Conexão Saúde</string>
+    <string name="settings_health_connect_detail">Compartilhe seus treinos com outros apps de exercício</string>
     <string name="settings_delete_all">Excluir todos os dados</string>
     <string name="settings_delete_all_detail">Apaga tudo neste aparelho. Sem volta.</string>
 
@@ -486,5 +487,42 @@
     <string name="import_stopped_nothing">Você interrompeu a importação antes de ela salvar algo, então nada foi importado.</string>
     <string name="import_stopped_photos">Seu histórico do %1$s foi importado. As fotos ainda não salvas foram ignoradas; importar o mesmo arquivo de novo salva essas fotos.</string>
     <string name="import_stopped_unknown">A importação foi interrompida antes de terminar. O que ainda não tinha sido salvo ficou de fora; importar o mesmo arquivo de novo é seguro e só acrescenta o que falta.</string>
+
+    <!-- Health Connect -->
+    <string name="health_connect_intro">O Titan pode gravar cada treino que você termina no Conexão Saúde, onde outros apps de exercício podem vê-lo, e trazer os treinos que eles salvaram lá. Tudo fica neste celular.</string>
+    <string name="health_connect_group_connection">Conexão</string>
+    <string name="health_connect_connect">Conectar</string>
+    <string name="health_connect_connect_detail">Escolha o que o Titan pode ler e gravar</string>
+    <string name="health_connect_refused">Acesso não concedido</string>
+    <string name="health_connect_refused_detail">O Conexão Saúde não vai perguntar de novo. Permita o Titan nas configurações dele.</string>
+    <string name="health_connect_manage">Gerenciar o acesso no Conexão Saúde</string>
+    <string name="health_connect_manage_detail">Mude o que o Titan pode ler e gravar</string>
+    <string name="health_connect_disconnect">Desconectar</string>
+    <string name="health_connect_disconnect_detail">Para de compartilhar e importar. Os treinos já compartilhados continuam no Conexão Saúde.</string>
+    <string name="health_connect_group_workouts">Treinos</string>
+    <string name="health_connect_write_on">Os treinos terminados são compartilhados</string>
+    <string name="health_connect_write_on_detail">Cada um é gravado no Conexão Saúde quando você termina</string>
+    <string name="health_connect_write_off">Os treinos terminados não são compartilhados</string>
+    <string name="health_connect_write_off_detail">Permita que o Titan grave exercícios no Conexão Saúde para compartilhá-los</string>
+    <string name="health_connect_import">Importar os últimos 30 dias</string>
+    <string name="health_connect_import_detail">Treinos que outros apps salvaram. Cada um chega uma vez só, sem séries.</string>
+    <string name="health_connect_import_blocked_detail">Permita que o Titan leia exercícios no Conexão Saúde para importar</string>
+    <string name="health_connect_importing">Importando…</string>
+    <string name="health_connect_imported_none">Nenhum treino novo para importar</string>
+    <string name="health_connect_import_failed">Não foi possível ler o Conexão Saúde. Tente de novo.</string>
+    <string name="health_connect_disconnect_failed">Não foi possível desconectar. Remova o acesso do Titan no Conexão Saúde.</string>
+    <string name="health_connect_request_failed">Não foi possível abrir o Conexão Saúde.</string>
+    <string name="health_connect_unavailable">O Conexão Saúde não está disponível neste celular.</string>
+    <string name="health_connect_rationale_title">Antes de o Conexão Saúde perguntar</string>
+    <string name="health_connect_rationale_body">O Titan pede duas coisas.\n\nGravar exercícios: cada treino que você termina, com o tipo, quando começou e terminou, o nome e as notas. Não as suas séries nem as cargas.\n\nLer exercícios: os treinos que outros apps salvaram nos últimos 30 dias, só quando você os importa.\n\nNada sai deste celular. Você pode mudar qualquer um dos dois no Conexão Saúde a qualquer momento.</string>
+    <string name="health_connect_rationale_continue">Continuar</string>
+    <string name="health_connect_rationale_cancel">Agora não</string>
+    <string name="health_connect_privacy_title">O Titan e o Conexão Saúde</string>
+    <string name="health_connect_privacy_policy">Ler a política de privacidade</string>
+    <plurals name="health_connect_imported">
+        <item quantity="one">%d treino importado</item>
+        <item quantity="many">%d treinos importados</item>
+        <item quantity="other">%d treinos importados</item>
+    </plurals>
 
 </resources>

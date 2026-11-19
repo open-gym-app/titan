@@ -100,7 +100,7 @@ Read from the decoded release manifest.
 ### Permissions
 
 The list below is `release/compliance-checklist.md`'s, byte for byte, and matches the merged
-release manifest: eight `uses-permission` entries and AndroidX's signature permission.
+release manifest: ten `uses-permission` entries and AndroidX's signature permission.
 
 | Permission | Declared by | Justification |
 | --- | --- | --- |
@@ -108,6 +108,8 @@ release manifest: eight `uses-permission` entries and AndroidX's signature permi
 | `android.permission.SCHEDULE_EXACT_ALARM` (`maxSdkVersion="32"`) | `:core:data` | Exact alarm for the background rest timer, workout reminders and the unfinished-session note on Android 12 and below, where it is granted at install. |
 | `android.permission.USE_EXACT_ALARM` | `:core:data` | Exact alarm for the background rest timer, workout reminders and the unfinished-session note on Android 13+. Restricted by Play to alarm, calendar and **timer** apps; a user-started rest timer is a timer. Falls back to an inexact alarm if refused. |
 | `android.permission.RECEIVE_BOOT_COMPLETED` | `:core:data`, `androidx.work:work-runtime` | Reschedules reminder alarms after a reboot (`AlarmManager` keeps none) and lets WorkManager reschedule the weekly auto-backup. |
+| `android.permission.health.READ_EXERCISE` | `:core:data` | Health Connect (#54): reads exercise sessions other apps saved in the last 30 days, when the user imports them. Granted in Health Connect's own dialog, after an in-app rationale; never at install. |
+| `android.permission.health.WRITE_EXERCISE` | `:core:data` | Health Connect (#54): writes each finished workout as an exercise session (type, start and end, name, notes; no sets). Granted like the one above. |
 | `android.permission.VIBRATE` | `:core:ui` | The buzz at the end of a rest (`RestExpiryAlert`). |
 | `android.permission.WAKE_LOCK` | `androidx.work:work-runtime` | WorkManager holds a wake lock while the weekly auto-backup runs. |
 | `android.permission.ACCESS_NETWORK_STATE` | `androidx.work:work-runtime` | WorkManager's network constraints. The app sets none, and the permission reads connectivity state only; it cannot open a socket. |

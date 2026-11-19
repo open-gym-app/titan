@@ -208,7 +208,7 @@
     <string name="photos_add_failed">Impossible d’ajouter cette photo.</string>
     <string name="photos_delete_failed">Impossible de supprimer cette photo.</string>
 
-    <!-- ── Health Connect, disabled until #54 ───────────────────────────────────── -->
+    <!-- ── Health Connect, disabled until #350 ──────────────────────────────────── -->
 
     <string name="body_health_connect_heading">Santé Connect</string>
     <string name="body_health_connect_label">Synchroniser avec Santé Connect</string>

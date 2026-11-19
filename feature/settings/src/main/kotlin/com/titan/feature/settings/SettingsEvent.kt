@@ -126,6 +126,12 @@ sealed interface SettingsEvent {
         data object PermissionRechecked : Notification
     }
 
+    /**
+     * The screen came back to the foreground: ask again whether Health Connect is there, since
+     * it can be installed or removed while settings is behind another app.
+     */
+    data object HealthConnectRechecked : SettingsEvent
+
     /** The snackbar has been shown; drop [SettingsUiState.message] so it cannot show twice. */
     data object MessageShown : SettingsEvent
 }

@@ -34,6 +34,8 @@ fun WorkoutSessionEntity.toRow(): WorkoutSessionRow =
         rating = rating,
         createdAt = createdAt,
         updatedAt = updatedAt,
+        healthConnectId = healthConnectId,
+        healthConnectActivity = healthConnectActivity,
     )
 
 fun WorkoutSessionRow.toEntity(): WorkoutSessionEntity =
@@ -49,6 +51,8 @@ fun WorkoutSessionRow.toEntity(): WorkoutSessionEntity =
         rating = rating,
         createdAt = createdAt,
         updatedAt = updatedAt,
+        healthConnectId = healthConnectId,
+        healthConnectActivity = healthConnectActivity,
     )
 
 fun SessionExerciseEntity.toRow(): SessionExerciseRow =

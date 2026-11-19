@@ -93,7 +93,9 @@ private suspend fun TitanDatabase.seedTemplates() {
 
 /**
  * One finished session and one still running, the second unnamed and from no template — the
- * three nullable columns whose null is not the same as a blank, per docs/PERSISTENCE.md.
+ * three nullable columns whose null is not the same as a blank, per docs/PERSISTENCE.md — and one
+ * imported from Health Connect, so its record id and activity have something to lose on the way
+ * through a backup. Losing the id would let the next import bring the same workout in twice.
  */
 private suspend fun TitanDatabase.seedHistoryForBackup() {
     val dao = backupDao()
@@ -108,6 +110,15 @@ private suspend fun TitanDatabase.seedHistoryForBackup() {
                 completedAt = FINISHED_AT,
             ).copy(id = 1, notes = "felt strong", calories = 610, rating = 5, updatedAt = FINISHED_AT),
             session(lastActiveAt = STARTED_AT, createdAt = STARTED_AT).copy(id = 2),
+            session(
+                name = "Morning run",
+                isInProgress = false,
+                lastActiveAt = FINISHED_AT,
+                createdAt = STARTED_AT,
+                completedAt = FINISHED_AT,
+                healthConnectId = "3f1c-run",
+                healthConnectActivity = "RUNNING",
+            ).copy(id = 3),
         ),
     )
     dao.insertSessionExercises(

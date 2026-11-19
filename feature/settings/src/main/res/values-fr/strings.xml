@@ -71,6 +71,7 @@
     <string name="settings_import">Importer depuis une autre application</string>
     <string name="settings_import_detail">Ajoutez votre historique depuis Strong, Hevy et d’autres. Il s’ajoute à ce qui est ici ; rien n’est remplacé</string>
     <string name="settings_health_connect">Santé Connect</string>
+    <string name="settings_health_connect_detail">Partagez vos séances avec d’autres applis de sport</string>
     <string name="settings_delete_all">Supprimer toutes les données</string>
     <string name="settings_delete_all_detail">Efface tout sur cet appareil. Sans retour possible.</string>
 
@@ -486,5 +487,42 @@
     <string name="import_stopped_nothing">Vous avez arrêté l’import avant qu’il n’enregistre quoi que ce soit : rien n’a été importé.</string>
     <string name="import_stopped_photos">Votre historique depuis %1$s est importé. Les photos pas encore enregistrées ont été ignorées ; réimporter le même fichier les enregistre.</string>
     <string name="import_stopped_unknown">L’import a été arrêté avant la fin. Ce qu’il n’avait pas enregistré a été laissé de côté ; réimporter le même fichier est sans risque et n’ajoute que ce qui manque.</string>
+
+    <!-- Health Connect -->
+    <string name="health_connect_intro">Titan peut écrire chaque séance terminée dans Santé Connect, où d’autres applis de sport la voient, et importer les séances qu’elles y ont enregistrées. Tout reste sur ce téléphone.</string>
+    <string name="health_connect_group_connection">Connexion</string>
+    <string name="health_connect_connect">Connecter</string>
+    <string name="health_connect_connect_detail">Choisissez ce que Titan peut lire et écrire</string>
+    <string name="health_connect_refused">Accès non accordé</string>
+    <string name="health_connect_refused_detail">Santé Connect ne le redemandera pas. Autorisez Titan dans ses paramètres.</string>
+    <string name="health_connect_manage">Gérer l’accès dans Santé Connect</string>
+    <string name="health_connect_manage_detail">Modifiez ce que Titan peut lire et écrire</string>
+    <string name="health_connect_disconnect">Déconnecter</string>
+    <string name="health_connect_disconnect_detail">Arrête le partage et l’import. Les séances déjà partagées restent dans Santé Connect.</string>
+    <string name="health_connect_group_workouts">Séances</string>
+    <string name="health_connect_write_on">Les séances terminées sont partagées</string>
+    <string name="health_connect_write_on_detail">Chacune est écrite dans Santé Connect à la fin de la séance</string>
+    <string name="health_connect_write_off">Les séances terminées ne sont pas partagées</string>
+    <string name="health_connect_write_off_detail">Autorisez Titan à écrire l’activité physique dans Santé Connect pour les partager</string>
+    <string name="health_connect_import">Importer les 30 derniers jours</string>
+    <string name="health_connect_import_detail">Les séances enregistrées par d’autres applis. Chacune n’arrive qu’une fois, sans séries.</string>
+    <string name="health_connect_import_blocked_detail">Autorisez Titan à lire l’activité physique dans Santé Connect pour importer</string>
+    <string name="health_connect_importing">Import en cours…</string>
+    <string name="health_connect_imported_none">Aucune nouvelle séance à importer</string>
+    <string name="health_connect_import_failed">Impossible de lire Santé Connect. Réessayez.</string>
+    <string name="health_connect_disconnect_failed">Impossible de déconnecter. Retirez l’accès de Titan dans Santé Connect.</string>
+    <string name="health_connect_request_failed">Impossible d’ouvrir Santé Connect.</string>
+    <string name="health_connect_unavailable">Santé Connect n’est pas disponible sur ce téléphone.</string>
+    <string name="health_connect_rationale_title">Avant que Santé Connect ne vous le demande</string>
+    <string name="health_connect_rationale_body">Titan demande deux choses.\n\nÉcrire l’activité physique : chaque séance terminée, avec son type, son début et sa fin, son nom et ses notes. Pas vos séries ni vos charges.\n\nLire l’activité physique : les séances enregistrées par d’autres applis au cours des 30 derniers jours, seulement quand vous les importez.\n\nRien ne quitte ce téléphone. Vous pouvez modifier l’un ou l’autre dans Santé Connect à tout moment.</string>
+    <string name="health_connect_rationale_continue">Continuer</string>
+    <string name="health_connect_rationale_cancel">Plus tard</string>
+    <string name="health_connect_privacy_title">Titan et Santé Connect</string>
+    <string name="health_connect_privacy_policy">Lire la politique de confidentialité</string>
+    <plurals name="health_connect_imported">
+        <item quantity="one">%d séance importée</item>
+        <item quantity="many">%d séances importées</item>
+        <item quantity="other">%d séances importées</item>
+    </plurals>
 
 </resources>

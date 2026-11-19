@@ -39,6 +39,8 @@ import com.titan.core.domain.notification.NotificationPermissionState
  *   ViewModel decides *when* to ask — the first time a notification is turned on — and the
  *   screen is the only thing that can actually ask, so the decision travels as state and is
  *   cleared by [SettingsEvent.Notification.PermissionRequestShown].
+ * @param healthConnectAvailable whether Health Connect can be used on this phone, which is
+ *   whether its row is drawn at all. Re-read on every resume, like the notification permission.
  */
 @Immutable
 data class SettingsUiState(
@@ -50,6 +52,7 @@ data class SettingsUiState(
     val missingDefaultTemplates: List<String> = emptyList(),
     val notificationPermission: NotificationPermissionState = NotificationPermissionState.GRANTED,
     val notificationPermissionRequest: Boolean = false,
+    val healthConnectAvailable: Boolean = false,
 )
 
 /**

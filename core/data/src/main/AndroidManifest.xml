@@ -55,6 +55,30 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
+    <!--
+      Health Connect's exercise sessions, read and written (#54).
+
+      Declared here for the reason the notification permission above is: `HealthConnectAdapter`
+      is the only class that uses them. Neither is granted at install. Both are asked for on the
+      Health Connect settings screen, after a rationale, as one request — and the system dialog
+      Health Connect shows for them only lists what is declared here, so this pair is also the
+      ceiling on what the app can ever be granted.
+
+      No READ_HEALTH_DATA_IN_BACKGROUND and no READ_HEALTH_DATA_HISTORY: an import is something the
+      user starts, from a screen, and reaches back the thirty days Health Connect allows by default.
+    -->
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
+
+    <!--
+      Package visibility for the Health Connect app, which is what provides it on Android 9 to 13.
+      Without this, `getSdkStatus` cannot see that it is installed and answers "unavailable" on
+      every phone where it is a separate app.
+    -->
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
+
     <application>
 
         <!--

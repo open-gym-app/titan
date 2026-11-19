@@ -136,4 +136,28 @@ class PersistedEnumTest {
             OneRepMaxFormula.entries.map(OneRepMaxFormula::name).toSet(),
         )
     }
+
+    @Test
+    fun `workout activity names are the ones workout_session health_connect_activity holds`() {
+        assertEquals(
+            setOf(
+                "STRENGTH_TRAINING",
+                "WEIGHTLIFTING",
+                "CALISTHENICS",
+                "STRETCHING",
+                "YOGA",
+                "PILATES",
+                "HIGH_INTENSITY_INTERVAL_TRAINING",
+                "RUNNING",
+                "WALKING",
+                "HIKING",
+                "BIKING",
+                "SWIMMING",
+                "ROWING",
+                "ELLIPTICAL",
+                "OTHER",
+            ),
+            WorkoutActivity.entries.map(WorkoutActivity::name).toSet(),
+        )
+    }
 }

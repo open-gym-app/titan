@@ -34,6 +34,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.titan.core.domain.gamification.StreakCalculator
 import com.titan.core.domain.model.DataFootprint
@@ -103,6 +105,7 @@ fun SettingsRoute(
     onOpenImport: () -> Unit,
     onOpenReminders: () -> Unit,
     onOpenLicences: () -> Unit,
+    onOpenHealthConnect: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -121,6 +124,10 @@ fun SettingsRoute(
         onRecheck = { viewModel.onEvent(SettingsEvent.Notification.PermissionRechecked) },
     )
 
+    // Whether Health Connect is there decides whether its row is drawn, and it can be installed
+    // or removed while settings is behind another app.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onEvent(SettingsEvent.HealthConnectRechecked) }
+
     SettingsScreen(
         state = state,
         appVersion = appVersion,
@@ -134,6 +141,7 @@ fun SettingsRoute(
         onOpenNotificationSettings = { context.startAppNotificationSettings() },
         onOpenReminders = onOpenReminders,
         onOpenLicences = onOpenLicences,
+        onOpenHealthConnect = onOpenHealthConnect,
         modifier = modifier,
     )
 }
@@ -162,6 +170,7 @@ fun SettingsScreen(
     onOpenNotificationSettings: () -> Unit,
     onOpenReminders: () -> Unit,
     onOpenLicences: () -> Unit,
+    onOpenHealthConnect: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -201,7 +210,13 @@ fun SettingsScreen(
         ) {
             AppearanceGroup(state.preferences, onEvent)
             WorkoutGroup(state.preferences, state.missingDefaultTemplates, onEvent)
-            DataGroup(onEvent = onEvent, onOpenBackup = onOpenBackup, onOpenImport = onOpenImport)
+            DataGroup(
+                healthConnectAvailable = state.healthConnectAvailable,
+                onEvent = onEvent,
+                onOpenBackup = onOpenBackup,
+                onOpenImport = onOpenImport,
+                onOpenHealthConnect = onOpenHealthConnect,
+            )
             NotificationsGroup(
                 preferences = state.preferences,
                 permission = state.notificationPermission,
@@ -340,9 +355,11 @@ private fun WorkoutGroup(
 
 @Composable
 private fun DataGroup(
+    healthConnectAvailable: Boolean,
     onEvent: (SettingsEvent) -> Unit,
     onOpenBackup: () -> Unit,
     onOpenImport: () -> Unit,
+    onOpenHealthConnect: () -> Unit,
 ) {
     PreferenceGroup(title = stringResource(R.string.settings_group_data)) {
         // Was two disabled rows — "Backup & restore" and "Export JSON" — until #38. They are
@@ -362,8 +379,16 @@ private fun DataGroup(
             onClick = onOpenImport,
         )
         HairlineDivider()
-        PreferenceSoonRow(label = stringResource(R.string.settings_health_connect))
-        HairlineDivider()
+        // Hidden, not disabled, where Health Connect is not installed or cannot be: a row that
+        // can never do anything on this phone is not a promise, it is clutter (#54).
+        if (healthConnectAvailable) {
+            PreferenceRow(
+                label = stringResource(R.string.settings_health_connect),
+                supporting = stringResource(R.string.settings_health_connect_detail),
+                onClick = onOpenHealthConnect,
+            )
+            HairlineDivider()
+        }
         // The one row in this group that is real, and the only destructive action in the app.
         PreferenceRow(
             label = stringResource(R.string.settings_delete_all),
@@ -679,7 +704,7 @@ private const val FULL_SCREEN_HEIGHT_DP = 1500
 fun SettingsScreenPreview() {
     TitanTheme {
         SettingsScreen(
-            state = SettingsUiState(),
+            state = SettingsUiState(healthConnectAvailable = true),
             appVersion = "1.0",
             onEvent = {},
             onBack = {},
@@ -689,6 +714,7 @@ fun SettingsScreenPreview() {
             onOpenNotificationSettings = {},
             onOpenReminders = {},
             onOpenLicences = {},
+            onOpenHealthConnect = {},
         )
     }
 }
@@ -711,7 +737,7 @@ fun SettingsScreenPreview() {
 fun SettingsScreenLargeFontPreview() {
     TitanTheme {
         SettingsScreen(
-            state = SettingsUiState(),
+            state = SettingsUiState(healthConnectAvailable = true),
             appVersion = "1.0",
             onEvent = {},
             onBack = {},
@@ -721,6 +747,7 @@ fun SettingsScreenLargeFontPreview() {
             onOpenNotificationSettings = {},
             onOpenReminders = {},
             onOpenLicences = {},
+            onOpenHealthConnect = {},
         )
     }
 }
@@ -731,6 +758,7 @@ fun SettingsScreenDarkPreview() {
     TitanTheme(theme = ThemePreference.DARK, unitSystem = UnitSystem.IMPERIAL) {
         SettingsScreen(
             state = SettingsUiState(
+                healthConnectAvailable = true,
                 preferences = UserPreferences(
                     theme = ThemePreference.DARK,
                     unitSystem = UnitSystem.IMPERIAL,
@@ -751,6 +779,7 @@ fun SettingsScreenDarkPreview() {
             onOpenNotificationSettings = {},
             onOpenReminders = {},
             onOpenLicences = {},
+            onOpenHealthConnect = {},
         )
     }
 }
@@ -761,6 +790,7 @@ fun SettingsScreenDeleteDialogPreview() {
     TitanTheme {
         SettingsScreen(
             state = SettingsUiState(
+                healthConnectAvailable = true,
                 dialog = SettingsDialog.DELETE_ALL,
                 footprint = DataFootprint(
                     sessions = 184,
@@ -780,6 +810,7 @@ fun SettingsScreenDeleteDialogPreview() {
             onOpenNotificationSettings = {},
             onOpenReminders = {},
             onOpenLicences = {},
+            onOpenHealthConnect = {},
         )
     }
 }
@@ -790,6 +821,7 @@ fun SettingsScreenNotificationsBlockedPreview() {
     TitanTheme {
         SettingsScreen(
             state = SettingsUiState(
+                healthConnectAvailable = true,
                 preferences = UserPreferences(
                     notifications = NotificationPreferences(
                         enabled = setOf(NotificationKind.REST_TIMER, NotificationKind.REMINDERS),
@@ -806,6 +838,7 @@ fun SettingsScreenNotificationsBlockedPreview() {
             onOpenNotificationSettings = {},
             onOpenReminders = {},
             onOpenLicences = {},
+            onOpenHealthConnect = {},
         )
     }
 }
@@ -825,6 +858,7 @@ fun SettingsScreenThemeDialogPreview() {
             onOpenNotificationSettings = {},
             onOpenReminders = {},
             onOpenLicences = {},
+            onOpenHealthConnect = {},
         )
     }
 }
@@ -835,6 +869,7 @@ fun SettingsScreenRestoreTemplatesDialogPreview() {
     TitanTheme {
         SettingsScreen(
             state = SettingsUiState(
+                healthConnectAvailable = true,
                 dialog = SettingsDialog.RESTORE_TEMPLATES,
                 missingDefaultTemplates = listOf("Legs", "Push", "HIIT"),
             ),
@@ -847,6 +882,7 @@ fun SettingsScreenRestoreTemplatesDialogPreview() {
             onOpenNotificationSettings = {},
             onOpenReminders = {},
             onOpenLicences = {},
+            onOpenHealthConnect = {},
         )
     }
 }
