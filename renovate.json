@@ -124,12 +124,19 @@
       "allowedVersions": "<14.0.0"
     },
     {
-      "description": "Roborazzi calls into ComposablePreviewScanner by binary signature, so a scanner release that changes `ComposablePreview` fails every scanned preview test with `NoSuchMethodError` until a Roborazzi release is built against it (0.10.0 did that to Roborazzi 1.78; 1.79 fixed it). gradle/libs.versions.toml says the same thing at the `composablePreviewScanner` entry. Grouping them means the scanner bump arrives with the Roborazzi bump that supports it, and a mismatch fails one small PR instead of `group:all`.",
+      "description": "Roborazzi calls into ComposablePreviewScanner by binary signature, and 0.10.0 moved `ComposablePreview.invoke(Composer, int)` to a parent interface, so every scanned preview test fails with `NoSuchMethodError`. Roborazzi 1.79.0, the latest release, still calls the old signature, so the scanner is held below 0.10.0 until a Roborazzi release stops doing so; check by bumping both and running a screenshot test, not by reading release notes. gradle/libs.versions.toml says the same thing at the `composablePreviewScanner` entry. Grouped so that, once the hold is lifted, the scanner bump arrives with the Roborazzi bump that supports it.",
       "matchPackageNames": [
         "io.github.takahirom.roborazzi{/,}**",
         "io.github.sergio-sastre.ComposablePreviewScanner{/,}**"
       ],
       "groupName": "roborazzi and preview scanner"
+    },
+    {
+      "description": "See the rule above: Roborazzi 1.79.0 is not built against ComposablePreviewScanner 0.10.0. Lift this together with a Roborazzi release that is.",
+      "matchPackageNames": [
+        "io.github.sergio-sastre.ComposablePreviewScanner{/,}**"
+      ],
+      "allowedVersions": "<0.10.0"
     },
     {
       "description": "CI runs Gradle with `--warning-mode fail`, and Gradle 9.8 deprecates `Configuration.setVisible`, which the detekt Gradle plugin (2.0.0-alpha.6, the latest) still calls, so every job fails on a warning that is not ours to fix. The wrapper is held below 9.8 until a detekt release stops calling it.",
