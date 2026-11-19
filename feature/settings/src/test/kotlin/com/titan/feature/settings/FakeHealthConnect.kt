@@ -48,7 +48,11 @@ class FakeHealthConnect(
         return records.filter { it.session.startedAt in startedFrom until startedUntil }
     }
 
+    /** False plays Android 14 and up, where the app cannot take its own grant back at once. */
+    override var canRevokeAccess: Boolean = true
+
     override suspend fun revokeAccess() {
+        check(canRevokeAccess) { "revoking from Android 14 only takes effect when the process dies" }
         failure?.let { throw it }
         revokeCount++
         granted = emptySet()

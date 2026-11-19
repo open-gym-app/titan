@@ -134,6 +134,8 @@ class HealthConnectSyncWorkerTest {
             startedUntil: Long,
         ): List<HealthConnectRecord> = error("the sync never reads")
 
+        override val canRevokeAccess: Boolean = true
+
         override suspend fun revokeAccess() = Unit
     }
 

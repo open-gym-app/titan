@@ -17,7 +17,8 @@ import com.titan.core.domain.model.WorkoutActivity
  * nothing else. A preference beside it would be a second answer to the same question, and the
  * two disagree the moment the user revokes access in Health Connect's own settings — which they
  * can, at any time, without this app hearing about it. So every operation asks [grantedAccess]
- * at the moment it runs, and disconnecting is [revokeAccess].
+ * at the moment it runs, and disconnecting is [revokeAccess] — or, where [canRevokeAccess] is
+ * false, turning the permissions off in Health Connect.
  */
 interface HealthConnect {
 
@@ -67,7 +68,21 @@ interface HealthConnect {
         startedUntil: Long,
     ): List<HealthConnectRecord>
 
-    /** Gives back everything this app was granted. Records already written stay where they are. */
+    /**
+     * Whether [revokeAccess] takes effect at once, and so whether this app can disconnect itself.
+     *
+     * False from Android 14, where giving permissions back only takes effect when the process
+     * dies: until then every read of the grant still says it is held, and the sync keeps writing.
+     * A "Disconnect" that changes nothing on screen is worse than none, so there the user turns
+     * access off in Health Connect's own permission page instead.
+     */
+    val canRevokeAccess: Boolean
+
+    /**
+     * Gives back everything this app was granted. Records already written stay where they are.
+     *
+     * @throws IllegalStateException when [canRevokeAccess] is false.
+     */
     suspend fun revokeAccess()
 }
 

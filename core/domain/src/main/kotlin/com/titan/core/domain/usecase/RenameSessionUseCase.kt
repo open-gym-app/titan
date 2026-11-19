@@ -3,6 +3,7 @@ package com.titan.core.domain.usecase
 import com.titan.core.domain.healthconnect.HealthConnectSyncScheduler
 import com.titan.core.domain.model.WorkoutSession
 import com.titan.core.domain.repository.SessionRepository
+import kotlinx.coroutines.CancellationException
 
 /**
  * Sets — or clears — what a session is called.
@@ -69,6 +70,10 @@ class RenameSessionUseCase(
         return runCatching {
             sessionRepository.update(session.copy(name = normalized))
             normalized
+        }.onFailure { failure ->
+            // A cancellation is not a failed rename: a caller whose scope has gone must not be
+            // told the call came back.
+            if (failure is CancellationException) throw failure
         }.onSuccess {
             // Best-effort: the rename is saved, and a queue that refused the request leaves an
             // old title in Health Connect rather than a rename that did not happen.

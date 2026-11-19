@@ -494,11 +494,12 @@
     <string name="health_connect_connect">Conectar</string>
     <string name="health_connect_connect_detail">Elige qué puede leer y escribir Titan</string>
     <string name="health_connect_refused">Acceso no concedido</string>
-    <string name="health_connect_refused_detail">Health Connect no volverá a preguntar. Permite el acceso a Titan en sus ajustes.</string>
+    <string name="health_connect_refused_detail">No se permitió nada. Puedes permitir el acceso a Titan en los ajustes de Health Connect.</string>
     <string name="health_connect_manage">Gestionar el acceso en Health Connect</string>
     <string name="health_connect_manage_detail">Cambia qué puede leer y escribir Titan</string>
     <string name="health_connect_disconnect">Desconectar</string>
     <string name="health_connect_disconnect_detail">Deja de compartir e importar. Los entrenamientos ya compartidos se quedan en Health Connect.</string>
+    <string name="health_connect_disconnect_in_settings_detail">Desactiva el acceso de Titan en Health Connect. Los entrenamientos ya compartidos se quedan allí.</string>
     <string name="health_connect_group_workouts">Entrenamientos</string>
     <string name="health_connect_write_on">Los entrenamientos terminados se comparten</string>
     <string name="health_connect_write_on_detail">Cada uno se escribe en Health Connect al terminarlo</string>

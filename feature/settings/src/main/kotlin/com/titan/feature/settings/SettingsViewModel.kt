@@ -18,6 +18,7 @@ import com.titan.core.domain.repository.UserPreferencesRepository
 import com.titan.core.domain.usecase.RequestNotificationPermissionUseCase
 import com.titan.core.domain.usecase.RestoreDefaultTemplatesUseCase
 import com.titan.core.ui.state.savedScreenState
+import com.titan.feature.settings.healthconnect.availabilityOrUnsupported
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -413,5 +414,8 @@ class SettingsViewModel @Inject constructor(
     }
 }
 
-/** Whether the Health Connect row is drawn: only where Health Connect can be used at all. */
-private fun HealthConnect.isAvailable(): Boolean = availability() == HealthConnectAvailability.AVAILABLE
+/**
+ * Whether the Health Connect row is drawn: only where Health Connect can be used at all. A status
+ * check that throws hides the row rather than taking settings down with it.
+ */
+private fun HealthConnect.isAvailable(): Boolean = availabilityOrUnsupported() == HealthConnectAvailability.AVAILABLE
