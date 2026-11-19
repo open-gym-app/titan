@@ -84,8 +84,10 @@ import java.time.Instant
  *
  * ### And the workout is handed to Health Connect from here
  *
- * Last of all, [healthConnectSync] is asked to write the session as an `ExerciseSessionRecord`,
- * which it does when the user has granted the write (#54). From here for the reason the cascade
+ * Outside the lock too, and just before the announcement, [healthConnectSync] is asked to write
+ * the session as an `ExerciseSessionRecord`, which it does when the user has granted the write
+ * (#54). Before rather than after, because the announcement rethrows a cancellation and a request
+ * behind it would be lost with it. From here for the reason the cascade
  * is: the idle nudge's finish has no screen to do it from, and a sync that only the workout
  * screen remembered would be a Health Connect history with holes where those workouts were.
  *
@@ -133,6 +135,15 @@ class FinishSessionUseCase(
     ): Result<FinishedSession> {
         val outcome = closeOutUnderLock(expected)
 
+        // Best-effort, like the announcement below, and ahead of it: the announcement rethrows a
+        // cancellation, and a request queued after it would be skipped by one — a saved workout
+        // missing from Health Connect because the caller's scope went while the notification
+        // was being posted. Only a request — the write itself runs later, off this path — so what
+        // could fail here is the queue, and a cancellation cannot arrive from it.
+        outcome.getOrNull()?.let { finished ->
+            runCatching { healthConnectSync?.requestSync(finished.summary.sessionId) }
+        }
+
         // Best-effort, and outside everything above: by here the workout is saved and its
         // payoff is banked, so a notification that could not be posted must not come back as a
         // finish that did not happen.
@@ -146,12 +157,6 @@ class FinishSessionUseCase(
         outcome.getOrNull()?.progression?.let { progression ->
             val failure = runCatching { announce?.announce(progression, origin) }.exceptionOrNull()
             if (failure is CancellationException) throw failure
-        }
-
-        // Best-effort in the same way. Only a request — the write itself runs later, off this
-        // path — so what could fail here is the queue, and a cancellation cannot arrive from it.
-        outcome.getOrNull()?.let { finished ->
-            runCatching { healthConnectSync?.requestSync(finished.summary.sessionId) }
         }
 
         return outcome

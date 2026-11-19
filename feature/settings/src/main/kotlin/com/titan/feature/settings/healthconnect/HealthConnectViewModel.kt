@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.titan.core.domain.healthconnect.HealthConnect
 import com.titan.core.domain.healthconnect.HealthConnectAccess
 import com.titan.core.domain.healthconnect.HealthConnectAvailability
+import com.titan.core.domain.healthconnect.HealthConnectError
 import com.titan.core.domain.usecase.ImportFromHealthConnectUseCase
 import com.titan.core.ui.state.savedScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -47,16 +48,24 @@ class HealthConnectViewModel @Inject constructor(
 
     private val state = MutableStateFlow(
         HealthConnectUiState(
-            availability = healthConnect.availability(),
+            availability = healthConnect.availabilityOrUnsupported(),
             permissions = healthConnect.permissions,
             rationaleOpen = screenState.value.rationaleOpen,
             refused = screenState.value.refused,
+            canDisconnect = healthConnect.canRevokeAccess,
         ),
     )
 
     val uiState: StateFlow<HealthConnectUiState> = state.asStateFlow()
 
     private var importJob: Job? = null
+
+    /**
+     * The grant read in flight. One at a time, the newest winning: a resume, a dialog's answer
+     * and a disconnect can each ask within the same moment, and an older answer landing last
+     * would draw a grant that is no longer true.
+     */
+    private var recheckJob: Job? = null
 
     fun onEvent(event: HealthConnectEvent) {
         when (event) {
@@ -102,13 +111,14 @@ class HealthConnectViewModel @Inject constructor(
     }
 
     private fun recheck() {
-        val availability = healthConnect.availability()
+        recheckJob?.cancel()
+        val availability = healthConnect.availabilityOrUnsupported()
         state.update { it.copy(availability = availability) }
         if (availability != HealthConnectAvailability.AVAILABLE) {
             state.update { it.copy(granted = emptySet()) }
             return
         }
-        viewModelScope.launch {
+        recheckJob = viewModelScope.launch {
             val granted = try {
                 healthConnect.grantedAccess()
             } catch (cancellation: CancellationException) {
@@ -138,15 +148,26 @@ class HealthConnectViewModel @Inject constructor(
         if (importJob?.isActive == true || HealthConnectAccess.READ !in state.value.granted.orEmpty()) return
         state.update { it.copy(isImporting = true) }
         importJob = viewModelScope.launch {
-            val message = importFromHealthConnect().fold(
+            val result = importFromHealthConnect()
+            val message = result.fold(
                 onSuccess = { HealthConnectMessage.Imported(it.imported) },
                 onFailure = { HealthConnectMessage.ImportFailed },
             )
             state.update { it.copy(isImporting = false, message = message) }
+            // A refusal means the grant or the provider changed under the screen — read access
+            // taken back in Health Connect's settings, or the app uninstalled — so what it draws
+            // is read again rather than left offering an import that will fail the same way.
+            if (result.exceptionOrNull() is HealthConnectError) recheck()
         }
     }
 
+    /**
+     * Takes the grant back, where the app can. From Android 14 the screen sends the user to
+     * Health Connect's permission page instead and this is never asked; the guard keeps a stray
+     * event from reporting a failure for a button that was not there.
+     */
     private fun disconnect() {
+        if (!state.value.canDisconnect) return
         viewModelScope.launch {
             val failed = try {
                 healthConnect.revokeAccess()
@@ -178,3 +199,16 @@ class HealthConnectViewModel @Inject constructor(
         val refused: Boolean = false,
     )
 }
+
+/**
+ * [HealthConnect.availability], with a status check that throws read as "not on this phone".
+ *
+ * The check asks the package manager, which can throw; the use cases catch that into their
+ * `Result`, and a screen that crashed on it instead would be the one place it surfaced.
+ */
+internal fun HealthConnect.availabilityOrUnsupported(): HealthConnectAvailability =
+    try {
+        availability()
+    } catch (_: RuntimeException) {
+        HealthConnectAvailability.UNSUPPORTED
+    }

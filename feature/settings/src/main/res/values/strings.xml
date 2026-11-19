@@ -278,11 +278,12 @@
     <string name="health_connect_connect">Connect</string>
     <string name="health_connect_connect_detail">Choose what Titan may read and write</string>
     <string name="health_connect_refused">Access not granted</string>
-    <string name="health_connect_refused_detail">Health Connect will not ask again. Allow Titan in its settings instead.</string>
+    <string name="health_connect_refused_detail">Nothing was allowed. You can allow Titan in Health Connect’s settings.</string>
     <string name="health_connect_manage">Manage access in Health Connect</string>
     <string name="health_connect_manage_detail">Change what Titan may read and write</string>
     <string name="health_connect_disconnect">Disconnect</string>
     <string name="health_connect_disconnect_detail">Stop sharing and importing. Workouts already shared stay in Health Connect.</string>
+    <string name="health_connect_disconnect_in_settings_detail">Turn off Titan’s access in Health Connect. Workouts already shared stay there.</string>
     <string name="health_connect_group_workouts">Workouts</string>
     <string name="health_connect_write_on">Finished workouts are shared</string>
     <string name="health_connect_write_on_detail">Each one is written to Health Connect when you finish it</string>

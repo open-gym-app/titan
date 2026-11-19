@@ -159,7 +159,7 @@ fun HealthConnectScreen(
 
                 state.isConnected -> {
                     WorkoutsGroup(state = state, onEvent = onEvent)
-                    AccessGroup(onEvent = onEvent, onManageAccess = onManageAccess)
+                    AccessGroup(canDisconnect = state.canDisconnect, onEvent = onEvent, onManageAccess = onManageAccess)
                 }
 
                 else -> ConnectGroup(refused = state.refused, onEvent = onEvent, onManageAccess = onManageAccess)
@@ -235,8 +235,14 @@ private fun WorkoutsGroup(
     }
 }
 
+/**
+ * The two ways out. From Android 14 the app cannot take its own grant back at once, so
+ * "Disconnect" leads to the same permission page as the row above it and says so — kept rather
+ * than dropped, because it is the row a user who wants out looks for.
+ */
 @Composable
 private fun AccessGroup(
+    canDisconnect: Boolean,
     onEvent: (HealthConnectEvent) -> Unit,
     onManageAccess: () -> Unit,
 ) {
@@ -250,9 +256,18 @@ private fun AccessGroup(
         HairlineDivider()
         PreferenceRow(
             label = stringResource(R.string.health_connect_disconnect),
-            supporting = stringResource(R.string.health_connect_disconnect_detail),
+            supporting = if (canDisconnect) {
+                stringResource(R.string.health_connect_disconnect_detail)
+            } else {
+                stringResource(R.string.health_connect_disconnect_in_settings_detail)
+            },
+            external = !canDisconnect,
             destructive = true,
-            onClick = { onEvent(HealthConnectEvent.DisconnectRequested) },
+            onClick = if (canDisconnect) {
+                { onEvent(HealthConnectEvent.DisconnectRequested) }
+            } else {
+                onManageAccess
+            },
         )
     }
 }
@@ -337,7 +352,8 @@ private fun HealthConnectMessage.text(): String =
  * Health Connect's page for this app's permissions, or nothing if it cannot be opened.
  *
  * From Android 14 the system has a page for one app's health permissions, and that is where a
- * user who refused the dialog has to go to change their mind. The client's "manage data" intent
+ * user who refused the dialog has to go to change their mind — and where "Disconnect" leads, as
+ * the app cannot give its grant back at once there. The client's "manage data" intent
  * is not it — it opens the data browser, three screens away from the switches — so it is only
  * the fallback, for Android 13 and below, where Health Connect is an app and opens its own home.
  *
@@ -398,6 +414,19 @@ fun HealthConnectWriteOnlyPreview() {
     TitanTheme(theme = ThemePreference.DARK) {
         HealthConnectScreen(
             state = HealthConnectUiState(granted = setOf(HealthConnectAccess.WRITE)),
+            onEvent = {},
+            onBack = {},
+            onManageAccess = {},
+        )
+    }
+}
+
+@Preview(name = "Health Connect - connected, Android 14", showBackground = true, heightDp = 640)
+@Composable
+fun HealthConnectDisconnectInSettingsPreview() {
+    TitanTheme {
+        HealthConnectScreen(
+            state = HealthConnectUiState(granted = HealthConnectAccess.entries.toSet(), canDisconnect = false),
             onEvent = {},
             onBack = {},
             onManageAccess = {},

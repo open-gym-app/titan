@@ -1,6 +1,7 @@
 package com.titan.core.data.healthconnect
 
 import android.content.Context
+import android.os.Build
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ExerciseSessionRecord
@@ -95,7 +96,14 @@ class HealthConnectAdapter @Inject constructor(@param:ApplicationContext private
             .filter { it.session.startedAt in startedFrom until startedUntil }
     }
 
+    // From Android 14 the client's revokeAllPermissions calls revokeSelfPermissionsOnKill: the
+    // grant goes when the process does, not when the call returns.
+    override val canRevokeAccess: Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+
     override suspend fun revokeAccess() {
+        // Refused rather than scheduled: a revocation that lands at some later process death
+        // would also undo whatever the user granted again in the meantime.
+        check(canRevokeAccess) { "revoking from Android 14 only takes effect when the process dies" }
         if (availability() == HealthConnectAvailability.AVAILABLE) client.permissionController.revokeAllPermissions()
     }
 

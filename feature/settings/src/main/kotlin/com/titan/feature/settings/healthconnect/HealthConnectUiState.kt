@@ -19,8 +19,12 @@ import com.titan.core.domain.healthconnect.HealthConnectAvailability
  *   route is the only thing that can launch it, so the decision travels as state and is cleared by
  *   [HealthConnectEvent.PermissionRequestLaunched] — the pattern the notification prompt uses.
  * @param refused whether the last request came back with nothing granted. Health Connect stops
- *   showing its dialog after two refusals, so from here the only way forward is its own settings,
- *   and the screen says that instead of offering a button that would do nothing.
+ *   showing its dialog after two refusals, and an empty answer does not say whether this was the
+ *   first or the second, so the screen points at Health Connect's own settings — the one way
+ *   forward that works either way — instead of offering a button that may do nothing.
+ * @param canDisconnect whether "Disconnect" can take the grant back itself. False from Android
+ *   14, where it opens Health Connect's permission page instead — see
+ *   [com.titan.core.domain.healthconnect.HealthConnect.canRevokeAccess].
  * @param isImporting an import is running; the row is inert until it ends.
  * @param message a sentence to show once, cleared by [HealthConnectEvent.MessageShown].
  */
@@ -32,6 +36,7 @@ data class HealthConnectUiState(
     val rationaleOpen: Boolean = false,
     val permissionRequest: Boolean = false,
     val refused: Boolean = false,
+    val canDisconnect: Boolean = true,
     val isImporting: Boolean = false,
     val message: HealthConnectMessage? = null,
 ) {

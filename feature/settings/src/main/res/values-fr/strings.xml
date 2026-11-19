@@ -249,11 +249,12 @@
     <string name="health_connect_connect">Connecter</string>
     <string name="health_connect_connect_detail">Choisissez ce que Titan peut lire et écrire</string>
     <string name="health_connect_refused">Accès non accordé</string>
-    <string name="health_connect_refused_detail">Santé Connect ne le redemandera pas. Autorisez Titan dans ses paramètres.</string>
+    <string name="health_connect_refused_detail">Rien n’a été autorisé. Vous pouvez autoriser Titan dans les paramètres de Santé Connect.</string>
     <string name="health_connect_manage">Gérer l’accès dans Santé Connect</string>
     <string name="health_connect_manage_detail">Modifiez ce que Titan peut lire et écrire</string>
     <string name="health_connect_disconnect">Déconnecter</string>
     <string name="health_connect_disconnect_detail">Arrête le partage et l’import. Les séances déjà partagées restent dans Santé Connect.</string>
+    <string name="health_connect_disconnect_in_settings_detail">Désactivez l’accès de Titan dans Santé Connect. Les séances déjà partagées y restent.</string>
     <string name="health_connect_group_workouts">Séances</string>
     <string name="health_connect_write_on">Les séances terminées sont partagées</string>
     <string name="health_connect_write_on_detail">Chacune est écrite dans Santé Connect à la fin de la séance</string>

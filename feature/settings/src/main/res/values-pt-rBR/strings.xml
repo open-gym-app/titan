@@ -249,11 +249,12 @@
     <string name="health_connect_connect">Conectar</string>
     <string name="health_connect_connect_detail">Escolha o que o Titan pode ler e gravar</string>
     <string name="health_connect_refused">Acesso não concedido</string>
-    <string name="health_connect_refused_detail">O Conexão Saúde não vai perguntar de novo. Permita o Titan nas configurações dele.</string>
+    <string name="health_connect_refused_detail">Nada foi permitido. Você pode permitir o Titan nas configurações do Conexão Saúde.</string>
     <string name="health_connect_manage">Gerenciar o acesso no Conexão Saúde</string>
     <string name="health_connect_manage_detail">Mude o que o Titan pode ler e gravar</string>
     <string name="health_connect_disconnect">Desconectar</string>
     <string name="health_connect_disconnect_detail">Para de compartilhar e importar. Os treinos já compartilhados continuam no Conexão Saúde.</string>
+    <string name="health_connect_disconnect_in_settings_detail">Desative o acesso do Titan no Conexão Saúde. Os treinos já compartilhados continuam lá.</string>
     <string name="health_connect_group_workouts">Treinos</string>
     <string name="health_connect_write_on">Os treinos terminados são compartilhados</string>
     <string name="health_connect_write_on_detail">Cada um é gravado no Conexão Saúde quando você termina</string>

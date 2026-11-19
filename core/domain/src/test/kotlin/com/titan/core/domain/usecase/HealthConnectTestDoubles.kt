@@ -59,6 +59,8 @@ class FakeHealthConnect(
         return records.filter { it.session.startedAt in startedFrom until startedUntil }
     }
 
+    override val canRevokeAccess: Boolean = true
+
     override suspend fun revokeAccess() {
         revoked = true
         granted = emptySet()

@@ -294,6 +294,27 @@ class HealthConnectViewModelTest {
         assertEquals(HealthConnectMessage.DisconnectFailed, viewModel.uiState.value.message)
     }
 
+    @Test
+    fun `from Android 14 the screen disconnects through Health Connect's settings`() {
+        healthConnect.granted = HealthConnectAccess.entries.toSet()
+        healthConnect.canRevokeAccess = false
+
+        assertFalse(viewModel().uiState.value.canDisconnect)
+    }
+
+    @Test
+    fun `a disconnect the app cannot make is ignored, not reported as failed`() {
+        healthConnect.granted = HealthConnectAccess.entries.toSet()
+        healthConnect.canRevokeAccess = false
+        val viewModel = viewModel()
+
+        viewModel.onEvent(HealthConnectEvent.DisconnectRequested)
+
+        assertEquals(0, healthConnect.revokeCount)
+        assertNull(viewModel.uiState.value.message)
+        assertTrue(viewModel.uiState.value.isConnected)
+    }
+
     // --- helpers -----------------------------------------------------------------------
 
     private fun record(

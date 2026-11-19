@@ -241,6 +241,28 @@ class FinishSessionUseCaseTest {
             assertEquals(false, sessions.stored(sessionId)?.isInProgress)
         }
 
+    @Test
+    fun `a cancellation during the announcement still leaves the workout queued for Health Connect`() =
+        runTest {
+            // The announcement rethrows a cancellation. The workout is saved by then, and a
+            // request queued behind the announcement would be lost with it.
+            val sessionId = startWithSets()
+            announcer.failure = CancellationException("the screen went away")
+            val finish = FinishSessionUseCase(
+                sessions,
+                state,
+                drafts,
+                clock,
+                completeSession = cascade,
+                announce = announcer,
+                healthConnectSync = healthConnectSync,
+            )
+
+            runCatching { finish() }
+
+            assertEquals(listOf(sessionId), healthConnectSync.requested)
+        }
+
     /** [ProgressionAnnouncer] as a list of what it was handed. */
     private class RecordingProgressionAnnouncer : ProgressionAnnouncer {
 
