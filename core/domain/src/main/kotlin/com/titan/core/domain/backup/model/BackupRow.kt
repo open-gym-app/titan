@@ -139,6 +139,10 @@ data class TemplateSetRow(
  * A session with `is_in_progress = 1` is exported like any other. The *draft* of a workout in
  * progress is not — see [ExportDocument] — but the rows it overlaps are history the moment
  * they are written, and dropping them would lose sets the user had logged.
+ *
+ * [healthConnectId] and [healthConnectActivity] are nullable for the reason every column added to
+ * this format after its first version is: a file from before #54 has neither, and reads back as a
+ * history with nothing imported from Health Connect, which is what it was.
  */
 @Serializable
 data class WorkoutSessionRow(
@@ -151,6 +155,8 @@ data class WorkoutSessionRow(
     @SerialName("notes") val notes: String? = null,
     @SerialName("created_at") val createdAt: Long,
     @SerialName("updated_at") val updatedAt: Long,
+    @SerialName("health_connect_id") val healthConnectId: String? = null,
+    @SerialName("health_connect_activity") val healthConnectActivity: String? = null,
 ) : BackupRow
 
 /** A row of `session_exercise`. */

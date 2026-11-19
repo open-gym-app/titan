@@ -99,8 +99,9 @@ class BodyMeasurementsScreenTest {
     fun `the Health Connect row is present and says it is not ready`() {
         show(populated())
 
-        // The information architecture ships now and the row is filled in when #54 lands — the
-        // settings screen's own arrangement, held to here through the same component.
+        // Workouts sync with Health Connect and measurements do not yet (#350): the row is in its
+        // final position and disabled, drawn by the same component the settings screen's
+        // unshipped rows use.
         scrollTo(hasText("Sync with Health Connect")).assertIsNotEnabled()
     }
 

@@ -239,7 +239,7 @@
     <string name="body_fat_label">Body fat</string>
     <string name="body_lean_mass_label">Lean mass</string>
 
-    <!-- ── Health Connect, disabled until #54 ───────────────────────────────────── -->
+    <!-- ── Health Connect, disabled until #350 ──────────────────────────────────── -->
 
     <string name="body_health_connect_heading">Health Connect</string>
     <string name="body_health_connect_label">Sync with Health Connect</string>

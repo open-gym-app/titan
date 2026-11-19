@@ -73,6 +73,9 @@ fun session(
     lastActiveAt: Long = 0,
     createdAt: Long = 0,
     completedAt: Long? = null,
+    /** Set for a session imported from Health Connect — see `WorkoutSession.healthConnectId`. */
+    healthConnectId: String? = null,
+    healthConnectActivity: String? = null,
 ) = WorkoutSessionEntity(
     templateId = templateId,
     name = name,
@@ -81,6 +84,8 @@ fun session(
     createdAt = createdAt,
     updatedAt = createdAt,
     completedAt = completedAt,
+    healthConnectId = healthConnectId,
+    healthConnectActivity = healthConnectActivity,
 )
 
 fun sessionExercise(

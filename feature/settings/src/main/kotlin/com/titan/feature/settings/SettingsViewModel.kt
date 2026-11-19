@@ -3,6 +3,8 @@ package com.titan.feature.settings
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.titan.core.domain.healthconnect.HealthConnect
+import com.titan.core.domain.healthconnect.HealthConnectAvailability
 import com.titan.core.domain.model.DefaultTemplateName
 import com.titan.core.domain.model.FitnessLevel
 import com.titan.core.domain.model.OneRepMaxFormula
@@ -80,6 +82,7 @@ class SettingsViewModel @Inject constructor(
     private val notificationPermission: NotificationPermission,
     private val requestNotificationPermission: RequestNotificationPermissionUseCase,
     private val restoreDefaultTemplates: RestoreDefaultTemplatesUseCase,
+    private val healthConnect: HealthConnect,
 ) : ViewModel() {
 
     /**
@@ -93,7 +96,10 @@ class SettingsViewModel @Inject constructor(
     private val screenState = savedStateHandle.savedScreenState(viewModelScope) {
         // Read once at construction and again on every resume. There is no callback for this
         // changing, and it changes in a place the app cannot see.
-        ScreenState(notificationsAllowed = notificationPermission.areNotificationsAllowed())
+        ScreenState(
+            notificationsAllowed = notificationPermission.areNotificationsAllowed(),
+            healthConnectAvailable = healthConnect.isAvailable(),
+        )
     }
 
     val uiState: StateFlow<SettingsUiState> = combine(
@@ -118,6 +124,7 @@ class SettingsViewModel @Inject constructor(
                 alreadyRequested = preferences.notifications.permissionRequested,
             ),
             notificationPermissionRequest = screen.notificationPermissionRequest,
+            healthConnectAvailable = screen.healthConnectAvailable,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -132,20 +139,38 @@ class SettingsViewModel @Inject constructor(
     fun onEvent(event: SettingsEvent) {
         when (event) {
             is SettingsEvent.DialogRequested -> screenState.update { it.copy(dialog = event.dialog) }
+
             SettingsEvent.DialogDismissed -> dismissDialog()
+
             is SettingsEvent.ThemeSelected -> setTheme(event.theme)
+
             is SettingsEvent.UnitSystemSelected -> setUnitSystem(event.unitSystem)
+
             is SettingsEvent.RestDurationSelected -> setRestDuration(event.duration)
+
             is SettingsEvent.BarWeightSelected -> setBarWeight(event.milligrams)
+
             is SettingsEvent.TrainingGoalSelected -> setTrainingGoal(event)
+
             is SettingsEvent.FitnessLevelSelected -> setFitnessLevel(event.level)
+
             is SettingsEvent.OneRepMaxFormulaSelected -> setOneRepMaxFormula(event.formula)
+
             is SettingsEvent.WeeklyGoalSelected -> setWeeklyGoal(event.goal)
+
             is SettingsEvent.WarmupSuggestionsToggled -> setWarmupSuggestions(event.enabled)
+
             is SettingsEvent.AutoOpenRestTimerToggled -> setAutoOpenRestTimer(event.enabled)
+
             is SettingsEvent.Notification -> onNotificationEvent(event)
+
             SettingsEvent.RestoreDefaultTemplatesConfirmed -> restoreMissingTemplates()
+
             SettingsEvent.DeleteAllConfirmed -> deleteAll()
+
+            SettingsEvent.HealthConnectRechecked ->
+                screenState.update { it.copy(healthConnectAvailable = healthConnect.isAvailable()) }
+
             SettingsEvent.MessageShown -> screenState.update { it.copy(message = null) }
         }
     }
@@ -380,9 +405,13 @@ class SettingsViewModel @Inject constructor(
         val notificationsAllowed: Boolean = false,
         @Transient
         val notificationPermissionRequest: Boolean = false,
+        val healthConnectAvailable: Boolean = false,
     )
 
     private companion object {
         val SUBSCRIPTION_TIMEOUT_MS = 5.seconds.inWholeMilliseconds
     }
 }
+
+/** Whether the Health Connect row is drawn: only where Health Connect can be used at all. */
+private fun HealthConnect.isAvailable(): Boolean = availability() == HealthConnectAvailability.AVAILABLE

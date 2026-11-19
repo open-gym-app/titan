@@ -206,6 +206,10 @@ private fun DateRail(
 /**
  * `52m · 12 sets · 4,820 kg`, or `35m · 1 set · 5 km · 27:14` for a run — the figures in the
  * order a lifter reads them.
+ *
+ * A session with no sets at all is its length and nothing else. That is a workout imported from
+ * Health Connect (#54), which recorded a span and no lifts, and `0 sets · 0 kg` beside it would
+ * read as a workout in which nothing was done rather than one whose sets were never known.
  */
 @Composable
 private fun sessionMeta(
@@ -213,6 +217,8 @@ private fun sessionMeta(
     totalSets: Int,
     work: List<String>,
 ): String {
+    if (totalSets == 0) return duration.formatAsLength()
+
     val separator = stringResource(R.string.exercise_meta_separator)
     val sets = pluralStringResource(R.plurals.session_set_count, totalSets, totalSets)
 
@@ -253,13 +259,14 @@ private fun sessionDescription(
     // The record straight after the name, where the badge is drawn: the row's first line reads
     // "2:38 PM · PR", and a spoken row that keeps those words together is one Accessibility
     // Scanner matches to the pixels and a Voice Access user can say as they see it.
+    // Without sets, without the figures about them — the drawn row's rule, in words.
     val parts = listOfNotNull(
         title,
         stringResource(R.string.pr_description_short).takeIf { hasRecord },
         formatSessionDate(startedAt),
         duration.formatAsLength(),
-        pluralStringResource(R.plurals.session_set_count_description, totalSets, totalSets),
-    ) + work
+        pluralStringResource(R.plurals.session_set_count_description, totalSets, totalSets).takeIf { totalSets > 0 },
+    ) + work.takeIf { totalSets > 0 }.orEmpty()
 
     return parts.joinToString(stringResource(R.string.plate_list_separator))
 }

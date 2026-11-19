@@ -64,6 +64,25 @@ class QuestAggregateDaoTest : RoomTestBase() {
         }
 
     @Test
+    fun `a session imported from Health Connect does not count towards a quest`() =
+        runBlocking {
+            // A quest pays XP and an import earns nothing, even though it is a day trained and
+            // the consistency series counts it.
+            finishSessionOn(SEP_1)
+            sessionDao.insert(
+                session(
+                    isInProgress = false,
+                    lastActiveAt = at(SEP_1 + 1),
+                    createdAt = at(SEP_1 + 1),
+                    completedAt = at(SEP_1 + 1),
+                    healthConnectId = "run-1",
+                ),
+            )
+
+            assertEquals(1, sessionsIn(SEP_1, OCT_1))
+        }
+
+    @Test
     fun `a month counts its own first and last day and neither neighbour`() =
         runBlocking {
             // The ragged boundary. September 2025 closes on a Tuesday, so the 30th sits in a

@@ -181,6 +181,12 @@ object BackupValidator {
         val workoutSets by lazy { document.workoutSet.mapTo(mutableSetOf()) { it.id } }
 
         return unique(BackupTable.WORKOUT_SESSION, "id", document.workoutSession.map { it.id })
+            // Nulls skipped: every session logged here has none, and SQLite's index lets them be.
+            ?: unique(
+                BackupTable.WORKOUT_SESSION,
+                "health_connect_id",
+                document.workoutSession.map { it.healthConnectId },
+            )
             ?: unique(BackupTable.SESSION_EXERCISE, "id", document.sessionExercise.map { it.id })
             ?: unique(
                 BackupTable.SESSION_EXERCISE,
@@ -310,6 +316,9 @@ object BackupValidator {
             TextColumn(BackupTable.EXERCISE, "machine_brand") { exercises.map { it.machineBrand } },
             TextColumn(BackupTable.ACHIEVEMENT, "achievement_id") { document.achievement.map { it.achievementId } },
             TextColumn(BackupTable.QUEST_COMPLETION, "quest_id") { document.questCompletion.map { it.questId } },
+            TextColumn(BackupTable.WORKOUT_SESSION, "health_connect_id") {
+                document.workoutSession.map { it.healthConnectId }
+            },
         ).firstNotNullOfOrNull { column ->
             val row = column.values().indexOfFirst { it != null && !it.isWellFormedUtf16() }
             if (row < 0) {

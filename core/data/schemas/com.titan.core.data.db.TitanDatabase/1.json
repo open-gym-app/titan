@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "334f825ab166afe8f9b9b5b79ca2b9fd",
+    "identityHash": "3092249e7802b37fbbc6fd8f8c3f5125",
     "entities": [
       {
         "tableName": "exercise",
@@ -584,7 +584,7 @@
       },
       {
         "tableName": "workout_session",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `template_id` INTEGER, `name` TEXT, `completed_at` INTEGER, `is_in_progress` INTEGER NOT NULL DEFAULT 1, `last_active_at` INTEGER NOT NULL, `notes` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, FOREIGN KEY(`template_id`) REFERENCES `workout_template`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `template_id` INTEGER, `name` TEXT, `completed_at` INTEGER, `is_in_progress` INTEGER NOT NULL DEFAULT 1, `last_active_at` INTEGER NOT NULL, `notes` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `health_connect_id` TEXT, `health_connect_activity` TEXT, FOREIGN KEY(`template_id`) REFERENCES `workout_template`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
         "fields": [
           {
             "fieldPath": "id",
@@ -636,6 +636,16 @@
             "columnName": "updated_at",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "healthConnectId",
+            "columnName": "health_connect_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "healthConnectActivity",
+            "columnName": "health_connect_activity",
+            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -680,6 +690,15 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_workout_session_template_id` ON `${TABLE_NAME}` (`template_id`)"
+          },
+          {
+            "name": "index_workout_session_health_connect_id",
+            "unique": true,
+            "columnNames": [
+              "health_connect_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_workout_session_health_connect_id` ON `${TABLE_NAME}` (`health_connect_id`)"
           }
         ],
         "foreignKeys": [
@@ -1432,7 +1451,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '334f825ab166afe8f9b9b5b79ca2b9fd')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '3092249e7802b37fbbc6fd8f8c3f5125')"
     ]
   }
 }

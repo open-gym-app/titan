@@ -1,10 +1,17 @@
 package com.titan.core.data.mapper
 
 import com.titan.core.data.db.entity.WorkoutSessionEntity
+import com.titan.core.domain.model.WorkoutActivity
 import com.titan.core.domain.model.WorkoutSession
 import javax.inject.Inject
 
-/** [WorkoutSessionEntity] to [WorkoutSession] and back. */
+/**
+ * [WorkoutSessionEntity] to [WorkoutSession] and back.
+ *
+ * An activity name this build does not know reads back as null, as every enum column does (see
+ * [decodeEnum]). For an imported session that only loses the label the duplicate check compares:
+ * the row is still imported, because [WorkoutSession.healthConnectId] is what says so.
+ */
 class SessionMapper @Inject constructor() {
 
     fun toDomain(entity: WorkoutSessionEntity): WorkoutSession =
@@ -18,6 +25,8 @@ class SessionMapper @Inject constructor() {
             notes = entity.notes,
             createdAt = entity.createdAt,
             updatedAt = entity.updatedAt,
+            healthConnectId = entity.healthConnectId,
+            healthConnectActivity = decodeEnum<WorkoutActivity>(entity.healthConnectActivity),
         )
 
     fun toEntity(session: WorkoutSession): WorkoutSessionEntity =
@@ -31,5 +40,7 @@ class SessionMapper @Inject constructor() {
             notes = session.notes,
             createdAt = session.createdAt,
             updatedAt = session.updatedAt,
+            healthConnectId = session.healthConnectId,
+            healthConnectActivity = session.healthConnectActivity?.name,
         )
 }
