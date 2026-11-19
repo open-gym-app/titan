@@ -6,9 +6,14 @@ import com.titan.core.data.db.RoomTestBase
 import com.titan.core.data.db.entity.CollectedItemEntity
 import com.titan.core.data.db.entity.PetEntity
 import com.titan.core.domain.gamification.XpCalculator
+import com.titan.core.domain.model.PetGain
 import com.titan.core.domain.model.PetStats
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -205,6 +210,63 @@ class PetRepositoryImplTest : RoomTestBase() {
             assertNull(negative.nickname)
             assertEquals(XpCalculator.MAX_TOTAL_XP, huge.xp)
             assertEquals(negative.id, repository.observeActive().first()?.id)
+        }
+
+    // ─── Growing ────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `growing writes to the active pet and reports what it added`() =
+        runBlocking {
+            dao.insert(pet(egg()))
+            val active = dao.insert(pet(egg(), xp = 10, isActive = true))
+
+            val growth = repository.grow(
+                PetGain(xp = 65, stats = PetStats(strength = 3, endurance = 0, mobility = 1)),
+            )!!
+
+            assertEquals(active, growth.pet.id)
+            assertEquals(75L, growth.pet.xp)
+            assertEquals(65L, growth.xpGained)
+            assertEquals(PetStats(3, 0, 1), growth.statsGained)
+            assertEquals(growth.pet, repository.observeActive().first())
+            assertEquals(0L, repository.observeAll().first().single { !it.isActive }.xp)
+        }
+
+    @Test
+    fun `growing with no active pet writes nothing`() =
+        runBlocking {
+            dao.insert(pet(egg()))
+
+            assertNull(repository.grow(PetGain(xp = 65, stats = PetStats(1, 0, 0))))
+            assertEquals(0L, repository.observeAll().first().single().xp)
+        }
+
+    @Test
+    fun `growth stops at the bounds, and reports only what it actually added`() =
+        runBlocking {
+            dao.insert(pet(egg(), xp = XpCalculator.MAX_TOTAL_XP - 1, isActive = true).copy(strength = PetStats.MAX))
+
+            val growth = repository.grow(
+                PetGain(xp = 65, stats = PetStats(strength = 3, endurance = 2, mobility = 0)),
+            )!!
+
+            assertEquals(XpCalculator.MAX_TOTAL_XP, growth.pet.xp)
+            assertEquals(1L, growth.xpGained)
+            assertEquals(PetStats(strength = 0, endurance = 2, mobility = 0), growth.statsGained)
+        }
+
+    @Test
+    fun `two growths at once lose neither`() =
+        runBlocking {
+            dao.insert(pet(egg(), isActive = true))
+
+            withContext(Dispatchers.IO) {
+                List(20) { async { repository.grow(PetGain(xp = 5, stats = PetStats(1, 0, 0))) } }.awaitAll()
+            }
+
+            val pet = repository.observeActive().first()!!
+            assertEquals(100L, pet.xp)
+            assertEquals(20, pet.stats.strength)
         }
 
     private suspend fun egg(): Long =

@@ -144,6 +144,8 @@ class BackupRepositoryImpl @Inject constructor(
 
                 BackupTable.SESSION_LOOT_CLAIM -> dao.readLootClaims(limit, offset).map { it.toRow() }
 
+                BackupTable.SESSION_PET_CLAIM -> dao.readPetClaims(limit, offset).map { it.toRow() }
+
                 BackupTable.USER_PROGRESS -> dao.readUserProgress(limit, offset).map { it.toRow() }
 
                 BackupTable.ACHIEVEMENT -> dao.readAchievements(limit, offset).map { it.toRow() }
@@ -225,6 +227,7 @@ class BackupRepositoryImpl @Inject constructor(
                 BackupTable.BODY_MEASUREMENT -> dao.deleteBodyMeasurements()
                 BackupTable.SESSION_XP_CLAIM -> dao.deleteXpClaims()
                 BackupTable.SESSION_LOOT_CLAIM -> dao.deleteLootClaims()
+                BackupTable.SESSION_PET_CLAIM -> dao.deletePetClaims()
                 BackupTable.USER_PROGRESS -> dao.deleteUserProgress()
                 BackupTable.ACHIEVEMENT -> dao.deleteAchievements()
                 BackupTable.QUEST_COMPLETION -> dao.deleteQuestCompletions()
@@ -278,6 +281,7 @@ class BackupRepositoryImpl @Inject constructor(
             document.sessionLootClaim,
             dao::insertLootClaims,
         ) { it.toEntity() }
+        into.table(BackupTable.SESSION_PET_CLAIM, document.sessionPetClaim, dao::insertPetClaims) { it.toEntity() }
         into.table(BackupTable.USER_PROGRESS, document.userProgress, dao::insertUserProgress) { it.toEntity() }
         into.table(BackupTable.ACHIEVEMENT, document.achievement, dao::insertAchievements) { it.toEntity() }
         into.table(

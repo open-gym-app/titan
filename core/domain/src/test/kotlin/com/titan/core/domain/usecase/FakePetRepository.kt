@@ -1,7 +1,11 @@
 package com.titan.core.domain.usecase
 
+import com.titan.core.domain.gamification.level
+import com.titan.core.domain.gamification.stage
 import com.titan.core.domain.model.HatchedPet
 import com.titan.core.domain.model.Pet
+import com.titan.core.domain.model.PetGain
+import com.titan.core.domain.model.PetGrowth
 import com.titan.core.domain.model.PetStats
 import com.titan.core.domain.repository.PetRepository
 import kotlinx.coroutines.flow.Flow
@@ -73,5 +77,32 @@ class FakePetRepository : PetRepository {
         eggs[collectedItemId] = pet.id
         pets.value += pet
         return HatchedPet(pet = pet, isNew = true)
+    }
+
+    override suspend fun grow(gain: PetGain): PetGrowth? {
+        val before = pets.value.firstOrNull { it.isActive } ?: return null
+        val after = before.copy(
+            xp = before.xp + gain.xp,
+            stats = PetStats(
+                strength = before.stats.strength + gain.stats.strength,
+                endurance = before.stats.endurance + gain.stats.endurance,
+                mobility = before.stats.mobility + gain.stats.mobility,
+            ),
+        )
+        pets.value = pets.value.map { if (it.id == after.id) after else it }
+        return PetGrowth(
+            pet = after,
+            xpGained = gain.xp.toLong(),
+            statsGained = gain.stats,
+            levelBefore = before.level,
+            levelAfter = after.level,
+            stageBefore = before.stage,
+            stageAfter = after.stage,
+        )
+    }
+
+    /** Puts [pet] in the store as it is, for a test that needs one already grown. */
+    fun put(pet: Pet) {
+        pets.value = pets.value.filterNot { it.id == pet.id } + pet
     }
 }

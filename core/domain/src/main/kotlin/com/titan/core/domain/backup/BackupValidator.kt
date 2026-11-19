@@ -213,6 +213,7 @@ object BackupValidator {
         return unique(BackupTable.BODY_MEASUREMENT, "id", document.bodyMeasurement.map { it.id })
             ?: unique(BackupTable.SESSION_XP_CLAIM, "session_id", document.sessionXpClaim.map { it.sessionId })
             ?: unique(BackupTable.SESSION_LOOT_CLAIM, "session_id", document.sessionLootClaim.map { it.sessionId })
+            ?: unique(BackupTable.SESSION_PET_CLAIM, "session_id", document.sessionPetClaim.map { it.sessionId })
             ?: unique(BackupTable.ACHIEVEMENT, "achievement_id", document.achievement.map { it.achievementId })
             ?: unique(
                 BackupTable.QUEST_COMPLETION,
@@ -223,6 +224,7 @@ object BackupValidator {
             ?: singleRowProgress(document.userProgress)
             ?: references(XP_CLAIM_TO_SESSION, sessions, document.sessionXpClaim.map { it.sessionId })
             ?: references(LOOT_CLAIM_TO_SESSION, sessions, document.sessionLootClaim.map { it.sessionId })
+            ?: references(PET_CLAIM_TO_SESSION, sessions, document.sessionPetClaim.map { it.sessionId })
             ?: petConstraints(document)
     }
 
@@ -526,6 +528,8 @@ object BackupValidator {
         ForeignKey(BackupTable.SESSION_XP_CLAIM, "session_id", BackupTable.WORKOUT_SESSION)
     private val LOOT_CLAIM_TO_SESSION =
         ForeignKey(BackupTable.SESSION_LOOT_CLAIM, "session_id", BackupTable.WORKOUT_SESSION)
+    private val PET_CLAIM_TO_SESSION =
+        ForeignKey(BackupTable.SESSION_PET_CLAIM, "session_id", BackupTable.WORKOUT_SESSION)
     private val PET_TO_COLLECTED_ITEM =
         ForeignKey(BackupTable.PET, "hatched_from_item_id", BackupTable.COLLECTED_ITEM)
 }

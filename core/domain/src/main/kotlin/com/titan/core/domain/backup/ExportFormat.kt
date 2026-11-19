@@ -17,6 +17,7 @@ import com.titan.core.domain.backup.model.PreferencesPayload
 import com.titan.core.domain.backup.model.QuestCompletionRow
 import com.titan.core.domain.backup.model.SessionExerciseRow
 import com.titan.core.domain.backup.model.SessionLootClaimRow
+import com.titan.core.domain.backup.model.SessionPetClaimRow
 import com.titan.core.domain.backup.model.SessionXpClaimRow
 import com.titan.core.domain.backup.model.TagRow
 import com.titan.core.domain.backup.model.TemplateExerciseRow
@@ -130,6 +131,7 @@ object ExportFormat {
             is BodyMeasurementRow -> json.encodeToString(BodyMeasurementRow.serializer(), row)
             is SessionXpClaimRow -> json.encodeToString(SessionXpClaimRow.serializer(), row)
             is SessionLootClaimRow -> json.encodeToString(SessionLootClaimRow.serializer(), row)
+            is SessionPetClaimRow -> json.encodeToString(SessionPetClaimRow.serializer(), row)
             is UserProgressRow -> json.encodeToString(UserProgressRow.serializer(), row)
             is AchievementRow -> json.encodeToString(AchievementRow.serializer(), row)
             is QuestCompletionRow -> json.encodeToString(QuestCompletionRow.serializer(), row)

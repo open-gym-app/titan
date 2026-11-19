@@ -3,11 +3,18 @@ package com.titan.core.data.repository
 import android.database.sqlite.SQLiteConstraintException
 import com.titan.core.data.db.dao.PetDao
 import com.titan.core.data.db.entity.PetEntity
+import com.titan.core.data.mapper.repaired
 import com.titan.core.data.mapper.toDomain
 import com.titan.core.domain.gamification.PetNickname
 import com.titan.core.domain.gamification.PetNicknameResult
+import com.titan.core.domain.gamification.XpCalculator
+import com.titan.core.domain.gamification.level
+import com.titan.core.domain.gamification.stage
 import com.titan.core.domain.model.HatchedPet
 import com.titan.core.domain.model.Pet
+import com.titan.core.domain.model.PetGain
+import com.titan.core.domain.model.PetGrowth
+import com.titan.core.domain.model.PetStats
 import com.titan.core.domain.repository.PetRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -64,6 +71,35 @@ class PetRepositoryImpl @Inject constructor(private val petDao: PetDao) : PetRep
         }
         val pet = checkNotNull(findByEgg(collectedItemId)) { "drop row $collectedItemId hatched nothing" }
         return HatchedPet(pet = pet, isNew = isNew)
+    }
+
+    override suspend fun grow(gain: PetGain): PetGrowth? {
+        val (before, after) = petDao.changeActive { stored ->
+            // Repaired first, so the increment lands on a row inside its ranges and the figures
+            // reported below are differences of two valid rows.
+            val row = stored.repaired()
+            row.copy(
+                xp = (row.xp + gain.xp).coerceAtMost(XpCalculator.MAX_TOTAL_XP),
+                strength = (row.strength + gain.stats.strength).coerceAtMost(PetStats.MAX),
+                endurance = (row.endurance + gain.stats.endurance).coerceAtMost(PetStats.MAX),
+                mobility = (row.mobility + gain.stats.mobility).coerceAtMost(PetStats.MAX),
+            )
+        }?.let { (stored, written) -> stored.toDomain(isActive = true) to written.toDomain(isActive = true) }
+            ?: return null
+
+        return PetGrowth(
+            pet = after,
+            xpGained = after.xp - before.xp,
+            statsGained = PetStats(
+                strength = after.stats.strength - before.stats.strength,
+                endurance = after.stats.endurance - before.stats.endurance,
+                mobility = after.stats.mobility - before.stats.mobility,
+            ),
+            levelBefore = before.level,
+            levelAfter = after.level,
+            stageBefore = before.stage,
+            stageAfter = after.stage,
+        )
     }
 
     /**

@@ -21,6 +21,7 @@ import com.titan.core.domain.backup.model.PreferencesPayload
 import com.titan.core.domain.backup.model.QuestCompletionRow
 import com.titan.core.domain.backup.model.SessionExerciseRow
 import com.titan.core.domain.backup.model.SessionLootClaimRow
+import com.titan.core.domain.backup.model.SessionPetClaimRow
 import com.titan.core.domain.backup.model.SessionXpClaimRow
 import com.titan.core.domain.backup.model.TagRow
 import com.titan.core.domain.backup.model.TemplateExerciseRow
@@ -272,7 +273,7 @@ class BackupRepositoryImplTest : RoomTestBase() {
  * [ExportDocument] with [table]'s rows replaced by [rows].
  *
  * A test-only inverse of `ExportDocument.rows`, so a document can be assembled from paged reads
- * without twenty `copy` calls at the call site. Its `when` is exhaustive over [BackupTable]
+ * without twenty-one `copy` calls at the call site. Its `when` is exhaustive over [BackupTable]
  * for the same reason that one is: a table added and not handled here does not compile.
  */
 private fun ExportDocument.withRows(
@@ -295,6 +296,7 @@ private fun ExportDocument.withRows(
         BackupTable.BODY_MEASUREMENT -> copy(bodyMeasurement = rows.filterIsInstance<BodyMeasurementRow>())
         BackupTable.SESSION_XP_CLAIM -> copy(sessionXpClaim = rows.filterIsInstance<SessionXpClaimRow>())
         BackupTable.SESSION_LOOT_CLAIM -> copy(sessionLootClaim = rows.filterIsInstance<SessionLootClaimRow>())
+        BackupTable.SESSION_PET_CLAIM -> copy(sessionPetClaim = rows.filterIsInstance<SessionPetClaimRow>())
         BackupTable.USER_PROGRESS -> copy(userProgress = rows.filterIsInstance<UserProgressRow>())
         BackupTable.ACHIEVEMENT -> copy(achievement = rows.filterIsInstance<AchievementRow>())
         BackupTable.QUEST_COMPLETION -> copy(questCompletion = rows.filterIsInstance<QuestCompletionRow>())

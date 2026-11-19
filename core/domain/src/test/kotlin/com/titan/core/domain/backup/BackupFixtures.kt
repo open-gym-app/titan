@@ -15,6 +15,7 @@ import com.titan.core.domain.backup.model.PreferencesPayload
 import com.titan.core.domain.backup.model.QuestCompletionRow
 import com.titan.core.domain.backup.model.SessionExerciseRow
 import com.titan.core.domain.backup.model.SessionLootClaimRow
+import com.titan.core.domain.backup.model.SessionPetClaimRow
 import com.titan.core.domain.backup.model.SessionXpClaimRow
 import com.titan.core.domain.backup.model.TagRow
 import com.titan.core.domain.backup.model.TemplateExerciseRow
@@ -84,6 +85,7 @@ fun sampleDocument(
         bodyMeasurement = sampleBodyMeasurements(),
         sessionXpClaim = listOf(SessionXpClaimRow(sessionId = 1)),
         sessionLootClaim = listOf(SessionLootClaimRow(sessionId = 1)),
+        sessionPetClaim = listOf(SessionPetClaimRow(sessionId = 1)),
         userProgress = listOf(sampleProgress()),
         achievement = listOf(
             AchievementRow(achievementId = "first_workout", unlockedAt = FINISHED_AT),

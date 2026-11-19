@@ -6,6 +6,7 @@ import com.titan.core.data.db.entity.ExerciseTagEntity
 import com.titan.core.data.db.entity.PetEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
 import com.titan.core.data.db.entity.SessionLootClaimEntity
+import com.titan.core.data.db.entity.SessionPetClaimEntity
 import com.titan.core.data.db.entity.SessionXpClaimEntity
 import com.titan.core.data.db.entity.TemplateSetEntity
 import com.titan.core.data.db.entity.UserProgressEntity
@@ -148,6 +149,7 @@ private suspend fun TitanDatabase.seedProgressAndSpoils() {
     )
     dao.insertXpClaims(listOf(SessionXpClaimEntity(sessionId = 1)))
     dao.insertLootClaims(listOf(SessionLootClaimEntity(sessionId = 1)))
+    dao.insertPetClaims(listOf(SessionPetClaimEntity(sessionId = 1)))
     dao.insertUserProgress(
         listOf(
             UserProgressEntity(

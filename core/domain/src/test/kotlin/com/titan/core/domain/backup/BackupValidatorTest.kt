@@ -9,6 +9,7 @@ import com.titan.core.domain.backup.model.MuscleGroupRow
 import com.titan.core.domain.backup.model.PersonalRecordRow
 import com.titan.core.domain.backup.model.SessionExerciseRow
 import com.titan.core.domain.backup.model.SessionLootClaimRow
+import com.titan.core.domain.backup.model.SessionPetClaimRow
 import com.titan.core.domain.backup.model.SessionXpClaimRow
 import com.titan.core.domain.backup.model.TagRow
 import com.titan.core.domain.backup.model.TemplateExerciseRow
@@ -268,6 +269,15 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun `a pet claim naming a missing session is refused`() {
+        val document = sampleDocument().let {
+            it.copy(sessionPetClaim = it.sessionPetClaim + SessionPetClaimRow(sessionId = 99))
+        }
+
+        assertNamesEdge(document, "session_pet_claim.session_id")
+    }
+
+    @Test
     fun `a pet naming an egg the document does not hold is refused`() {
         val document = sampleDocument().let {
             it.copy(pet = it.pet.map { pet -> if (pet.id == 2L) pet.copy(hatchedFromItemId = 99) else pet })
@@ -518,6 +528,15 @@ class BackupValidatorUniquenessTest {
         }
 
         assertNamesClash(document, "session_xp_claim holds two rows with the same session_id")
+    }
+
+    @Test
+    fun `two pet claims for one session are refused`() {
+        val document = sampleDocument().let {
+            it.copy(sessionPetClaim = it.sessionPetClaim + SessionPetClaimRow(sessionId = 1))
+        }
+
+        assertNamesClash(document, "session_pet_claim holds two rows with the same session_id")
     }
 
     /** An egg hatches once: the unique index would refuse the second pet, after the wipe. */

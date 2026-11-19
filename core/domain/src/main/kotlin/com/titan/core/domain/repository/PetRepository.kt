@@ -2,6 +2,8 @@ package com.titan.core.domain.repository
 
 import com.titan.core.domain.model.HatchedPet
 import com.titan.core.domain.model.Pet
+import com.titan.core.domain.model.PetGain
+import com.titan.core.domain.model.PetGrowth
 import kotlinx.coroutines.flow.Flow
 import java.time.Instant
 
@@ -74,4 +76,15 @@ interface PetRepository {
         speciesId: String,
         hatchedAt: Instant,
     ): HatchedPet
+
+    /**
+     * Adds [gain] to the active pet, as one transactional read-modify-write, so two cascades
+     * cannot lose an update.
+     *
+     * XP stops at the curve's ceiling and each stat at its bound; the growth returned reports
+     * what was actually added.
+     *
+     * @return what the write did, or null — having written nothing — when there is no active pet.
+     */
+    suspend fun grow(gain: PetGain): PetGrowth?
 }

@@ -18,7 +18,7 @@ class SchemaUpgradeTest {
 
     @Test
     fun `a version 1 document keeps every row it held and gains the version stamp`() {
-        val versionOne = sampleDocument().copy(schemaVersion = 1, pet = emptyList())
+        val versionOne = sampleDocument().copy(schemaVersion = 1, sessionPetClaim = emptyList(), pet = emptyList())
 
         val upgraded = SchemaUpgrade.toCurrent(versionOne)
 
@@ -30,6 +30,7 @@ class SchemaUpgradeTest {
         val upgraded = SchemaUpgrade.toCurrent(sampleDocument().copy(schemaVersion = 1))
 
         assertTrue(upgraded.pet.isEmpty())
+        assertTrue(upgraded.sessionPetClaim.isEmpty())
     }
 
     @Test

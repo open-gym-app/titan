@@ -190,6 +190,17 @@ interface GamificationRepository {
     suspend fun claimSessionLoot(sessionId: Long): Boolean
 
     /**
+     * Claims the right to grow the active pet from [sessionId], once ever.
+     *
+     * The third fence of its kind, over the third un-idempotent step of the post-session
+     * cascade, and on [claimSessionLoot]'s terms: taken before the write, and spent whether or
+     * not anything was paid — there may be no active pet to pay.
+     *
+     * @return true the first time it is asked about a session, false every time after.
+     */
+    suspend fun claimSessionPet(sessionId: Long): Boolean
+
+    /**
      * Applies one finished session to the stored streak, and returns where that left it.
      *
      * The read of the stored state, the decision, and the write are **one atomic operation** —

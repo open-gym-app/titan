@@ -11,6 +11,7 @@ import com.titan.core.data.repository.CollectedItemRepositoryImpl
 import com.titan.core.data.repository.ExerciseRepositoryImpl
 import com.titan.core.data.repository.GamificationRepositoryImpl
 import com.titan.core.data.repository.PersonalRecordRepositoryImpl
+import com.titan.core.data.repository.PetRepositoryImpl
 import com.titan.core.data.repository.ProgressionRepositoryImpl
 import com.titan.core.data.repository.QuestRepositoryImpl
 import com.titan.core.data.repository.SessionRepositoryImpl
@@ -36,6 +37,7 @@ import com.titan.core.domain.random.RandomSource
 import com.titan.core.domain.repository.UserPreferencesRepository
 import com.titan.core.domain.usecase.AchievementTriggerUseCase
 import com.titan.core.domain.usecase.AwardXpUseCase
+import com.titan.core.domain.usecase.GrowPetUseCase
 import com.titan.core.domain.usecase.LootRollUseCase
 import com.titan.core.domain.usecase.PrDetectionUseCase
 import com.titan.core.domain.usecase.QuestCompletionUseCase
@@ -111,6 +113,7 @@ class SessionCompletionCascadeTest : RoomTestBase() {
             achievementDao = db.achievementDao(),
             sessionXpClaimDao = db.sessionXpClaimDao(),
             sessionLootClaimDao = db.sessionLootClaimDao(),
+            sessionPetClaimDao = db.sessionPetClaimDao(),
         )
     }
 
@@ -144,6 +147,8 @@ class SessionCompletionCascadeTest : RoomTestBase() {
             gamificationRepository = gamification,
         )
     }
+
+    private val pets by lazy { PetRepositoryImpl(db.petDao()) }
 
     private val awardXp by lazy { AwardXpUseCase(gamificationRepository = gamification) }
 
@@ -190,6 +195,18 @@ class SessionCompletionCascadeTest : RoomTestBase() {
                 awardXp = awardXp,
             ),
             rollLoot = rollLoot,
+            growPet = GrowPetUseCase(
+                sessionRepository = sessions,
+                exerciseRepository = ExerciseRepositoryImpl(
+                    exerciseDao = db.exerciseDao(),
+                    muscleGroupDao = db.muscleGroupDao(),
+                    exerciseMapper = ExerciseMapper(),
+                    tagMapper = TagMapper(),
+                    muscleGroupLinkMapper = MuscleGroupLinkMapper(),
+                ),
+                petRepository = pets,
+                gamificationRepository = gamification,
+            ),
             sessionRepository = sessions,
             personalRecordRepository = records,
             gamificationRepository = gamification,
