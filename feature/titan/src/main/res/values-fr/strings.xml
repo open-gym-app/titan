@@ -11,6 +11,11 @@
     <string name="titan_rename_too_long">24 caractères au maximum</string>
     <string name="titan_rename_control">Pas de retour à la ligne ni de tabulation</string>
     <string name="titan_header">%1$s · Niv. %2$d</string>
+
+    <!-- The dock above the bottom bar, read as one button: "Brick: On a run. Fuel low. Open titan." -->
+    <string name="titan_dock_description">%1$s : %2$s.</string>
+    <string name="titan_dock_alert">%1$s bas.</string>
+    <string name="titan_dock_open">Ouvrir le titan.</string>
     <string name="titan_power">Puissance %1$d</string>
     <string name="titan_stage_description">%1$s, %2$s</string>
     <string name="titan_status_idle">Se détend</string>

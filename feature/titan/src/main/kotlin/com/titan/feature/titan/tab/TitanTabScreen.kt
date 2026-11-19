@@ -510,7 +510,7 @@ private fun EggRow(
     }
 }
 
-private fun TitanActivity.status(): Int =
+internal fun TitanActivity.status(): Int =
     when (this) {
         TitanActivity.IDLE -> R.string.titan_status_idle
         TitanActivity.WALK -> R.string.titan_status_walk
