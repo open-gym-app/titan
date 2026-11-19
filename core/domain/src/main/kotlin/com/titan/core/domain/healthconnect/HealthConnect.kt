@@ -39,10 +39,13 @@ interface HealthConnect {
     /**
      * Writes, or rewrites, the record for one Titan session.
      *
-     * Keyed by [sessionId], so a second write for the same session replaces the first rather
-     * than adding a copy: Health Connect upserts by the client record id, and keeps whichever
-     * write carries the higher [version]. Passing the row's `updated_at` as the version is what
-     * makes a retry harmless and a stale write lose.
+     * Keyed by [sessionId] together with the session's start, so a second write for the same
+     * session replaces the first rather than adding a copy: Health Connect upserts by the client
+     * record id, and keeps whichever write carries the higher [version]. A version that grows
+     * with every write — the sync passes the time of the write — is what makes a retry
+     * harmless and the latest write win. The start is part of the key because an id can be
+     * given out again — after "delete all data", or a restore over a reinstall — and a new
+     * workout under an old number must not replace the record of the one that had it.
      *
      * @throws Exception whatever the provider throws — a revoked permission, a quota, a provider
      *   that went away. Callers decide whether that is worth reporting.

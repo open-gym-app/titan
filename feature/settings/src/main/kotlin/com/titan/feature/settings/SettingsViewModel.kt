@@ -385,15 +385,15 @@ class SettingsViewModel @Inject constructor(
     /**
      * What the screen shows and what the stores do not know about.
      *
-     * Three of the five deliberately do not come back. The wipe cannot still be running when the
+     * Three of the six deliberately do not come back. The wipe cannot still be running when the
      * process that was running it is gone; the message is about something the user was told
      * before they put the phone down; and the permission prompt is a request to Android that
      * went with the activity that raised it — re-raising it unasked on the way back in is the
      * one thing this screen is careful never to do (see [RequestNotificationPermissionUseCase]).
      *
-     * [notificationsAllowed] is saved and immediately overwritten by the resume that follows a
-     * restore, which is what makes it correct: the initial value is only what the screen draws
-     * for the frame before Android is asked again.
+     * [notificationsAllowed] and [healthConnectAvailable] are saved and immediately overwritten
+     * by the resume that follows a restore, which is what makes them correct: the initial value
+     * is only what the screen draws for the frame before Android is asked again.
      */
     @Serializable
     private data class ScreenState(

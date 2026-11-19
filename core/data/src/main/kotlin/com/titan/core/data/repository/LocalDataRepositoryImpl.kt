@@ -242,8 +242,9 @@ class LocalDataRepositoryImpl @Inject constructor(
      * That gives the old numbers out again, and nothing that outlives the wipe acts on one. The
      * rows and the drafts are gone, the rest and the idle nudge come down above, and an intent
      * that was already on its way names its session together with the row's creation time,
-     * which a new workout under the same number does not share. A restore already writes back
-     * ids this device has used before, and those defences are built for it.
+     * which a new workout under the same number does not share. The records written to Health
+     * Connect outlive it too, and are keyed the same way — see `clientRecordIdFor`. A restore
+     * already writes back ids this device has used before, and those defences are built for it.
      */
     private suspend fun wipe() {
         sessionStateRepository.update(SessionState.Idle)

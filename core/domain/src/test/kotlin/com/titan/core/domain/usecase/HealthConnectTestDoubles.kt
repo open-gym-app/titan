@@ -5,6 +5,7 @@ import com.titan.core.domain.healthconnect.HealthConnectAccess
 import com.titan.core.domain.healthconnect.HealthConnectAvailability
 import com.titan.core.domain.healthconnect.HealthConnectRecord
 import com.titan.core.domain.healthconnect.HealthConnectSession
+import com.titan.core.domain.healthconnect.HealthConnectSyncScheduler
 import com.titan.core.domain.model.WorkoutSession
 import com.titan.core.domain.repository.FinishedSessionActivity
 import com.titan.core.domain.repository.HealthConnectSessionRepository
@@ -116,4 +117,20 @@ class FakeHealthConnectSessionRepository : HealthConnectSessionRepository {
 
     /** The sessions stored by [insertImported], in insertion order. */
     val imported: List<WorkoutSession> get() = sessions.map { it.session }.filter { it.isImported }
+}
+
+/**
+ * The sync queue as a list of the sessions it was asked for. Set [failure] for a queue that
+ * refuses the request.
+ */
+class RecordingHealthConnectSyncScheduler : HealthConnectSyncScheduler {
+
+    val requested = mutableListOf<Long>()
+
+    var failure: RuntimeException? = null
+
+    override fun requestSync(sessionId: Long) {
+        failure?.let { throw it }
+        requested += sessionId
+    }
 }

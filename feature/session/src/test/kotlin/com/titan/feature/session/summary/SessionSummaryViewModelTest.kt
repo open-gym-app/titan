@@ -74,6 +74,9 @@ class SessionSummaryViewModelTest {
     /** What a finish left for the recap. Empty unless a test offers something. */
     private val progressionHandoff = SessionProgressionHandoff()
 
+    /** The Health Connect queue, as the sessions it was asked to write. */
+    private val healthConnectSyncs = mutableListOf<Long>()
+
     @Before
     fun setUpMainDispatcher() {
         // `viewModelScope` dispatches on Main; unconfined so a launched write has run by the
@@ -342,6 +345,48 @@ class SessionSummaryViewModelTest {
             assertEquals("Felt strong", state.notesDraft)
             assertFalse(state.isSavingNotes)
             assertEquals(SessionSummaryMessage.NOTES_SAVE_FAILED, state.message)
+        }
+
+    @Test
+    fun `a saved note queues the session's Health Connect record to be written again`() =
+        runTest {
+            // The note is the record's notes, and the recap is reached for finished sessions.
+            val viewModel = viewModel()
+
+            viewModel.onEvent(SessionSummaryEvent.NoteEditRequested)
+            viewModel.onEvent(SessionSummaryEvent.NoteChanged("Felt strong"))
+            viewModel.onEvent(SessionSummaryEvent.NoteSaved)
+
+            assertEquals(listOf(SESSION_ID), healthConnectSyncs)
+        }
+
+    @Test
+    fun `a note that could not be written queues nothing`() =
+        runTest {
+            val store = FakeSummarySessionStore(
+                session = finishedSession(),
+                exercises = pushDayExercises(),
+                sets = pushDaySets(),
+            ).apply { writeFailure = IllegalStateException("disk full") }
+            val viewModel = viewModel(store = store)
+
+            viewModel.onEvent(SessionSummaryEvent.NoteEditRequested)
+            viewModel.onEvent(SessionSummaryEvent.NoteChanged("Felt strong"))
+            viewModel.onEvent(SessionSummaryEvent.NoteSaved)
+
+            assertTrue(healthConnectSyncs.isEmpty())
+        }
+
+    @Test
+    fun `a rename from the recap queues the session's Health Connect record too`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.onEvent(SessionSummaryEvent.NameEditRequested)
+            viewModel.onEvent(SessionSummaryEvent.NameChanged("Leg day"))
+            viewModel.onEvent(SessionSummaryEvent.NameConfirmed)
+
+            assertEquals(listOf(SESSION_ID), healthConnectSyncs)
         }
 
     // ─── Save as template ───────────────────────────────────────────────────────────────
@@ -886,8 +931,9 @@ class SessionSummaryViewModelTest {
             exerciseRepository = catalogue,
             personalRecordRepository = FakeRecordStore(bySession = mapOf(SESSION_ID to records)),
             createTemplate = CreateTemplateUseCase(templates),
-            renameSession = RenameSessionUseCase(store),
+            renameSession = RenameSessionUseCase(store) { healthConnectSyncs += it },
             progressionHandoff = progressionHandoff,
+            healthConnectSync = { healthConnectSyncs += it },
         )
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collect { }

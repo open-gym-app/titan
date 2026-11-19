@@ -2,6 +2,8 @@ package com.titan.feature.settings.healthconnect
 
 import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -334,16 +336,33 @@ private fun HealthConnectMessage.text(): String =
 /**
  * Health Connect's page for this app's permissions, or nothing if it cannot be opened.
  *
+ * From Android 14 the system has a page for one app's health permissions, and that is where a
+ * user who refused the dialog has to go to change their mind. The client's "manage data" intent
+ * is not it — it opens the data browser, three screens away from the switches — so it is only
+ * the fallback, for Android 13 and below, where Health Connect is an app and opens its own home.
+ *
  * Nothing rather than a crash: the row that calls this is only drawn while Health Connect is
  * available, so the one way to get here without it is an uninstall between the draw and the tap.
  */
 private fun Context.startHealthConnectSettings() {
-    try {
-        startActivity(HealthConnectClient.getHealthConnectManageDataIntent(this))
-    } catch (_: ActivityNotFoundException) {
-        // Gone between the draw and the tap; the resume that follows redraws without the row.
+    val appPermissions = Intent(ACTION_MANAGE_HEALTH_PERMISSIONS).putExtra(Intent.EXTRA_PACKAGE_NAME, packageName)
+    val candidates = listOfNotNull(
+        appPermissions.takeIf { Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE },
+        HealthConnectClient.getHealthConnectManageDataIntent(this),
+    )
+    for (intent in candidates) {
+        try {
+            startActivity(intent)
+            return
+        } catch (_: ActivityNotFoundException) {
+            // Try the next one. Past the last, Health Connect went between the draw and the
+            // tap, and the resume that follows redraws without the row.
+        }
     }
 }
+
+/** `HealthConnectManager.ACTION_MANAGE_HEALTH_PERMISSIONS`, an API 34 constant. */
+private const val ACTION_MANAGE_HEALTH_PERMISSIONS = "android.health.connect.action.MANAGE_HEALTH_PERMISSIONS"
 
 // --- previews -------------------------------------------------------------------------
 

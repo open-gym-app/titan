@@ -21,9 +21,21 @@ import java.time.ZoneId
  *
  * Health Connect upserts on it: a second write with the same id replaces the first, as long as
  * its version is not lower. Prefixed so that nothing about it can be mistaken for another app's
- * id in a log, and stable for the life of the row — the row's primary key never changes.
+ * id in a log, and stable for the life of the row — neither the primary key nor `created_at`
+ * ever changes.
+ *
+ * The id alone is not enough, because it is not unique over time. "Delete all data" resets the
+ * id counters, and a reinstall that restores an older backup resumes them below ids already
+ * used, while the records written under those ids stay in Health Connect. Keyed on the id only,
+ * the next workout to be given an old number would be written over the record of the one that
+ * had it — a newer version, so Health Connect would accept it. The start time is what the
+ * session's other out-of-process references pair the id with for the same reason (see
+ * `SessionRef`), and a new workout under an old number does not share it.
  */
-internal fun clientRecordIdFor(sessionId: Long): String = "$CLIENT_RECORD_PREFIX$sessionId"
+internal fun clientRecordIdFor(
+    sessionId: Long,
+    startedAt: Long,
+): String = "$CLIENT_RECORD_PREFIX$sessionId-$startedAt"
 
 /**
  * The record for one session, recorded on this phone in [zone].
@@ -46,7 +58,7 @@ internal fun HealthConnectSession.toRecord(
         endZoneOffset = zone.rules.getOffset(end),
         metadata = Metadata.activelyRecorded(
             device = Device(type = Device.TYPE_PHONE),
-            clientRecordId = clientRecordIdFor(sessionId),
+            clientRecordId = clientRecordIdFor(sessionId, startedAt),
             clientRecordVersion = version,
         ),
         exerciseType = activity.toExerciseType(),

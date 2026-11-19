@@ -6,6 +6,7 @@ import com.titan.core.domain.healthconnect.HealthConnectSession
 import com.titan.core.domain.model.WorkoutActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -55,9 +56,19 @@ class HealthConnectRecordsTest {
     fun `a session is written under a client id and version that make a rewrite an upsert`() {
         val metadata = session.toRecord(sessionId = 42L, version = 7L, zone = paris).metadata
 
-        assertEquals("titan-session-42", metadata.clientRecordId)
+        assertEquals("titan-session-42-$start", metadata.clientRecordId)
         assertEquals(7L, metadata.clientRecordVersion)
         assertEquals(Metadata.RECORDING_METHOD_ACTIVELY_RECORDED, metadata.recordingMethod)
+    }
+
+    @Test
+    fun `a later workout given a reused id is written under a client id of its own`() {
+        val first = session.toRecord(sessionId = 1L, version = 7L, zone = paris).metadata
+        val reused = session.copy(startedAt = start + 86_400_000L, endedAt = start + 90_000_000L)
+            .toRecord(sessionId = 1L, version = 8L, zone = paris)
+            .metadata
+
+        assertNotEquals(first.clientRecordId, reused.clientRecordId)
     }
 
     @Test

@@ -151,12 +151,13 @@ androidx-work-testing = { group = "androidx.work", name = "work-testing", versio
 # from different groups that happen to share a name.
 androidx-hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "androidxHilt" }
 androidx-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "androidxHilt" }
+# Health Connect and the Guava floor it needs — see the versions above for both.
+androidx-health-connect-client = { group = "androidx.health.connect", name = "connect-client", version.ref = "healthConnect" }
+guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
 # `paging-compose` brings `collectAsLazyPagingItems()` and pulls `paging-runtime` with it. It is
 # a feature-module dependency only: `:core:domain` deliberately does not see it, so the records
 # list builds its own `PagingSource` over a windowed read rather than over Room's — see
 # `PersonalRecordRepository.getRecordsPage` for that decision and what it costs.
-guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
-androidx-health-connect-client = { group = "androidx.health.connect", name = "connect-client", version.ref = "healthConnect" }
 androidx-paging-compose = { group = "androidx.paging", name = "paging-compose", version.ref = "paging" }
 androidx-paging-testing = { group = "androidx.paging", name = "paging-testing", version.ref = "paging" }
 androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "benchmark" }

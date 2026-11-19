@@ -13,12 +13,9 @@ import com.titan.core.domain.model.SessionState
 import com.titan.core.domain.model.SessionSummary
 import com.titan.core.domain.model.StreakResult
 import com.titan.core.domain.model.UserPreferences
-import com.titan.core.domain.model.WorkoutSession
 import com.titan.core.domain.notification.ProgressionAnnouncer
 import com.titan.core.domain.random.RandomSource
 import com.titan.core.domain.repository.FakeInProgressSessionRepository
-import com.titan.core.domain.repository.FinishedSessionActivity
-import com.titan.core.domain.repository.HealthConnectSessionRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -206,88 +203,42 @@ class FinishSessionUseCaseTest {
             assertTrue("expected the cancellation to propagate, got $thrown", thrown is CancellationException)
         }
 
-    private val healthConnect = FakeHealthConnect()
+    private val healthConnectSync = RecordingHealthConnectSyncScheduler()
 
-    /** The finish with Health Connect wired behind it, reading the rows the finish closes out. */
+    /** The finish with the Health Connect queue wired behind it. */
     private val finishWithHealthConnect =
-        FinishSessionUseCase(
-            sessions,
-            state,
-            drafts,
-            clock,
-            syncToHealthConnect = SyncToHealthConnectUseCase(healthConnect, SessionsSeenByHealthConnect()),
-        )
-
-    /** [HealthConnectSessionRepository] over [sessions], so the sync sees what the finish wrote. */
-    private inner class SessionsSeenByHealthConnect : HealthConnectSessionRepository {
-        override suspend fun getFinished(sessionId: Long): FinishedSessionActivity? =
-            sessions.stored(sessionId)
-                ?.takeUnless(WorkoutSession::isInProgress)
-                ?.let { FinishedSessionActivity(it, listOf(null)) }
-
-        override suspend fun getFinishedStartedBetween(
-            startedFrom: Long,
-            startedUntil: Long,
-        ): List<FinishedSessionActivity> = error("the finish never imports")
-
-        override suspend fun insertImported(sessions: List<WorkoutSession>): Int = error("the finish never imports")
-    }
+        FinishSessionUseCase(sessions, state, drafts, clock, healthConnectSync = healthConnectSync)
 
     @Test
-    fun `a finished session is written to Health Connect, closed out`() =
+    fun `a finished session is queued for Health Connect`() =
         runTest {
             val sessionId = startWithSets()
-            clock.advance(60_000L)
 
             finishWithHealthConnect().getOrThrow()
 
-            val written = healthConnect.written.single()
-            assertEquals(sessionId, written.sessionId)
-            assertEquals(5_000L, written.session.startedAt)
-            assertEquals(65_000L, written.session.endedAt)
+            assertEquals(listOf(sessionId), healthConnectSync.requested)
         }
 
     @Test
-    fun `a refused finish writes nothing to Health Connect`() =
+    fun `a refused finish queues nothing for Health Connect`() =
         runTest {
             startSession().getOrThrow()
 
             finishWithHealthConnect()
 
-            assertTrue(healthConnect.written.isEmpty())
+            assertTrue(healthConnectSync.requested.isEmpty())
         }
 
     @Test
-    fun `a Health Connect that refuses the write leaves the workout finished`() =
+    fun `a queue that refuses the request leaves the workout finished`() =
         runTest {
             val sessionId = startWithSets()
-            healthConnect.failure = IllegalStateException("the provider is gone")
+            healthConnectSync.failure = IllegalStateException("WorkManager is not initialised")
 
             val finished = finishWithHealthConnect().getOrThrow()
 
             assertEquals(sessionId, finished.summary.sessionId)
             assertEquals(false, sessions.stored(sessionId)?.isInProgress)
-        }
-
-    @Test
-    fun `a user who never connected Health Connect finishes as before`() =
-        runTest {
-            startWithSets()
-            healthConnect.granted = emptySet()
-
-            assertTrue(finishWithHealthConnect().isSuccess)
-            assertTrue(healthConnect.written.isEmpty())
-        }
-
-    @Test
-    fun `a cancellation while writing to Health Connect is rethrown rather than swallowed`() =
-        runTest {
-            startWithSets()
-            healthConnect.failure = CancellationException("the screen went away")
-
-            val thrown = runCatching { finishWithHealthConnect() }.exceptionOrNull()
-
-            assertTrue("expected the cancellation to propagate, got $thrown", thrown is CancellationException)
         }
 
     /** [ProgressionAnnouncer] as a list of what it was handed. */

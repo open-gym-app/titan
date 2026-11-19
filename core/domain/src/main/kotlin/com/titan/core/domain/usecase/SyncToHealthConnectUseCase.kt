@@ -6,16 +6,30 @@ import com.titan.core.domain.healthconnect.HealthConnectAvailability
 import com.titan.core.domain.healthconnect.HealthConnectError
 import com.titan.core.domain.healthconnect.HealthConnectSession
 import com.titan.core.domain.repository.HealthConnectSessionRepository
+import com.titan.core.domain.time.Clock
 import kotlinx.coroutines.CancellationException
 
 /**
  * Writes one finished session to Health Connect as an `ExerciseSessionRecord`.
  *
- * [FinishSessionUseCase] calls this as the last thing a finish does, so every workout closed out
- * reaches Health Connect whichever way it was closed — the workout screen's END or the idle
- * nudge's "Finish now" — without either caller having to remember. It can be called again for
- * the same session at any time: the record is keyed by the session's id and versioned by its
- * `updated_at`, so a second write replaces the first rather than adding a copy.
+ * Run from a queued background job (see [com.titan.core.domain.healthconnect.HealthConnectSyncScheduler]),
+ * which is asked for by every place a session's record goes out of date: [FinishSessionUseCase]
+ * when a workout is closed out, whichever way it was closed — the workout screen's END or the
+ * idle nudge's "Finish now" — and [RenameSessionUseCase] and the recap's note when what the
+ * record says changes afterwards. It can be called again for the same session at any time: the
+ * record is keyed by the session, so a second write replaces the first rather than adding a
+ * copy.
+ *
+ * ### The version is the time of the write
+ *
+ * Health Connect keeps the write with the higher version, so the version has to grow with every
+ * write that should win — and every write here should, since each one reads the row as it is
+ * now. The row's `updated_at` does not grow with a rename or a note: both leave it alone on
+ * purpose, as a change to how the workout is described rather than to what was performed (see
+ * [RenameSessionUseCase]). The clock does. It is held to at least `updated_at`, so the first
+ * write is never below what the row itself says. What it cannot cover is a clock set back
+ * between two writes: Health Connect ignores the second, and the record stays stale until an
+ * edit after the clock has caught up — the same trade every timestamp in this app makes.
  *
  * ### What is written
  *
@@ -42,18 +56,23 @@ import kotlinx.coroutines.CancellationException
 class SyncToHealthConnectUseCase(
     private val healthConnect: HealthConnect,
     private val sessions: HealthConnectSessionRepository,
+    private val clock: Clock = Clock.SYSTEM,
 ) {
 
     suspend operator fun invoke(sessionId: Long): Result<HealthConnectSyncOutcome> {
-        val availability = healthConnect.availability()
-        if (availability != HealthConnectAvailability.AVAILABLE) {
-            return Result.failure(HealthConnectError.Unavailable(availability))
-        }
-
         // `runCatching` for a provider's failure, with the one thing it gets wrong put right: a
         // cancellation is not a failure, and a caller whose scope has gone must not be told the
-        // call came back.
-        return runCatching { write(sessionId) }.getOrElse { failure ->
+        // call came back. The availability check is inside it too — it asks the package
+        // manager, which can throw, and a throw from here would escape a finish that has
+        // already been saved.
+        return runCatching {
+            val availability = healthConnect.availability()
+            if (availability != HealthConnectAvailability.AVAILABLE) {
+                Result.failure(HealthConnectError.Unavailable(availability))
+            } else {
+                write(sessionId)
+            }
+        }.getOrElse { failure ->
             if (failure is CancellationException) throw failure
             Result.failure(failure)
         }
@@ -73,7 +92,7 @@ class SyncToHealthConnectUseCase(
         val completedAt = checkNotNull(session.completedAt) { "finished session $sessionId has no completed_at" }
         healthConnect.writeSession(
             sessionId = session.id,
-            version = session.updatedAt,
+            version = clock.nowMillis().coerceAtLeast(session.updatedAt),
             session = HealthConnectSession(
                 startedAt = session.createdAt,
                 // At least a second long. Health Connect refuses a session that ends where it
