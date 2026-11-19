@@ -697,5 +697,28 @@
     <string name="titan_food_banana">Banana</string>
     <string name="titan_food_berries">Berries</string>
     <string name="titan_food_unknown">Unknown food</string>
+    <string name="titan_species_iron_cub">Iron cub</string>
+    <string name="titan_species_chalk_sprite">Chalk sprite</string>
+    <string name="titan_species_plate_tortoise">Plate tortoise</string>
+    <string name="titan_species_kettle_ram">Kettle ram</string>
+    <string name="titan_species_barbell_drake">Barbell drake</string>
+    <string name="titan_species_atlas">Atlas</string>
+    <string name="titan_species_unknown">Unknown titan</string>
+    <string name="titan_need_level">Level %1$d</string>
+    <string name="titan_need_km">%1$d km</string>
+    <string name="titan_need_legend">Legend rank</string>
+    <string name="titan_owned">Owned</string>
+    <plurals name="titan_need_streak">
+        <item quantity="one">%1$d-week streak</item>
+        <item quantity="other">%1$d-week streak</item>
+    </plurals>
+    <plurals name="titan_need_spars">
+        <item quantity="one">%1$d spar won</item>
+        <item quantity="other">%1$d spars won</item>
+    </plurals>
+    <plurals name="titan_minutes_left">
+        <item quantity="one">%1$d min left</item>
+        <item quantity="other">%1$d min left</item>
+    </plurals>
 
 </resources>

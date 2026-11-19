@@ -2,11 +2,14 @@ package com.titan.core.ui.component.titan
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import com.titan.core.domain.gamification.LevelTitles
 import com.titan.core.domain.model.Gear
 import com.titan.core.domain.model.TitanActivity
 import com.titan.core.domain.model.TitanPlace
 import com.titan.core.domain.model.TitanVital
+import com.titan.core.domain.model.UnlockCondition
 import com.titan.core.ui.R
 
 /*
@@ -91,3 +94,39 @@ fun foodLabel(id: String): String =
             else -> R.string.titan_food_unknown
         },
     )
+
+/** A titan's species name, by its id, or "Unknown titan" for one this build cannot name. */
+@Composable
+@ReadOnlyComposable
+fun petSpeciesLabel(id: String): String =
+    stringResource(
+        when (id) {
+            "iron_cub" -> R.string.titan_species_iron_cub
+            "chalk_sprite" -> R.string.titan_species_chalk_sprite
+            "plate_tortoise" -> R.string.titan_species_plate_tortoise
+            "kettle_ram" -> R.string.titan_species_kettle_ram
+            "barbell_drake" -> R.string.titan_species_barbell_drake
+            "atlas" -> R.string.titan_species_atlas
+            else -> R.string.titan_species_unknown
+        },
+    )
+
+/** What a locked place or piece of gear needs: "Level 20", "100 km", "8-week streak", "Legend rank". */
+@Composable
+fun UnlockCondition.needLabel(): String =
+    when (this) {
+        UnlockCondition.FromHatch -> stringResource(R.string.titan_owned)
+
+        is UnlockCondition.Level ->
+            if (level == LevelTitles.LEGEND.fromLevel) {
+                stringResource(R.string.titan_need_legend)
+            } else {
+                stringResource(R.string.titan_need_level, level)
+            }
+
+        is UnlockCondition.DistanceKm -> stringResource(R.string.titan_need_km, kilometres)
+
+        is UnlockCondition.StreakWeeks -> pluralStringResource(R.plurals.titan_need_streak, weeks, weeks)
+
+        is UnlockCondition.SparsWon -> pluralStringResource(R.plurals.titan_need_spars, count, count)
+    }
