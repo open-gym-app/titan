@@ -86,10 +86,11 @@ aboutlibraries = "13.2.1"
 aboutlibrariesPlugin = "15.3.0"
 # Roborazzi's preview-scanning support delegates to this; it is a separate project on its
 # own release train, so it carries its own version rather than sharing `roborazzi`.
-# Held at 0.9.x: Roborazzi 1.78 calls `ComposablePreview.invoke(Composer, int)`, which 0.10.0
-# no longer has, so every scanned preview test dies with `NoSuchMethodError`. Move it only
-# together with a Roborazzi release built against the newer scanner.
-composablePreviewScanner = "0.9.3"
+# The two are still binary-coupled: Roborazzi calls into the scanner's `ComposablePreview` by
+# signature, so a scanner that changes it fails every scanned preview test with
+# `NoSuchMethodError` (0.10.0 did, against Roborazzi 1.78; 1.79 is built against 0.10).
+# renovate.json groups them into one PR for this reason.
+composablePreviewScanner = "0.10.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
