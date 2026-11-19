@@ -1,8 +1,10 @@
 package com.titan.core.domain.usecase
 
 import com.titan.core.domain.gamification.Achievements
+import com.titan.core.domain.gamification.Collectibles
 import com.titan.core.domain.gamification.DropRates
 import com.titan.core.domain.gamification.DropTableEvaluator
+import com.titan.core.domain.gamification.FoodDrop
 import com.titan.core.domain.gamification.XpCalculator
 import com.titan.core.domain.integration.FakeExerciseRepository
 import com.titan.core.domain.model.CollectedItem
@@ -670,6 +672,26 @@ class SessionCompletionPipelineTest {
             assertEquals(0L, failing.pets.held.single().xp)
         }
 
+    @Test
+    fun `with no titan a session drops no food`() =
+        runTest {
+            assertTrue(pipeline(rig.finishSession(), FINISHED_AT).foodDropped.isEmpty())
+        }
+
+    @Test
+    fun `with a titan the session's food is reported beside its drop, and a re-run reports none`() =
+        runTest {
+            pets.hatch(collectedItemId = 1, speciesId = "iron_cub", hatchedAt = FINISHED_AT)
+            val sessionId = rig.finishSession(workingSets = 3)
+
+            val first = pipeline(sessionId, FINISHED_AT)
+            val again = pipeline(sessionId, FINISHED_AT)
+
+            assertEquals(listOf(Collectibles.STEAK), first.foodDropped)
+            assertEquals(DROPPED_COLLECTIBLE, first.lootDropped)
+            assertTrue(again.foodDropped.isEmpty())
+        }
+
     /** A store whose pet claim refuses [times] times, leaving every other write working. */
     private class FailingPetClaim(
         private val delegate: GamificationRepository,
@@ -873,6 +895,10 @@ class SessionCompletionPipelineTest {
             dropTable = dropTable,
             collectedItemRepository = observedInventory,
             gamificationRepository = observedGamification,
+            petRepository = pets,
+            sessionRepository = sessions,
+            // Always the first food: what is drawn is `FoodDropTest`'s.
+            foodDrop = FoodDrop(RandomSource { 0 }),
         )
 
         val pipeline = SessionCompletionPipeline(
@@ -1002,9 +1028,10 @@ class SessionCompletionPipelineTest {
             collectibleId: String,
             source: String,
             acquiredAt: Instant,
+            sessionId: Long?,
         ) {
             journal += "loot"
-            delegate.recordDrop(collectibleId, source, acquiredAt)
+            delegate.recordDrop(collectibleId, source, acquiredAt, sessionId)
         }
     }
 

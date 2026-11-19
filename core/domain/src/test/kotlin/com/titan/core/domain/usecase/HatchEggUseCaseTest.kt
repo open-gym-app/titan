@@ -152,7 +152,7 @@ class HatchEggUseCaseTest {
     }
 
     private suspend fun drop(collectibleId: String): Long {
-        inventory.recordDrop(collectibleId, "session_finished", Instant.ofEpochMilli(NOW - 1))
+        inventory.recordDrop(collectibleId, "session_finished", Instant.ofEpochMilli(NOW - 1), sessionId = null)
         return inventory.recorded.last().id
     }
 

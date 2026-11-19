@@ -32,9 +32,36 @@ class CollectedItemRepositoryImplTest : RoomTestBase() {
     private val repository by lazy { CollectedItemRepositoryImpl(db.collectedItemDao()) }
 
     @Test
+    fun `a drop carries the session that dropped it, and outlives that session`() =
+        runBlocking {
+            val sessionId = db.workoutSessionDao().insert(
+                com.titan.core.data.db.entity.WorkoutSessionEntity(
+                    completedAt = 2_000,
+                    isInProgress = false,
+                    lastActiveAt = 2_000,
+                    createdAt = 1_000,
+                    updatedAt = 2_000,
+                ),
+            )
+            repository.recordDrop("steak", SESSION_FINISHED, MONDAY_EVENING, sessionId = sessionId)
+            repository.recordDrop(PET_EGG, SESSION_FINISHED, MONDAY_EVENING, sessionId = null)
+
+            assertEquals(listOf(sessionId, null), sessionsOfDrops())
+
+            db.openHelper.writableDatabase.execSQL("DELETE FROM workout_session WHERE id = $sessionId")
+
+            assertEquals("the food is kept, without its session", listOf(null, null), sessionsOfDrops())
+        }
+
+    private fun sessionsOfDrops(): List<Long?> =
+        db.query("SELECT session_id FROM collected_item ORDER BY id", emptyArray()).use { cursor ->
+            buildList { while (cursor.moveToNext()) add(if (cursor.isNull(0)) null else cursor.getLong(0)) }
+        }
+
+    @Test
     fun `a drop keeps the moment it was earned`() =
         runBlocking {
-            repository.recordDrop(PET_EGG, SESSION_FINISHED, MONDAY_EVENING)
+            repository.recordDrop(PET_EGG, SESSION_FINISHED, MONDAY_EVENING, sessionId = null)
 
             val held = repository.observeRecent(PLENTY).first().single()
             assertEquals(PET_EGG, held.collectibleId)
@@ -47,7 +74,12 @@ class CollectedItemRepositoryImplTest : RoomTestBase() {
         runBlocking {
             // The restore rule: a drop from a newer version is a drop, not a corrupt row, and
             // neither id is decoded on the way out.
-            repository.recordDrop("collectible_from_a_later_build", "a_trigger_that_does_not_exist_yet", MONDAY_EVENING)
+            repository.recordDrop(
+                "collectible_from_a_later_build",
+                "a_trigger_that_does_not_exist_yet",
+                MONDAY_EVENING,
+                sessionId = null,
+            )
 
             val held = repository.observeRecent(PLENTY).first().single()
             assertEquals("collectible_from_a_later_build", held.collectibleId)
@@ -57,8 +89,8 @@ class CollectedItemRepositoryImplTest : RoomTestBase() {
     @Test
     fun `the same collectible dropping twice is held twice, each with its own identity`() =
         runBlocking {
-            repository.recordDrop(PET_EGG, SESSION_FINISHED, MONDAY_EVENING)
-            repository.recordDrop(PET_EGG, SESSION_FINISHED, TUESDAY_EVENING)
+            repository.recordDrop(PET_EGG, SESSION_FINISHED, MONDAY_EVENING, sessionId = null)
+            repository.recordDrop(PET_EGG, SESSION_FINISHED, TUESDAY_EVENING, sessionId = null)
 
             val held = repository.observeRecent(PLENTY).first()
             assertEquals(listOf(PET_EGG, PET_EGG), held.map { it.collectibleId })
@@ -69,8 +101,8 @@ class CollectedItemRepositoryImplTest : RoomTestBase() {
     @Test
     fun `the read is bounded by what it asked for`() =
         runBlocking {
-            repository.recordDrop(PET_EGG, SESSION_FINISHED, MONDAY_EVENING)
-            repository.recordDrop(DUMBBELL_CHARM, SESSION_FINISHED, TUESDAY_EVENING)
+            repository.recordDrop(PET_EGG, SESSION_FINISHED, MONDAY_EVENING, sessionId = null)
+            repository.recordDrop(DUMBBELL_CHARM, SESSION_FINISHED, TUESDAY_EVENING, sessionId = null)
 
             assertEquals(listOf(DUMBBELL_CHARM), repository.observeRecent(limit = 1).first().map { it.collectibleId })
         }

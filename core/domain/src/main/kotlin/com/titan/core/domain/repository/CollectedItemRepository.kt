@@ -66,6 +66,7 @@ interface CollectedItemRepository {
         collectibleId: String,
         source: String,
         acquiredAt: Instant,
+        sessionId: Long?,
     )
 
     /** The drop row [id] names, or null if there is none. */

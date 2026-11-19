@@ -49,12 +49,14 @@ class CollectedItemRepositoryImpl @Inject constructor(private val collectedItemD
         collectibleId: String,
         source: String,
         acquiredAt: Instant,
+        sessionId: Long?,
     ) {
         collectedItemDao.insert(
             CollectedItemEntity(
                 collectibleId = collectibleId,
                 source = source,
                 acquiredAt = acquiredAt.toEpochMilli(),
+                sessionId = sessionId,
             ),
         )
     }

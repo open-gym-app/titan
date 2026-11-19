@@ -51,7 +51,7 @@ import com.titan.core.domain.random.RandomSource
  */
 class DropTableEvaluator(
     private val random: RandomSource = RandomSource.SYSTEM,
-    private val catalogue: List<Collectible> = Collectibles.ALL,
+    private val catalogue: List<Collectible> = Collectibles.TROPHY_POOL,
 ) {
 
     /**

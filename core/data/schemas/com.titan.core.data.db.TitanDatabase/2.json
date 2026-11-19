@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 2,
-    "identityHash": "0037ca15769f37eb82c9cfa128282505",
+    "identityHash": "c1143ffe98fc1ca4ca8ca53b74808dd3",
     "entities": [
       {
         "tableName": "exercise",
@@ -1384,7 +1384,7 @@
       },
       {
         "tableName": "collected_item",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `collectible_id` TEXT NOT NULL, `source` TEXT NOT NULL, `acquired_at` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `collectible_id` TEXT NOT NULL, `source` TEXT NOT NULL, `acquired_at` INTEGER NOT NULL, `session_id` INTEGER, FOREIGN KEY(`session_id`) REFERENCES `workout_session`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
         "fields": [
           {
             "fieldPath": "id",
@@ -1409,6 +1409,11 @@
             "columnName": "acquired_at",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "session_id",
+            "affinity": "INTEGER"
           }
         ],
         "primaryKey": {
@@ -1426,6 +1431,28 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_collected_item_acquired_at` ON `${TABLE_NAME}` (`acquired_at`)"
+          },
+          {
+            "name": "index_collected_item_session_id",
+            "unique": false,
+            "columnNames": [
+              "session_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_collected_item_session_id` ON `${TABLE_NAME}` (`session_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "workout_session",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "session_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
           }
         ]
       },
@@ -1635,7 +1662,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0037ca15769f37eb82c9cfa128282505')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'c1143ffe98fc1ca4ca8ca53b74808dd3')"
     ]
   }
 }
