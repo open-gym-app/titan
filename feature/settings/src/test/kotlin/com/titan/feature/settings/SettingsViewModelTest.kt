@@ -1,6 +1,7 @@
 package com.titan.feature.settings
 
 import androidx.lifecycle.SavedStateHandle
+import com.titan.core.domain.healthconnect.HealthConnectAvailability
 import com.titan.core.domain.model.DataFootprint
 import com.titan.core.domain.model.FitnessLevel
 import com.titan.core.domain.model.OneRepMaxFormula
@@ -50,6 +51,7 @@ class SettingsViewModelTest {
     private val preferences = FakeUserPreferencesRepository()
     private val localData = FakeLocalDataRepository()
     private val notificationPermission = FakeNotificationPermission()
+    private val healthConnect = FakeHealthConnect()
     private val templates = FakeTemplateRepository("Push", "Legs", "Arms")
     private val defaults = FakeDefaultTemplateCatalogue("Push", "Legs", "Arms")
 
@@ -540,6 +542,33 @@ class SettingsViewModelTest {
             assertEquals(SettingsDialog.REST_DURATION, restored.uiState.value.dialog)
         }
 
+    // --- Health Connect -----------------------------------------------------
+
+    @Test
+    fun `the Health Connect row is offered where Health Connect is available`() =
+        runTest {
+            val viewModel = viewModel()
+            collectState(viewModel)
+
+            assertTrue(viewModel.uiState.value.healthConnectAvailable)
+        }
+
+    @Test
+    fun `the Health Connect row is withheld where it is not installed, and offered once it is`() =
+        runTest {
+            healthConnect.availability = HealthConnectAvailability.NOT_INSTALLED
+            val viewModel = viewModel()
+            collectState(viewModel)
+
+            assertFalse(viewModel.uiState.value.healthConnectAvailable)
+
+            // Installed from the Play Store while settings was in the background.
+            healthConnect.availability = HealthConnectAvailability.AVAILABLE
+            viewModel.onEvent(SettingsEvent.HealthConnectRechecked)
+
+            assertTrue(viewModel.uiState.value.healthConnectAvailable)
+        }
+
     // --- helpers ----------------------------------------------------------
 
     private fun viewModel(
@@ -555,6 +584,7 @@ class SettingsViewModelTest {
         notificationPermission,
         RequestNotificationPermissionUseCase(preferences, notificationPermission),
         RestoreDefaultTemplatesUseCase(defaults, templates, CreateTemplateUseCase(templates)),
+        healthConnect,
     )
 
     /** `WhileSubscribed` needs a subscriber, or the state never leaves its initial value. */

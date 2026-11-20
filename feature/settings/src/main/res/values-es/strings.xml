@@ -69,6 +69,7 @@
     <string name="settings_backup">Copia de seguridad y restauración</string>
     <string name="settings_backup_detail">Exporta todo a un archivo, o sustituye lo de este dispositivo desde uno</string>
     <string name="settings_health_connect">Health Connect</string>
+    <string name="settings_health_connect_detail">Comparte tus entrenamientos con otras apps de deporte</string>
     <string name="settings_delete_all">Eliminar todos los datos</string>
     <string name="settings_delete_all_detail">Borra todo lo de este dispositivo. Sin vuelta atrás.</string>
 
@@ -241,5 +242,43 @@
 
     <string name="reminder_inexact">Puede llegar tarde</string>
     <string name="reminder_inexact_detail">Las alarmas exactas están desactivadas para Titan, así que Android puede retrasar el recordatorio unos minutos.</string>
+
+    <!-- Health Connect -->
+    <string name="health_connect_intro">Titan puede escribir cada entrenamiento que terminas en Health Connect, donde otras apps de deporte lo ven, e importar los entrenamientos que ellas guardaron allí. Todo se queda en este teléfono.</string>
+    <string name="health_connect_group_connection">Conexión</string>
+    <string name="health_connect_connect">Conectar</string>
+    <string name="health_connect_connect_detail">Elige qué puede leer y escribir Titan</string>
+    <string name="health_connect_refused">Acceso no concedido</string>
+    <string name="health_connect_refused_detail">No se permitió nada. Puedes permitir el acceso a Titan en los ajustes de Health Connect.</string>
+    <string name="health_connect_manage">Gestionar el acceso en Health Connect</string>
+    <string name="health_connect_manage_detail">Cambia qué puede leer y escribir Titan</string>
+    <string name="health_connect_disconnect">Desconectar</string>
+    <string name="health_connect_disconnect_detail">Deja de compartir e importar. Los entrenamientos ya compartidos se quedan en Health Connect.</string>
+    <string name="health_connect_disconnect_in_settings_detail">Desactiva el acceso de Titan en Health Connect. Los entrenamientos ya compartidos se quedan allí.</string>
+    <string name="health_connect_group_workouts">Entrenamientos</string>
+    <string name="health_connect_write_on">Los entrenamientos terminados se comparten</string>
+    <string name="health_connect_write_on_detail">Cada uno se escribe en Health Connect al terminarlo</string>
+    <string name="health_connect_write_off">Los entrenamientos terminados no se comparten</string>
+    <string name="health_connect_write_off_detail">Permite a Titan escribir ejercicio en Health Connect para compartirlos</string>
+    <string name="health_connect_import">Importar los últimos 30 días</string>
+    <string name="health_connect_import_detail">Entrenamientos guardados por otras apps. Cada uno llega una sola vez, sin series.</string>
+    <string name="health_connect_import_blocked_detail">Permite a Titan leer ejercicio en Health Connect para importar</string>
+    <string name="health_connect_importing">Importando…</string>
+    <string name="health_connect_imported_none">No hay entrenamientos nuevos que importar</string>
+    <string name="health_connect_import_failed">No se pudo leer Health Connect. Inténtalo de nuevo.</string>
+    <string name="health_connect_disconnect_failed">No se pudo desconectar. Quita el acceso de Titan en Health Connect.</string>
+    <string name="health_connect_request_failed">No se pudo abrir Health Connect.</string>
+    <string name="health_connect_unavailable">Health Connect no está disponible en este teléfono.</string>
+    <string name="health_connect_rationale_title">Antes de que Health Connect te pregunte</string>
+    <string name="health_connect_rationale_body">Titan pide dos cosas.\n\nEscribir ejercicio: cada entrenamiento que terminas, con su tipo, cuándo empezó y terminó, su nombre y sus notas. No tus series ni tus pesos.\n\nLeer ejercicio: los entrenamientos que otras apps guardaron en los últimos 30 días, solo cuando los importas.\n\nNada sale de este teléfono. Puedes cambiar cualquiera de los dos en Health Connect cuando quieras.</string>
+    <string name="health_connect_rationale_continue">Continuar</string>
+    <string name="health_connect_rationale_cancel">Ahora no</string>
+    <string name="health_connect_privacy_title">Titan y Health Connect</string>
+    <string name="health_connect_privacy_policy">Leer la política de privacidad</string>
+    <plurals name="health_connect_imported">
+        <item quantity="one">%d entrenamiento importado</item>
+        <item quantity="many">%d entrenamientos importados</item>
+        <item quantity="other">%d entrenamientos importados</item>
+    </plurals>
 
 </resources>

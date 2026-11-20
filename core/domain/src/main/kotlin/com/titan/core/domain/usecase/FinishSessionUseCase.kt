@@ -1,5 +1,6 @@
 package com.titan.core.domain.usecase
 
+import com.titan.core.domain.healthconnect.HealthConnectSyncScheduler
 import com.titan.core.domain.model.FinishOrigin
 import com.titan.core.domain.model.FinishedSession
 import com.titan.core.domain.model.SessionError
@@ -81,6 +82,23 @@ import java.time.Instant
  * Holding a lifecycle mutex across a call into the notification system would serialise every
  * later transition behind an IPC for no gain.
  *
+ * ### And the workout is handed to Health Connect from here
+ *
+ * Outside the lock too, and just before the announcement, [healthConnectSync] is asked to write
+ * the session as an `ExerciseSessionRecord`, which it does when the user has granted the write
+ * (#54). Before rather than after, because the announcement rethrows a cancellation and a request
+ * behind it would be lost with it. From here for the reason the cascade
+ * is: the idle nudge's finish has no screen to do it from, and a sync that only the workout
+ * screen remembered would be a Health Connect history with holes where those workouts were.
+ *
+ * Asked, not done. The write is an IPC into another app's provider that most users never
+ * connected — on Android 14 and later it would still cost every finish a call to read the grant,
+ * and below that it can mean starting Health Connect's process from cold — and the recap would
+ * wait for it. So the request is queued and the finish returns; see [HealthConnectSyncScheduler]
+ * for why the queue is WorkManager and not a coroutine. Best-effort for the reason the
+ * announcement is: a queue that refuses the request must not turn a saved workout into a finish
+ * that failed.
+ *
  * @param completeSession the cascade, or **null** to close sessions out without one. The app
  *   always passes one — `SessionUseCaseModule` binds it non-optionally, since a workout that
  *   silently pays nothing is the failure this would otherwise hide. Null is for the tests of the
@@ -88,6 +106,9 @@ import java.time.Instant
  * @param announce what says the payoff out loud, or **null** to close sessions out silently.
  *   Null for the same reason [completeSession] is: a caller with no cascade has no progression
  *   to announce, and one that does not care to announce should not have to supply a no-op.
+ * @param healthConnectSync what queues the finished session's write to Health Connect, or
+ *   **null** to queue nothing. The app always passes one; whether anything is written is the
+ *   permission's business, decided when the queued work runs.
  */
 class FinishSessionUseCase(
     private val sessionRepository: SessionRepository,
@@ -97,6 +118,7 @@ class FinishSessionUseCase(
     private val lock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
     private val completeSession: SessionCompletionPipeline? = null,
     private val announce: ProgressionAnnouncer? = null,
+    private val healthConnectSync: HealthConnectSyncScheduler? = null,
 ) {
 
     /**
@@ -112,6 +134,15 @@ class FinishSessionUseCase(
         expected: SessionRef? = null,
     ): Result<FinishedSession> {
         val outcome = closeOutUnderLock(expected)
+
+        // Best-effort, like the announcement below, and ahead of it: the announcement rethrows a
+        // cancellation, and a request queued after it would be skipped by one — a saved workout
+        // missing from Health Connect because the caller's scope went while the notification
+        // was being posted. Only a request — the write itself runs later, off this path — so what
+        // could fail here is the queue, and a cancellation cannot arrive from it.
+        outcome.getOrNull()?.let { finished ->
+            runCatching { healthConnectSync?.requestSync(finished.summary.sessionId) }
+        }
 
         // Best-effort, and outside everything above: by here the workout is saved and its
         // payoff is banked, so a notification that could not be posted must not come back as a

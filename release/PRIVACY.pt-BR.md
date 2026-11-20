@@ -1,6 +1,6 @@
 # Política de privacidade do Titan
 
-*Em vigor desde 12 de novembro de 2026. Também disponível em [English](PRIVACY.md), [français](PRIVACY.fr.md) e [español](PRIVACY.es.md). Em caso de divergência, prevalece a versão em inglês.*
+*Em vigor desde 19 de novembro de 2026. Também disponível em [English](PRIVACY.md), [français](PRIVACY.fr.md) e [español](PRIVACY.es.md). Em caso de divergência, prevalece a versão em inglês.*
 
 O Titan é um diário de treino para Android. Ele é gratuito, de código aberto e feito por
 voluntários. Esta política cobre o app Titan (`app.titan.gym`) como publicado no Google
@@ -46,10 +46,27 @@ quando você desinstala o app.
 
 Peso, gordura corporal e medidas corporais são dados de saúde. O Titan os usa para uma
 única coisa: mostrar a você os seus próprios registros e a evolução deles. Eles nunca são
-transmitidos, vendidos, compartilhados nem usados para publicidade. O Titan não lê nem grava
-nada no Conexão Saúde (Health Connect) nem em qualquer outro serviço de saúde. Se uma versão
-futura adicionar a sincronização com o Conexão Saúde, esta política será atualizada antes do
-lançamento dessa versão, e a sincronização ficará desativada até que você a ative.
+transmitidos, vendidos, compartilhados nem usados para publicidade.
+
+**Conexão Saúde (Health Connect).** O Titan pode trocar treinos com o Conexão Saúde, o
+armazenamento de saúde do Android que fica no seu celular e que outros apps de exercício também
+usam. Isso fica desativado até você conectar em Configurações › Dados e privacidade › Conexão
+Saúde e permitir na janela do próprio Conexão Saúde, e você pode desconectar a qualquer
+momento, ali ou no Conexão Saúde. Depois de conectado:
+
+- Quando você termina um treino, o Titan o grava no Conexão Saúde como uma sessão de exercício:
+  o tipo, quando começou e terminou, o nome e as notas. Suas séries, cargas e repetições não são
+  gravadas.
+- Quando você escolhe **Importar os últimos 30 dias**, o Titan lê as sessões de exercício que
+  outros apps salvaram no Conexão Saúde nos últimos 30 dias e as adiciona ao seu histórico.
+
+O Titan só lê e grava sessões de exercício. Ele não lê nem grava seu peso, sua gordura
+corporal, sua frequência cardíaca nem qualquer outro dado do Conexão Saúde. O Conexão Saúde
+fica no seu celular, então nada disso sai dele. Os dados que o Titan lê do Conexão Saúde são
+usados só para mostrar a você o seu próprio histórico, e nunca são transmitidos, vendidos,
+compartilhados nem usados para publicidade. O que o Titan grava no Conexão Saúde pode ser lido
+lá pelos outros apps que você autorizou, nos termos deles; você pode ver e apagar isso no
+Conexão Saúde.
 
 ## O que o app não faz
 
@@ -92,6 +109,7 @@ Android.
 | `POST_NOTIFICATIONS` | Para mostrar as notificações acima. O Android 13 ou superior pergunta a você antes. |
 | `SCHEDULE_EXACT_ALARM` (Android 12 ou anterior) / `USE_EXACT_ALARM` | Para encerrar um descanso no segundo exato e disparar um lembrete de treino no horário escolhido. |
 | `RECEIVE_BOOT_COMPLETED` | Para agendar de novo os lembretes e o backup semanal depois que o celular reinicia. |
+| `health.READ_EXERCISE`, `health.WRITE_EXERCISE` | Para importar treinos do Conexão Saúde e gravar nele os que você termina, como descrito em § Dados de saúde. O Conexão Saúde pergunta a você antes, e nenhuma é concedida se você não conectar. |
 | `VIBRATE` | Para vibrar no fim de um descanso. |
 | `WAKE_LOCK`, `FOREGROUND_SERVICE`, `ACCESS_NETWORK_STATE` | Adicionadas pela biblioteca de agendamento de tarefas do Android (WorkManager), que executa o backup semanal. Nenhuma dá acesso à rede. |
 | `app.titan.gym.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | Adicionada pela biblioteca AndroidX core. Ela impede que outros apps enviem mensagens internas ao app. |

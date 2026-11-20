@@ -1,5 +1,6 @@
 package com.titan.core.data.di
 
+import com.titan.core.domain.healthconnect.HealthConnectSyncScheduler
 import com.titan.core.domain.notification.ProgressionAnnouncer
 import com.titan.core.domain.repository.InProgressSessionRepository
 import com.titan.core.domain.repository.SessionRepository
@@ -127,6 +128,7 @@ object SessionUseCaseModule {
         inProgressSessionRepository: InProgressSessionRepository,
         completeSession: SessionCompletionPipeline,
         announceProgression: ProgressionAnnouncer,
+        healthConnectSync: HealthConnectSyncScheduler,
         clock: Clock,
     ): FinishSessionUseCase =
         FinishSessionUseCase(
@@ -152,6 +154,11 @@ object SessionUseCaseModule {
             // nudge's "Finish now", where there is no screen at all — and a null here would
             // make that the finish that silently says nothing.
             announce = announceProgression,
+            // The finished workout, queued for Health Connect (#54). Non-optional for the reason
+            // the two above are: the finish that would otherwise be missing from Health Connect
+            // is the idle nudge's, which has no screen to do it from. Whether anything is
+            // written is the permission's business, asked when the queued work runs.
+            healthConnectSync = healthConnectSync,
         )
 
     @Provides
@@ -278,8 +285,10 @@ object SessionUseCaseModule {
 
     /** No state check either — a session logged last March is renamed the same way. */
     @Provides
-    fun provideRenameSessionUseCase(sessionRepository: SessionRepository): RenameSessionUseCase =
-        RenameSessionUseCase(sessionRepository)
+    fun provideRenameSessionUseCase(
+        sessionRepository: SessionRepository,
+        healthConnectSync: HealthConnectSyncScheduler,
+    ): RenameSessionUseCase = RenameSessionUseCase(sessionRepository, healthConnectSync)
 
     @Provides
     fun provideLogSetUseCase(

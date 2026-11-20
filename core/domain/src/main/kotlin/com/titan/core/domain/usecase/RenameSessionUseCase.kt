@@ -1,7 +1,9 @@
 package com.titan.core.domain.usecase
 
+import com.titan.core.domain.healthconnect.HealthConnectSyncScheduler
 import com.titan.core.domain.model.WorkoutSession
 import com.titan.core.domain.repository.SessionRepository
+import kotlinx.coroutines.CancellationException
 
 /**
  * Sets — or clears — what a session is called.
@@ -25,8 +27,20 @@ import com.titan.core.domain.repository.SessionRepository
  * transition and it is as useful on a session logged last March as on the one in progress —
  * which is the case that makes the check impossible rather than merely unnecessary, since a
  * finished session is by definition not active.
+ *
+ * ### A finished session's new name goes to Health Connect
+ *
+ * The name is the title of the record the finish wrote, so renaming a finished session asks
+ * [healthConnectSync] to write the record again. A session still running is left alone: its
+ * record is written when it finishes, under whatever it is called then.
+ *
+ * @param healthConnectSync what queues the rewrite, or **null** to queue nothing. The app always
+ *   passes one; null is for the tests of the rename itself.
  */
-class RenameSessionUseCase(private val sessionRepository: SessionRepository) {
+class RenameSessionUseCase(
+    private val sessionRepository: SessionRepository,
+    private val healthConnectSync: HealthConnectSyncScheduler? = null,
+) {
 
     /**
      * @param name what to call it, as typed. Blank or whitespace clears the name, which is the
@@ -56,6 +70,14 @@ class RenameSessionUseCase(private val sessionRepository: SessionRepository) {
         return runCatching {
             sessionRepository.update(session.copy(name = normalized))
             normalized
+        }.onFailure { failure ->
+            // A cancellation is not a failed rename: a caller whose scope has gone must not be
+            // told the call came back.
+            if (failure is CancellationException) throw failure
+        }.onSuccess {
+            // Best-effort: the rename is saved, and a queue that refused the request leaves an
+            // old title in Health Connect rather than a rename that did not happen.
+            if (session.completedAt != null) runCatching { healthConnectSync?.requestSync(sessionId) }
         }
     }
 }

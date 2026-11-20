@@ -228,7 +228,25 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
             assertUnder("observeSessionIdsWithRecords", STRESS_BUDGET_MS) {
                 db.personalRecordDao().observeSessionIdsWithRecords().first()
             }
+
+            assertHealthConnectImportQueriesFast()
         }
+
+    /**
+     * The Health Connect import's comparison set: a month of sessions by start, then the
+     * disciplines of what was done in them. Not a screen's read, but it runs while the user
+     * watches the import button, and the second query fans out over every session the first found.
+     */
+    private suspend fun assertHealthConnectImportQueriesFast() {
+        val month = WorkoutHistoryFixture.sessionCreatedAt(30)
+        val monthOfSessions = db.workoutSessionDao().getFinishedStartedBetween(0, month).map { it.id }
+        assertUnder("getFinishedStartedBetween over a one-month range", STRESS_BUDGET_MS) {
+            db.workoutSessionDao().getFinishedStartedBetween(0, month)
+        }
+        assertUnder("getPerformedDisciplines over a month of sessions", STRESS_BUDGET_MS) {
+            db.workoutSessionDao().getPerformedDisciplines(monthOfSessions)
+        }
+    }
 
     /**
      * One untimed query and one untimed page first. Without them the first

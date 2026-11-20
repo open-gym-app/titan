@@ -100,7 +100,7 @@ Read from the decoded release manifest.
 ### Permissions
 
 The list below is `release/compliance-checklist.md`'s, byte for byte, and matches the merged
-release manifest: eight `uses-permission` entries and AndroidX's signature permission.
+release manifest: ten `uses-permission` entries and AndroidX's signature permission.
 
 | Permission | Declared by | Justification |
 | --- | --- | --- |
@@ -108,6 +108,8 @@ release manifest: eight `uses-permission` entries and AndroidX's signature permi
 | `android.permission.SCHEDULE_EXACT_ALARM` (`maxSdkVersion="32"`) | `:core:data` | Exact alarm for the background rest timer, workout reminders and the unfinished-session note on Android 12 and below, where it is granted at install. |
 | `android.permission.USE_EXACT_ALARM` | `:core:data` | Exact alarm for the background rest timer, workout reminders and the unfinished-session note on Android 13+. Restricted by Play to alarm, calendar and **timer** apps; a user-started rest timer is a timer. Falls back to an inexact alarm if refused. |
 | `android.permission.RECEIVE_BOOT_COMPLETED` | `:core:data`, `androidx.work:work-runtime` | Reschedules reminder alarms after a reboot (`AlarmManager` keeps none) and lets WorkManager reschedule the weekly auto-backup. |
+| `android.permission.health.READ_EXERCISE` | `:core:data` | Health Connect (#54): reads exercise sessions other apps saved in the last 30 days, when the user imports them. Granted in Health Connect's own dialog, after an in-app rationale; never at install. |
+| `android.permission.health.WRITE_EXERCISE` | `:core:data` | Health Connect (#54): writes each finished workout as an exercise session (type, start and end, name, notes; no sets). Granted like the one above. |
 | `android.permission.VIBRATE` | `:core:ui` | The buzz at the end of a rest (`RestExpiryAlert`). |
 | `android.permission.WAKE_LOCK` | `androidx.work:work-runtime` | WorkManager holds a wake lock while the weekly auto-backup runs. |
 | `android.permission.ACCESS_NETWORK_STATE` | `androidx.work:work-runtime` | WorkManager's network constraints. The app sets none, and the permission reads connectivity state only; it cannot open a socket. |
@@ -141,6 +143,8 @@ Every component of the merged release manifest with `exported="true"`:
 | Component | Reached by | Why it is exported, and what checks the input |
 | --- | --- | --- |
 | `com.titan.app.MainActivity` | Launcher; `VIEW` + `titan://session/…`, `titan://progression/…` | The launcher entry and the target of the app's own notification links. Every incoming intent is replaced before Navigation reads it (`forNavigation` in `MainActivity.kt`): only the action survives, plus the `titan://` link when the action is `VIEW`, so Navigation's `deepLinkIds`/`deepLinkExtras` and any other extras are dropped. See *Deep links*. |
+| `com.titan.app.HealthConnectPrivacyActivity` | `androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE` (Health Connect's permission dialog, Android 13 and below) | Health Connect will not show its permission dialog to an app with no activity answering this (#54). It reads no extras and no data, and writes nothing: it draws a page of text and a button that opens the privacy policy in the browser, then finishes. |
+| `com.titan.app.ViewPermissionUsageActivity` (alias of `HealthConnectPrivacyActivity`) | `VIEW_PERMISSION_USAGE` + `HEALTH_PERMISSIONS` (Health Connect's settings, Android 14+) | `permission="android.permission.START_VIEW_PERMISSION_USAGE"`: only the system can start it. Same page as the activity above. |
 | `com.titan.core.data.notification.BootReceiver` | `BOOT_COMPLETED`, `MY_PACKAGE_REPLACED`, `TIMEZONE_CHANGED`, `TIME_SET`, `SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED` | System broadcasts only reach an exported receiver. All five are protected broadcasts that only the system can send. The receiver checks the action against the same list and ignores anything else; its only effect is `ReminderScheduler.sync()`, which is idempotent. |
 | `androidx.work.impl.background.systemjob.SystemJobService` | `JobScheduler` | `permission="android.permission.BIND_JOB_SERVICE"`: only the system can bind. |
 | `androidx.work.impl.diagnostics.DiagnosticsReceiver` | `adb` | `permission="android.permission.DUMP"`: shell and system only. |

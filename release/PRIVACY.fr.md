@@ -1,6 +1,6 @@
 # Politique de confidentialité de Titan
 
-*En vigueur le 12 novembre 2026. Également disponible en [English](PRIVACY.md), [español](PRIVACY.es.md) et [português (Brasil)](PRIVACY.pt-BR.md). En cas de divergence, la version anglaise fait foi.*
+*En vigueur le 19 novembre 2026. Également disponible en [English](PRIVACY.md), [español](PRIVACY.es.md) et [português (Brasil)](PRIVACY.pt-BR.md). En cas de divergence, la version anglaise fait foi.*
 
 Titan est un carnet d’entraînement pour Android. Il est gratuit, open source et développé
 par des bénévoles. Cette politique couvre l’application Titan (`app.titan.gym`) telle
@@ -49,11 +49,28 @@ lorsque vous désinstallez l’application.
 
 Le poids, la masse grasse et les mensurations sont des données de santé. Titan ne s’en sert
 que pour une chose : vous montrer vos propres mesures et leur évolution. Elles ne sont jamais
-transmises, vendues, partagées ni utilisées à des fins publicitaires. Titan ne lit ni
-n’écrit rien dans Santé Connect (Health Connect) ni dans aucun autre service de santé. Si une
-future version ajoute une synchronisation avec Santé Connect, cette politique sera mise à jour
-avant sa publication, et la synchronisation restera désactivée tant que vous ne l’activerez
-pas.
+transmises, vendues, partagées ni utilisées à des fins publicitaires.
+
+**Santé Connect (Health Connect).** Titan peut échanger des séances avec Santé Connect, le
+stockage de santé d’Android situé sur votre téléphone, qu’utilisent aussi d’autres applis de
+sport. L’échange est désactivé tant que vous ne le connectez pas dans Paramètres › Données &
+confidentialité › Santé Connect et ne l’autorisez pas dans la fenêtre de Santé Connect, et
+vous pouvez le déconnecter à tout moment, là ou dans Santé Connect. Une fois connecté :
+
+- Quand vous terminez une séance, Titan l’écrit dans Santé Connect comme une session
+  d’activité physique : son type, son début et sa fin, son nom et ses notes. Vos séries, charges
+  et répétitions ne sont pas écrites.
+- Quand vous choisissez **Importer les 30 derniers jours**, Titan lit les séances que d’autres
+  applis ont enregistrées dans Santé Connect au cours des 30 derniers jours et les ajoute à votre
+  historique.
+
+Titan ne lit et n’écrit que des sessions d’activité physique. Il ne lit ni n’écrit votre poids,
+votre masse grasse, votre fréquence cardiaque ni aucune autre donnée de Santé Connect. Santé
+Connect se trouve sur votre téléphone : rien de tout cela n’en sort. Les données que Titan lit
+dans Santé Connect ne servent qu’à vous montrer votre propre historique, et ne sont jamais
+transmises, vendues, partagées ni utilisées à des fins publicitaires. Ce que Titan écrit dans
+Santé Connect peut y être lu par les autres applis que vous y avez autorisées, selon leurs
+propres conditions ; vous pouvez le consulter et le supprimer dans Santé Connect.
 
 ## Ce que l’application ne fait pas
 
@@ -97,6 +114,7 @@ Notifications ou dans les paramètres d’Android.
 | `POST_NOTIFICATIONS` | Pour afficher les notifications ci-dessus. Android 13 et plus vous le demande d’abord. |
 | `SCHEDULE_EXACT_ALARM` (Android 12 et antérieur) / `USE_EXACT_ALARM` | Pour terminer un repos à la seconde près, et déclencher un rappel d’entraînement à l’heure choisie. |
 | `RECEIVE_BOOT_COMPLETED` | Pour reprogrammer vos rappels et la sauvegarde hebdomadaire après un redémarrage du téléphone. |
+| `health.READ_EXERCISE`, `health.WRITE_EXERCISE` | Pour importer des séances depuis Santé Connect et y écrire celles que vous terminez, comme décrit dans § Données de santé. Santé Connect vous le demande d’abord, et aucune n’est accordée si vous ne le connectez pas. |
 | `VIBRATE` | Pour vibrer à la fin d’un repos. |
 | `WAKE_LOCK`, `FOREGROUND_SERVICE`, `ACCESS_NETWORK_STATE` | Ajoutées par la bibliothèque de planification de tâches d’Android (WorkManager), qui exécute la sauvegarde hebdomadaire. Aucune ne donne accès au réseau. |
 | `app.titan.gym.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | Ajoutée par la bibliothèque AndroidX core. Elle empêche d’autres applications d’envoyer des messages internes à l’application. |

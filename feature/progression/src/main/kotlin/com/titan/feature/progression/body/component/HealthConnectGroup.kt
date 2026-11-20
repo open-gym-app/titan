@@ -13,7 +13,8 @@ import com.titan.core.ui.theme.TitanTheme
 import com.titan.feature.progression.R
 
 /**
- * The Health Connect row, disabled until #54 builds what is behind it.
+ * The Health Connect row, disabled: workouts sync with Health Connect (#54), body measurements
+ * do not yet (#350).
  *
  * Present, in its final position, and visibly unavailable — the decision #M4-23 recorded for
  * the settings screen, held to here so the two say the same thing in the same shape. The row

@@ -55,6 +55,7 @@ import com.titan.feature.session.navigation.SessionSummaryDestination
 import com.titan.feature.session.navigation.sessionGraph
 import com.titan.feature.session.navigation.sessionSummaryGraph
 import com.titan.feature.settings.navigation.BackupDestination
+import com.titan.feature.settings.navigation.HealthConnectDestination
 import com.titan.feature.settings.navigation.OpenSourceLicencesDestination
 import com.titan.feature.settings.navigation.ReminderDestination
 import com.titan.feature.settings.navigation.settingsGraph
@@ -484,6 +485,11 @@ fun TitanNavHost(
             // same reason as the row above it.
             onOpenLicences = {
                 navController.navigate(OpenSourceLicencesDestination) { launchSingleTop = true }
+            },
+            // A push over settings, which is itself outside the tabs, and single-top for the
+            // same reason as the row above it.
+            onOpenHealthConnect = {
+                navController.navigate(HealthConnectDestination) { launchSingleTop = true }
             },
         )
     }
