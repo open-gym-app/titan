@@ -1,6 +1,6 @@
 # Politique de confidentialité de Titan
 
-*En vigueur le 19 novembre 2026. Également disponible en [English](PRIVACY.md), [español](PRIVACY.es.md) et [português (Brasil)](PRIVACY.pt-BR.md). En cas de divergence, la version anglaise fait foi.*
+*En vigueur le 20 novembre 2026. Également disponible en [English](PRIVACY.md), [español](PRIVACY.es.md) et [português (Brasil)](PRIVACY.pt-BR.md). En cas de divergence, la version anglaise fait foi.*
 
 Titan est un carnet d’entraînement pour Android. Il est gratuit, open source et développé
 par des bénévoles. Cette politique couvre l’application Titan (`app.titan.gym`) telle
@@ -49,23 +49,33 @@ lorsque vous désinstallez l’application.
 
 Le poids, la masse grasse et les mensurations sont des données de santé. Titan ne s’en sert
 que pour une chose : vous montrer vos propres mesures et leur évolution. Elles ne sont jamais
-transmises, vendues, partagées ni utilisées à des fins publicitaires.
+transmises, vendues ni utilisées à des fins publicitaires, et ne sont partagées qu’avec Santé
+Connect sur votre téléphone, si vous le connectez, comme décrit ci-dessous.
 
-**Santé Connect (Health Connect).** Titan peut échanger des séances avec Santé Connect, le
-stockage de santé d’Android situé sur votre téléphone, qu’utilisent aussi d’autres applis de
-sport. L’échange est désactivé tant que vous ne le connectez pas dans Paramètres › Données &
-confidentialité › Santé Connect et ne l’autorisez pas dans la fenêtre de Santé Connect, et
-vous pouvez le déconnecter à tout moment, là ou dans Santé Connect. Une fois connecté :
+**Santé Connect (Health Connect).** Titan peut échanger des séances, votre poids et votre masse
+grasse avec Santé Connect, le stockage de santé d’Android situé sur votre téléphone,
+qu’utilisent aussi d’autres applis de sport. L’échange est désactivé tant que vous ne le
+connectez pas dans Paramètres › Données & confidentialité › Santé Connect et ne l’autorisez pas
+dans la fenêtre de Santé Connect, et vous pouvez le déconnecter à tout moment, là ou dans Santé
+Connect. Une fois connecté :
 
 - Quand vous terminez une séance, Titan l’écrit dans Santé Connect comme une session
   d’activité physique : son type, son début et sa fin, son nom et ses notes. Vos séries, charges
   et répétitions ne sont pas écrites.
-- Quand vous choisissez **Importer les 30 derniers jours**, Titan lit les séances que d’autres
-  applis ont enregistrées dans Santé Connect au cours des 30 derniers jours et les ajoute à votre
-  historique.
+- Quand vous choisissez **Importer les 30 derniers jours** sous Séances, Titan lit les séances
+  que d’autres applis ont enregistrées dans Santé Connect au cours des 30 derniers jours et les
+  ajoute à votre historique.
+- Quand vous notez, modifiez ou supprimez une mesure, Titan écrit son poids et sa masse grasse
+  dans Santé Connect, ou les en retire, avec le moment où vous l’avez prise. Vos autres
+  mensurations (poitrine, taille, bras, cuisse) et vos notes ne sont pas écrites.
+- Quand vous choisissez **Importer les 30 derniers jours** sous Poids et masse grasse, Titan lit
+  les poids et les mesures de masse grasse que d’autres applis ont enregistrés dans Santé Connect
+  au cours des 30 derniers jours et les ajoute à vos mesures.
 
-Titan ne lit et n’écrit que des sessions d’activité physique. Il ne lit ni n’écrit votre poids,
-votre masse grasse, votre fréquence cardiaque ni aucune autre donnée de Santé Connect. Santé
+Chacun de ces échanges demande sa propre autorisation, que vous accordez ou refusez dans la
+fenêtre de Santé Connect. Titan ne lit et n’écrit que des sessions d’activité physique, le poids
+et la masse grasse. Il ne lit ni n’écrit votre fréquence cardiaque ni aucune autre donnée de
+Santé Connect. Santé
 Connect se trouve sur votre téléphone : rien de tout cela n’en sort. Les données que Titan lit
 dans Santé Connect ne servent qu’à vous montrer votre propre historique, et ne sont jamais
 transmises, vendues, partagées ni utilisées à des fins publicitaires. Ce que Titan écrit dans
@@ -115,6 +125,7 @@ Notifications ou dans les paramètres d’Android.
 | `SCHEDULE_EXACT_ALARM` (Android 12 et antérieur) / `USE_EXACT_ALARM` | Pour terminer un repos à la seconde près, et déclencher un rappel d’entraînement à l’heure choisie. |
 | `RECEIVE_BOOT_COMPLETED` | Pour reprogrammer vos rappels et la sauvegarde hebdomadaire après un redémarrage du téléphone. |
 | `health.READ_EXERCISE`, `health.WRITE_EXERCISE` | Pour importer des séances depuis Santé Connect et y écrire celles que vous terminez, comme décrit dans § Données de santé. Santé Connect vous le demande d’abord, et aucune n’est accordée si vous ne le connectez pas. |
+| `health.READ_WEIGHT`, `health.WRITE_WEIGHT`, `health.READ_BODY_FAT`, `health.WRITE_BODY_FAT` | Pour importer le poids et la masse grasse depuis Santé Connect et y écrire ceux que vous notez, comme décrit dans § Données de santé. Accordées de la même manière que les deux précédentes. |
 | `VIBRATE` | Pour vibrer à la fin d’un repos. |
 | `WAKE_LOCK`, `FOREGROUND_SERVICE`, `ACCESS_NETWORK_STATE` | Ajoutées par la bibliothèque de planification de tâches d’Android (WorkManager), qui exécute la sauvegarde hebdomadaire. Aucune ne donne accès au réseau. |
 | `app.titan.gym.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | Ajoutée par la bibliothèque AndroidX core. Elle empêche d’autres applications d’envoyer des messages internes à l’application. |

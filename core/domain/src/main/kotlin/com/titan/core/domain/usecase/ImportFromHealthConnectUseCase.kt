@@ -72,8 +72,8 @@ class ImportFromHealthConnectUseCase(
     }
 
     private suspend fun import(): Result<HealthConnectImport> {
-        if (HealthConnectAccess.READ !in healthConnect.grantedAccess()) {
-            return Result.failure(HealthConnectError.NotPermitted(HealthConnectAccess.READ))
+        if (HealthConnectAccess.READ_EXERCISE !in healthConnect.grantedAccess()) {
+            return Result.failure(HealthConnectError.NotPermitted(HealthConnectAccess.READ_EXERCISE))
         }
 
         val now = clock.nowMillis()

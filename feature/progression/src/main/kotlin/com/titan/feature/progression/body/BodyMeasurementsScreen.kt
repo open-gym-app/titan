@@ -31,6 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.titan.core.domain.model.BodyMeasurement
 import com.titan.core.domain.model.ThemePreference
@@ -50,22 +52,31 @@ import com.titan.feature.progression.stats.component.TimeframeSelector
 /**
  * The body screen, wired.
  *
- * Takes its way out as an ordinary parameter rather than reaching for a `NavController`, the
- * rule every screen in this codebase follows. There is only one way out: logging is a sheet
- * over this screen rather than a destination — see [BodyMeasurementsViewModel].
+ * Takes its ways out as ordinary parameters rather than reaching for a `NavController`, the
+ * rule every screen in this codebase follows. There are two: back, and the Health Connect
+ * screen. Logging is a sheet over this screen rather than a destination — see
+ * [BodyMeasurementsViewModel].
+ *
+ * Health Connect's availability is read again on every resume, as the settings row's is: the
+ * user can install it from the Play Store and come back, and the row should be there when they
+ * do.
  */
 @Composable
 fun BodyMeasurementsRoute(
     onBack: () -> Unit,
+    onOpenHealthConnect: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: BodyMeasurementsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onEvent(BodyMeasurementsEvent.HealthConnectRechecked) }
+
     BodyMeasurementsScreen(
         state = state,
         onEvent = viewModel::onEvent,
         onBack = onBack,
+        onOpenHealthConnect = onOpenHealthConnect,
         modifier = modifier,
     )
 }
@@ -85,7 +96,7 @@ fun BodyMeasurementsRoute(
  *
  * A user who has logged nothing gets the line that says so and the way to start, and the Health
  * Connect row stays under it — they are exactly the person deciding between typing measurements
- * in and waiting for the sync. The timeframe selector goes with the readings: a window over an
+ * in and importing them. The timeframe selector goes with the readings: a window over an
  * empty history is a control with nothing to do.
  *
  * ### One empty state, not three
@@ -102,6 +113,7 @@ fun BodyMeasurementsScreen(
     state: BodyMeasurementsUiState,
     onEvent: (BodyMeasurementsEvent) -> Unit,
     onBack: () -> Unit,
+    onOpenHealthConnect: () -> Unit,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
@@ -184,7 +196,9 @@ fun BodyMeasurementsScreen(
                 readings(state = state, onEvent = onEvent)
             }
 
-            item { HealthConnectGroup() }
+            if (state.healthConnectAvailable) {
+                item { HealthConnectGroup(onOpen = onOpenHealthConnect) }
+            }
 
             if (state.history.isNotEmpty()) {
                 history(state = state, onEvent = onEvent)
@@ -261,7 +275,7 @@ private fun EmptyBody(onEvent: (BodyMeasurementsEvent) -> Unit) {
 @Composable
 fun BodyMeasurementsScreenPreview() {
     TitanTheme(theme = ThemePreference.LIGHT) {
-        BodyMeasurementsScreen(state = previewBodyState(), onEvent = {}, onBack = {})
+        BodyMeasurementsScreen(state = previewBodyState(), onEvent = {}, onBack = {}, onOpenHealthConnect = {})
     }
 }
 
@@ -283,7 +297,7 @@ fun BodyMeasurementsScreenPreview() {
 @Composable
 fun BodyMeasurementsScreenLargeFontPreview() {
     TitanTheme(theme = ThemePreference.LIGHT) {
-        BodyMeasurementsScreen(state = previewBodyState(), onEvent = {}, onBack = {})
+        BodyMeasurementsScreen(state = previewBodyState(), onEvent = {}, onBack = {}, onOpenHealthConnect = {})
     }
 }
 
@@ -291,7 +305,7 @@ fun BodyMeasurementsScreenLargeFontPreview() {
 @Composable
 fun BodyMeasurementsScreenDarkPreview() {
     TitanTheme(theme = ThemePreference.DARK) {
-        BodyMeasurementsScreen(state = previewBodyState(), onEvent = {}, onBack = {})
+        BodyMeasurementsScreen(state = previewBodyState(), onEvent = {}, onBack = {}, onOpenHealthConnect = {})
     }
 }
 
@@ -299,7 +313,7 @@ fun BodyMeasurementsScreenDarkPreview() {
 @Composable
 fun BodyMeasurementsWeightOnlyPreview() {
     TitanTheme(theme = ThemePreference.LIGHT) {
-        BodyMeasurementsScreen(state = previewWeightOnlyState(), onEvent = {}, onBack = {})
+        BodyMeasurementsScreen(state = previewWeightOnlyState(), onEvent = {}, onBack = {}, onOpenHealthConnect = {})
     }
 }
 
@@ -311,6 +325,7 @@ fun BodyMeasurementsEmptyPreview() {
             state = BodyMeasurementsUiState(isLoading = false),
             onEvent = {},
             onBack = {},
+            onOpenHealthConnect = {},
         )
     }
 }
@@ -324,6 +339,7 @@ fun BodyMeasurementsFormPreview() {
             state = state.copy(form = state.history.first().copy(id = NEW_ENTRY)),
             onEvent = {},
             onBack = {},
+            onOpenHealthConnect = {},
         )
     }
 }

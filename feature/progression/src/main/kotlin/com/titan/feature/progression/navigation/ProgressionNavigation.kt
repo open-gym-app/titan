@@ -116,11 +116,14 @@ fun NavGraphBuilder.progressionGraph(actions: StatsExploreActions) {
  *   opens is a *routing* decision, and `:app` is where every other one of those is made.
  * @param onOpenAchievements the quest log's milestone row was tapped. Hoisted for the same
  *   reason, and named for the event rather than the destination as everything here is.
+ * @param onOpenHealthConnect the body screen's Health Connect row was tapped. Hoisted because
+ *   the screen it opens is the settings feature's, and features never reach each other.
  */
 fun NavGraphBuilder.progressionDetailGraph(
     onBack: () -> Unit,
     onOpenExerciseProgression: (Long) -> Unit,
     onOpenAchievements: () -> Unit,
+    onOpenHealthConnect: () -> Unit,
 ) {
     composable<PersonalRecordsDestination> {
         PersonalRecordsRoute(onBack = onBack, onOpenExercise = onOpenExerciseProgression)
@@ -139,6 +142,6 @@ fun NavGraphBuilder.progressionDetailGraph(
         AchievementsRoute(onBack = onBack)
     }
     composable<BodyMeasurementsDestination> {
-        BodyMeasurementsRoute(onBack = onBack)
+        BodyMeasurementsRoute(onBack = onBack, onOpenHealthConnect = onOpenHealthConnect)
     }
 }

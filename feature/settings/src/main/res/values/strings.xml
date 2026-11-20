@@ -74,7 +74,7 @@
     <string name="settings_backup">Backup &amp; restore</string>
     <string name="settings_backup_detail">Export everything to a file, or replace this device from one</string>
     <string name="settings_health_connect">Health Connect</string>
-    <string name="settings_health_connect_detail">Share workouts with other fitness apps</string>
+    <string name="settings_health_connect_detail">Share workouts, weight and body fat with other fitness apps</string>
     <string name="settings_delete_all">Delete all data</string>
     <string name="settings_delete_all_detail">Erases everything on this device. No undo.</string>
 
@@ -273,7 +273,7 @@
          explanation shown before Health Connect's own permission dialog, and the page Health
          Connect opens when the user asks why Titan wants access. Exercise sessions only: what
          is written is a workout's type, times, name and notes, never its sets. -->
-    <string name="health_connect_intro">Titan can write every workout you finish to Health Connect, where other fitness apps can see it, and bring in workouts they saved there. It all stays on this phone.</string>
+    <string name="health_connect_intro">Titan can write every workout you finish, and the weight and body fat you log, to Health Connect, where other fitness apps can see them, and bring in what they saved there. It all stays on this phone.</string>
     <string name="health_connect_group_connection">Connection</string>
     <string name="health_connect_connect">Connect</string>
     <string name="health_connect_connect_detail">Choose what Titan may read and write</string>
@@ -282,8 +282,8 @@
     <string name="health_connect_manage">Manage access in Health Connect</string>
     <string name="health_connect_manage_detail">Change what Titan may read and write</string>
     <string name="health_connect_disconnect">Disconnect</string>
-    <string name="health_connect_disconnect_detail">Stop sharing and importing. Workouts already shared stay in Health Connect.</string>
-    <string name="health_connect_disconnect_in_settings_detail">Turn off Titan’s access in Health Connect. Workouts already shared stay there.</string>
+    <string name="health_connect_disconnect_detail">Stop sharing and importing. What was already shared stays in Health Connect.</string>
+    <string name="health_connect_disconnect_in_settings_detail">Turn off Titan’s access in Health Connect. What was already shared stays there.</string>
     <string name="health_connect_group_workouts">Workouts</string>
     <string name="health_connect_write_on">Finished workouts are shared</string>
     <string name="health_connect_write_on_detail">Each one is written to Health Connect when you finish it</string>
@@ -294,12 +294,24 @@
     <string name="health_connect_import_blocked_detail">Allow Titan to read exercise in Health Connect to import</string>
     <string name="health_connect_importing">Importing…</string>
     <string name="health_connect_imported_none">No new workouts to import</string>
+    <string name="health_connect_group_body">Weight and body fat</string>
+    <string name="health_connect_body_write_on">Weight and body fat are shared</string>
+    <string name="health_connect_body_write_on_detail">Each one is written to Health Connect when you save it</string>
+    <string name="health_connect_body_write_weight">Weight is shared</string>
+    <string name="health_connect_body_write_weight_detail">Allow Titan to write body fat in Health Connect to share it too</string>
+    <string name="health_connect_body_write_body_fat">Body fat is shared</string>
+    <string name="health_connect_body_write_body_fat_detail">Allow Titan to write weight in Health Connect to share it too</string>
+    <string name="health_connect_body_write_off">Weight and body fat are not shared</string>
+    <string name="health_connect_body_write_off_detail">Allow Titan to write weight and body fat in Health Connect to share them</string>
+    <string name="health_connect_body_import_detail">What other apps saved. Each measurement comes in once.</string>
+    <string name="health_connect_body_import_blocked_detail">Allow Titan to read weight or body fat in Health Connect to import</string>
+    <string name="health_connect_imported_measurements_none">No new measurements to import</string>
     <string name="health_connect_import_failed">Health Connect could not be read. Try again.</string>
     <string name="health_connect_disconnect_failed">Could not disconnect. Remove Titan’s access in Health Connect instead.</string>
     <string name="health_connect_request_failed">Health Connect could not be opened.</string>
     <string name="health_connect_unavailable">Health Connect is not available on this phone.</string>
     <string name="health_connect_rationale_title">Before Health Connect asks</string>
-    <string name="health_connect_rationale_body">Titan asks for two things.\n\nWrite exercise: each workout you finish, with its type, when it started and ended, its name and notes. Not your sets or weights.\n\nRead exercise: workouts other apps saved in the last 30 days, only when you import them.\n\nNothing leaves this phone. You can change either in Health Connect at any time.</string>
+    <string name="health_connect_rationale_body">Titan asks for four things.\n\nWrite exercise: each workout you finish, with its type, when it started and ended, its name and notes. Not your sets or the loads you lifted.\n\nRead exercise: workouts other apps saved in the last 30 days, only when you import them.\n\nWrite weight and body fat: each one you log, with when you measured it. Not your other measurements or notes.\n\nRead weight and body fat: what other apps saved in the last 30 days, only when you import it.\n\nNothing leaves this phone. You can change any of them in Health Connect at any time.</string>
     <string name="health_connect_rationale_continue">Continue</string>
     <string name="health_connect_rationale_cancel">Not now</string>
     <string name="health_connect_privacy_title">Titan and Health Connect</string>
@@ -307,6 +319,10 @@
     <plurals name="health_connect_imported">
         <item quantity="one">%d workout imported</item>
         <item quantity="other">%d workouts imported</item>
+    </plurals>
+    <plurals name="health_connect_imported_measurements">
+        <item quantity="one">%d measurement imported</item>
+        <item quantity="other">%d measurements imported</item>
     </plurals>
 
 </resources>

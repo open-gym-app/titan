@@ -10,6 +10,9 @@ import androidx.work.workDataOf
 import com.titan.core.domain.healthconnect.HealthConnect
 import com.titan.core.domain.healthconnect.HealthConnectAccess
 import com.titan.core.domain.healthconnect.HealthConnectAvailability
+import com.titan.core.domain.healthconnect.HealthConnectBodyMetric
+import com.titan.core.domain.healthconnect.HealthConnectBodyReading
+import com.titan.core.domain.healthconnect.HealthConnectBodyRecord
 import com.titan.core.domain.healthconnect.HealthConnectRecord
 import com.titan.core.domain.healthconnect.HealthConnectSession
 import com.titan.core.domain.model.WorkoutSession
@@ -133,6 +136,24 @@ class HealthConnectSyncWorkerTest {
             startedFrom: Long,
             startedUntil: Long,
         ): List<HealthConnectRecord> = error("the sync never reads")
+
+        override suspend fun writeBodyReading(
+            measurementId: Long,
+            version: Long,
+            reading: HealthConnectBodyReading,
+        ) = error("the session sync never writes a body reading")
+
+        override suspend fun deleteBodyReading(
+            measurementId: Long,
+            measuredAt: Long,
+            metric: HealthConnectBodyMetric,
+        ) = error("the session sync never deletes a body reading")
+
+        override suspend fun readBodyReadings(
+            metric: HealthConnectBodyMetric,
+            measuredFrom: Long,
+            measuredUntil: Long,
+        ): List<HealthConnectBodyRecord> = error("the sync never reads")
 
         override val canRevokeAccess: Boolean = true
 

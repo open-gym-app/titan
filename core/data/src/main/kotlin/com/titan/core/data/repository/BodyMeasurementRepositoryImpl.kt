@@ -26,8 +26,21 @@ class BodyMeasurementRepositoryImpl @Inject constructor(
     override fun getLatest(): Flow<BodyMeasurement?> =
         bodyMeasurementDao.getLatest().map { row -> row?.let(bodyMeasurementMapper::toDomain) }
 
+    override suspend fun get(id: Long): BodyMeasurement? =
+        bodyMeasurementDao.get(id)?.let(bodyMeasurementMapper::toDomain)
+
+    override suspend fun getMeasuredBetween(
+        measuredFrom: Long,
+        measuredUntil: Long,
+    ): List<BodyMeasurement> =
+        bodyMeasurementDao.getMeasuredBetween(measuredFrom, measuredUntil).map(bodyMeasurementMapper::toDomain)
+
     override suspend fun insert(measurement: BodyMeasurement): Long =
         bodyMeasurementDao.insert(bodyMeasurementMapper.toEntity(measurement))
+
+    override suspend fun insertAll(measurements: List<BodyMeasurement>) {
+        bodyMeasurementDao.insertAll(measurements.map(bodyMeasurementMapper::toEntity))
+    }
 
     override suspend fun update(measurement: BodyMeasurement) {
         bodyMeasurementDao.update(bodyMeasurementMapper.toEntity(measurement))

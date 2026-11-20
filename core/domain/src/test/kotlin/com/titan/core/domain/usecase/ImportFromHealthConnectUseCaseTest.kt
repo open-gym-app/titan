@@ -182,11 +182,11 @@ class ImportFromHealthConnectUseCaseTest {
     fun `nothing is read without the read permission`() =
         runTest {
             record(id = "run-1")
-            healthConnect.granted = setOf(HealthConnectAccess.WRITE)
+            healthConnect.granted = setOf(HealthConnectAccess.WRITE_EXERCISE)
 
             val error = import().exceptionOrNull()
 
-            assertEquals(HealthConnectError.NotPermitted(HealthConnectAccess.READ), error)
+            assertEquals(HealthConnectError.NotPermitted(HealthConnectAccess.READ_EXERCISE), error)
             assertTrue(healthConnect.reads.isEmpty())
         }
 

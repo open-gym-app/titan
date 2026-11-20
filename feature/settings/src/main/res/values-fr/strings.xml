@@ -69,7 +69,7 @@
     <string name="settings_backup">Sauvegarde &amp; restauration</string>
     <string name="settings_backup_detail">Exportez tout dans un fichier, ou remplacez cet appareil à partir d’un fichier</string>
     <string name="settings_health_connect">Santé Connect</string>
-    <string name="settings_health_connect_detail">Partagez vos séances avec d’autres applis de sport</string>
+    <string name="settings_health_connect_detail">Partagez vos séances, votre poids et votre masse grasse avec d’autres applis de sport</string>
     <string name="settings_delete_all">Supprimer toutes les données</string>
     <string name="settings_delete_all_detail">Efface tout sur cet appareil. Sans retour possible.</string>
 
@@ -244,7 +244,7 @@
     <string name="reminder_inexact_detail">Les alarmes exactes sont désactivées pour Titan, donc Android peut retenir le rappel quelques minutes.</string>
 
     <!-- Health Connect -->
-    <string name="health_connect_intro">Titan peut écrire chaque séance terminée dans Santé Connect, où d’autres applis de sport la voient, et importer les séances qu’elles y ont enregistrées. Tout reste sur ce téléphone.</string>
+    <string name="health_connect_intro">Titan peut écrire chaque séance terminée, ainsi que le poids et la masse grasse que vous notez, dans Santé Connect, où d’autres applis de sport les voient, et importer ce qu’elles y ont enregistré. Tout reste sur ce téléphone.</string>
     <string name="health_connect_group_connection">Connexion</string>
     <string name="health_connect_connect">Connecter</string>
     <string name="health_connect_connect_detail">Choisissez ce que Titan peut lire et écrire</string>
@@ -253,8 +253,8 @@
     <string name="health_connect_manage">Gérer l’accès dans Santé Connect</string>
     <string name="health_connect_manage_detail">Modifiez ce que Titan peut lire et écrire</string>
     <string name="health_connect_disconnect">Déconnecter</string>
-    <string name="health_connect_disconnect_detail">Arrête le partage et l’import. Les séances déjà partagées restent dans Santé Connect.</string>
-    <string name="health_connect_disconnect_in_settings_detail">Désactivez l’accès de Titan dans Santé Connect. Les séances déjà partagées y restent.</string>
+    <string name="health_connect_disconnect_detail">Arrête le partage et l’import. Ce qui a déjà été partagé reste dans Santé Connect.</string>
+    <string name="health_connect_disconnect_in_settings_detail">Désactivez l’accès de Titan dans Santé Connect. Ce qui a déjà été partagé y reste.</string>
     <string name="health_connect_group_workouts">Séances</string>
     <string name="health_connect_write_on">Les séances terminées sont partagées</string>
     <string name="health_connect_write_on_detail">Chacune est écrite dans Santé Connect à la fin de la séance</string>
@@ -265,12 +265,24 @@
     <string name="health_connect_import_blocked_detail">Autorisez Titan à lire l’activité physique dans Santé Connect pour importer</string>
     <string name="health_connect_importing">Import en cours…</string>
     <string name="health_connect_imported_none">Aucune nouvelle séance à importer</string>
+    <string name="health_connect_group_body">Poids et masse grasse</string>
+    <string name="health_connect_body_write_on">Le poids et la masse grasse sont partagés</string>
+    <string name="health_connect_body_write_on_detail">Chaque mesure est écrite dans Santé Connect quand vous l’enregistrez</string>
+    <string name="health_connect_body_write_weight">Le poids est partagé</string>
+    <string name="health_connect_body_write_weight_detail">Autorisez Titan à écrire la masse grasse dans Santé Connect pour la partager aussi</string>
+    <string name="health_connect_body_write_body_fat">La masse grasse est partagée</string>
+    <string name="health_connect_body_write_body_fat_detail">Autorisez Titan à écrire le poids dans Santé Connect pour le partager aussi</string>
+    <string name="health_connect_body_write_off">Le poids et la masse grasse ne sont pas partagés</string>
+    <string name="health_connect_body_write_off_detail">Autorisez Titan à écrire le poids et la masse grasse dans Santé Connect pour les partager</string>
+    <string name="health_connect_body_import_detail">Ce que d’autres applis ont enregistré. Chaque mesure n’arrive qu’une fois.</string>
+    <string name="health_connect_body_import_blocked_detail">Autorisez Titan à lire le poids ou la masse grasse dans Santé Connect pour importer</string>
+    <string name="health_connect_imported_measurements_none">Aucune nouvelle mesure à importer</string>
     <string name="health_connect_import_failed">Impossible de lire Santé Connect. Réessayez.</string>
     <string name="health_connect_disconnect_failed">Impossible de déconnecter. Retirez l’accès de Titan dans Santé Connect.</string>
     <string name="health_connect_request_failed">Impossible d’ouvrir Santé Connect.</string>
     <string name="health_connect_unavailable">Santé Connect n’est pas disponible sur ce téléphone.</string>
     <string name="health_connect_rationale_title">Avant que Santé Connect ne vous le demande</string>
-    <string name="health_connect_rationale_body">Titan demande deux choses.\n\nÉcrire l’activité physique : chaque séance terminée, avec son type, son début et sa fin, son nom et ses notes. Pas vos séries ni vos charges.\n\nLire l’activité physique : les séances enregistrées par d’autres applis au cours des 30 derniers jours, seulement quand vous les importez.\n\nRien ne quitte ce téléphone. Vous pouvez modifier l’un ou l’autre dans Santé Connect à tout moment.</string>
+    <string name="health_connect_rationale_body">Titan demande quatre choses.\n\nÉcrire l’activité physique : chaque séance terminée, avec son type, son début et sa fin, son nom et ses notes. Pas vos séries ni vos charges.\n\nLire l’activité physique : les séances enregistrées par d’autres applis au cours des 30 derniers jours, seulement quand vous les importez.\n\nÉcrire le poids et la masse grasse : chaque mesure que vous notez, avec le moment où vous l’avez prise. Pas vos tours ni vos notes.\n\nLire le poids et la masse grasse : ce que d’autres applis ont enregistré au cours des 30 derniers jours, seulement quand vous l’importez.\n\nRien ne quitte ce téléphone. Vous pouvez modifier chacune dans Santé Connect à tout moment.</string>
     <string name="health_connect_rationale_continue">Continuer</string>
     <string name="health_connect_rationale_cancel">Plus tard</string>
     <string name="health_connect_privacy_title">Titan et Santé Connect</string>
@@ -279,6 +291,11 @@
         <item quantity="one">%d séance importée</item>
         <item quantity="many">%d séances importées</item>
         <item quantity="other">%d séances importées</item>
+    </plurals>
+    <plurals name="health_connect_imported_measurements">
+        <item quantity="one">%d mesure importée</item>
+        <item quantity="many">%d mesures importées</item>
+        <item quantity="other">%d mesures importées</item>
     </plurals>
 
 </resources>

@@ -1,6 +1,7 @@
 package com.titan.feature.progression.body
 
 import androidx.lifecycle.SavedStateHandle
+import com.titan.core.domain.healthconnect.HealthConnectAvailability
 import com.titan.core.domain.model.BodyMeasurement
 import com.titan.feature.progression.afterProcessDeath
 import com.titan.feature.progression.stats.FixedClock
@@ -41,6 +42,8 @@ class BodyMeasurementsViewModelTest {
     private val store = FakeBodyMeasurementStore()
     private val timeframe = ProgressionTimeframe()
     private val clock = FixedClock(middayMillis(TODAY))
+    private val healthConnect = AvailabilityOnlyHealthConnect()
+    private val healthConnectSync = RecordingBodySyncScheduler()
     private lateinit var viewModel: BodyMeasurementsViewModel
 
     @Before
@@ -400,6 +403,92 @@ class BodyMeasurementsViewModelTest {
             assertNull(collect(savedState = handle.afterProcessDeath())().form)
         }
 
+    // ─── Health Connect ─────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a new entry asks for a Health Connect pass under the id it was given`() =
+        runTest {
+            collect()
+            viewModel.onEvent(BodyMeasurementsEvent.LogRequested)
+            val form = requireNotNull(viewModel.uiState.value.form)
+
+            viewModel.onEvent(BodyMeasurementsEvent.Saved(form.copy(weight = bodyKg(78, 4))))
+            advanceUntilIdle()
+
+            val stored = viewModel.uiState.value.history.single()
+            assertEquals(listOf(stored.id to stored.createdAt), healthConnectSync.requested)
+        }
+
+    @Test
+    fun `a correction asks for a pass over the same entry`() =
+        runTest {
+            val id = store.insert(measurementOn(TODAY, weight = bodyKg(80)))
+            val entry = requireNotNull(store.get(id))
+            collect()
+
+            viewModel.onEvent(BodyMeasurementsEvent.Saved(entry.copy(weight = bodyKg(78, 4))))
+            advanceUntilIdle()
+
+            assertEquals(listOf(id to entry.createdAt), healthConnectSync.requested)
+        }
+
+    @Test
+    fun `a delete and its undo each ask for a pass`() =
+        runTest {
+            val id = store.insert(measurementOn(TODAY, weight = bodyKg(78)))
+            val entry = requireNotNull(store.get(id))
+            collect()
+
+            viewModel.onEvent(BodyMeasurementsEvent.Deleted(id))
+            advanceUntilIdle()
+            viewModel.onEvent(BodyMeasurementsEvent.DeleteUndone)
+            advanceUntilIdle()
+
+            // The date travels with the request: once the row is gone, nothing else knows it.
+            assertEquals(listOf(id to entry.createdAt, id to entry.createdAt), healthConnectSync.requested)
+        }
+
+    @Test
+    fun `a refused entry asks for nothing`() =
+        runTest {
+            collect()
+            viewModel.onEvent(BodyMeasurementsEvent.LogRequested)
+
+            viewModel.onEvent(BodyMeasurementsEvent.Saved(requireNotNull(viewModel.uiState.value.form)))
+            advanceUntilIdle()
+
+            assertTrue(healthConnectSync.requested.isEmpty())
+        }
+
+    @Test
+    fun `a queue that refuses does not undo the save`() =
+        runTest {
+            healthConnectSync.failure = IllegalStateException("WorkManager is not initialised")
+            collect()
+            viewModel.onEvent(BodyMeasurementsEvent.LogRequested)
+            val form = requireNotNull(viewModel.uiState.value.form)
+
+            viewModel.onEvent(BodyMeasurementsEvent.Saved(form.copy(weight = bodyKg(78, 4))))
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.form)
+            assertEquals(1, viewModel.uiState.value.history.size)
+        }
+
+    @Test
+    fun `the Health Connect row is hidden where Health Connect is not, and back on the next resume`() =
+        runTest {
+            healthConnect.availability = HealthConnectAvailability.NOT_INSTALLED
+            val state = collect()
+            assertFalse(state().healthConnectAvailable)
+
+            // Installed from the Play Store while the user was away.
+            healthConnect.availability = HealthConnectAvailability.AVAILABLE
+            viewModel.onEvent(BodyMeasurementsEvent.HealthConnectRechecked)
+
+            assertTrue(state().healthConnectAvailable)
+        }
+
     // ─── Fixtures ───────────────────────────────────────────────────────────────────────
 
     private fun TestScope.collect(savedState: SavedStateHandle = SavedStateHandle()): () -> BodyMeasurementsUiState {
@@ -408,6 +497,8 @@ class BodyMeasurementsViewModelTest {
             timeframe = timeframe,
             repository = store,
             clock = clock,
+            healthConnect = healthConnect,
+            healthConnectSync = healthConnectSync,
         )
         // Unconfined, so the first assembled value has arrived by the time the test reads it:
         // `stateIn(WhileSubscribed)` never starts without a collector, and a queued one would

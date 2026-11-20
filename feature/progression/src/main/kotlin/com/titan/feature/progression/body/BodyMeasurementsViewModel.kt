@@ -3,6 +3,10 @@ package com.titan.feature.progression.body
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.titan.core.domain.healthconnect.HealthConnect
+import com.titan.core.domain.healthconnect.HealthConnectAvailability
+import com.titan.core.domain.healthconnect.HealthConnectBodySyncScheduler
+import com.titan.core.domain.healthconnect.availabilityOrUnsupported
 import com.titan.core.domain.model.BodyMeasurement
 import com.titan.core.domain.repository.BodyMeasurementRepository
 import com.titan.core.domain.time.Clock
@@ -52,6 +56,14 @@ import kotlin.time.Duration.Companion.seconds
  * it is something you do *from* the screen and go straight back to. The form's own text fields
  * are its own — see `MeasurementFormSheet` — and only the finished entry comes back through
  * [BodyMeasurementsEvent.Saved], so a keystroke never travels through here and back.
+ *
+ * ### Every write asks for a Health Connect pass
+ *
+ * A save, an edit, a delete and an undo each end in a request to
+ * [HealthConnectBodySyncScheduler], once the store has taken the write — the same rule the
+ * session's finish holds to. Asked for every time, whatever is granted: whether anything is
+ * written is decided when the queued work runs, and asking costs one empty run for a user who
+ * never connected Health Connect.
  */
 @HiltViewModel
 class BodyMeasurementsViewModel @Inject constructor(
@@ -59,6 +71,8 @@ class BodyMeasurementsViewModel @Inject constructor(
     private val timeframe: ProgressionTimeframe,
     private val repository: BodyMeasurementRepository,
     private val clock: Clock,
+    private val healthConnect: HealthConnect,
+    private val healthConnectSync: HealthConnectBodySyncScheduler,
 ) : ViewModel() {
 
     /**
@@ -80,6 +94,9 @@ class BodyMeasurementsViewModel @Inject constructor(
     /** The entry behind the undo offer. See [BodyMeasurementsUiState.deleted]. */
     private val deleted = MutableStateFlow<BodyMeasurement?>(null)
 
+    /** See [BodyMeasurementsUiState.healthConnectAvailable]. Asked at once and on every resume. */
+    private val healthConnectAvailable = MutableStateFlow(isHealthConnectAvailable())
+
     init {
         // The timeframe is shared with the hub and the drill-down, and outlives the process
         // through this handle — see `ProgressionTimeframe.restoreThrough`.
@@ -87,12 +104,12 @@ class BodyMeasurementsViewModel @Inject constructor(
     }
 
     val uiState: StateFlow<BodyMeasurementsUiState> = combine(
-        timeframe.selected,
-        repository.getAll(),
+        combine(timeframe.selected, repository.getAll(), ::Pair),
         form,
         saving,
         deleted,
-    ) { selected, history, open, isSaving, offered ->
+        healthConnectAvailable,
+    ) { (selected, history), open, isSaving, offered, available ->
         BodyMeasurementsUiState(
             timeframe = selected,
             isLoading = false,
@@ -101,6 +118,7 @@ class BodyMeasurementsViewModel @Inject constructor(
             form = open.entry,
             isSaving = isSaving,
             deleted = offered,
+            healthConnectAvailable = available,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -116,6 +134,7 @@ class BodyMeasurementsViewModel @Inject constructor(
         initialValue = BodyMeasurementsUiState(
             timeframe = timeframe.selected.value,
             form = form.value.entry,
+            healthConnectAvailable = healthConnectAvailable.value,
         ),
     )
 
@@ -138,6 +157,8 @@ class BodyMeasurementsViewModel @Inject constructor(
             BodyMeasurementsEvent.DeleteUndone -> undoDelete()
 
             BodyMeasurementsEvent.DeleteDismissed -> deleted.value = null
+
+            BodyMeasurementsEvent.HealthConnectRechecked -> healthConnectAvailable.value = isHealthConnectAvailable()
         }
     }
 
@@ -213,11 +234,15 @@ class BodyMeasurementsViewModel @Inject constructor(
         saving.value = true
 
         viewModelScope.launch {
-            val written =
-                write { if (stamped.id == NEW_ENTRY) repository.insert(stamped) else repository.update(stamped) }
+            val id = writeReturning {
+                if (stamped.id == NEW_ENTRY) repository.insert(stamped) else stamped.also { repository.update(it) }.id
+            }
 
             saving.value = false
-            if (written != null) form.value = OpenForm()
+            if (id != null) {
+                form.value = OpenForm()
+                requestHealthConnectSync(id, stamped.createdAt)
+            }
         }
     }
 
@@ -232,7 +257,10 @@ class BodyMeasurementsViewModel @Inject constructor(
     private fun delete(id: Long) {
         val entry = uiState.value.history.firstOrNull { it.id == id }
         viewModelScope.launch {
-            if (write { repository.delete(id) } != null && entry != null) deleted.value = entry
+            if (write { repository.delete(id) } != null && entry != null) {
+                deleted.value = entry
+                requestHealthConnectSync(entry.id, entry.createdAt)
+            }
         }
     }
 
@@ -245,8 +273,28 @@ class BodyMeasurementsViewModel @Inject constructor(
     private fun undoDelete() {
         val entry = deleted.value ?: return
         deleted.value = null
-        viewModelScope.launch { write { repository.insert(entry) } }
+        viewModelScope.launch {
+            if (write { repository.insert(entry) } != null) requestHealthConnectSync(entry.id, entry.createdAt)
+        }
     }
+
+    /**
+     * Asks for [id]'s records in Health Connect to be brought in line with the store.
+     *
+     * Best-effort, as the finish's request is: the write it follows has already happened, and a
+     * queue that refused — WorkManager not initialised in some odd process — must not turn a
+     * saved entry into a crash. The next save of the entry asks again.
+     */
+    private fun requestHealthConnectSync(
+        id: Long,
+        measuredAt: Long,
+    ) {
+        runCatching { healthConnectSync.requestSync(id, measuredAt) }
+    }
+
+    /** Whether Health Connect can be used here, with a status check that throws read as no. */
+    private fun isHealthConnectAvailable(): Boolean =
+        healthConnect.availabilityOrUnsupported() == HealthConnectAvailability.AVAILABLE
 
     /**
      * Runs a store write, or reports that it failed.
@@ -259,7 +307,10 @@ class BodyMeasurementsViewModel @Inject constructor(
      *
      * @return [Unit] when the write went through, or null when it did not.
      */
-    private suspend fun write(block: suspend () -> Unit): Unit? =
+    private suspend fun write(block: suspend () -> Unit): Unit? = writeReturning(block)
+
+    /** [write], handing back what [block] returned — the id a save went in under. */
+    private suspend fun <T : Any> writeReturning(block: suspend () -> T): T? =
         try {
             block()
         } catch (cancellation: CancellationException) {

@@ -53,6 +53,7 @@ fun BodyMeasurementEntity.toRow(): BodyMeasurementRow =
         notes = notes,
         createdAt = createdAt,
         updatedAt = updatedAt,
+        fromHealthConnect = fromHealthConnect,
     )
 
 fun BodyMeasurementRow.toEntity(): BodyMeasurementEntity =
@@ -67,4 +68,5 @@ fun BodyMeasurementRow.toEntity(): BodyMeasurementEntity =
         notes = notes,
         createdAt = createdAt,
         updatedAt = updatedAt,
+        fromHealthConnect = fromHealthConnect,
     )

@@ -116,11 +116,11 @@ class SyncToHealthConnectUseCaseTest {
     fun `nothing is written without the write permission`() =
         runTest {
             finished()
-            healthConnect.granted = setOf(HealthConnectAccess.READ)
+            healthConnect.granted = setOf(HealthConnectAccess.READ_EXERCISE)
 
             val error = sync(7L).exceptionOrNull()
 
-            assertEquals(HealthConnectError.NotPermitted(HealthConnectAccess.WRITE), error)
+            assertEquals(HealthConnectError.NotPermitted(HealthConnectAccess.WRITE_EXERCISE), error)
             assertTrue(healthConnect.written.isEmpty())
         }
 

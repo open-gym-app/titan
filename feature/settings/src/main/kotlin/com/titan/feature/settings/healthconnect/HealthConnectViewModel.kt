@@ -4,9 +4,10 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.titan.core.domain.healthconnect.HealthConnect
-import com.titan.core.domain.healthconnect.HealthConnectAccess
 import com.titan.core.domain.healthconnect.HealthConnectAvailability
 import com.titan.core.domain.healthconnect.HealthConnectError
+import com.titan.core.domain.healthconnect.availabilityOrUnsupported
+import com.titan.core.domain.usecase.ImportBodyFromHealthConnectUseCase
 import com.titan.core.domain.usecase.ImportFromHealthConnectUseCase
 import com.titan.core.ui.state.savedScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,14 +22,15 @@ import kotlinx.serialization.Serializable
 import javax.inject.Inject
 
 /**
- * The Health Connect screen: what is granted, the conversation that grants it, and the import.
+ * The Health Connect screen: what is granted, the conversation that grants it, and the two
+ * imports — workouts, and weight and body fat.
  *
  * ### The rationale comes first, every time
  *
  * "Connect" opens an explanation of what will be read and written, and only its "Continue"
  * launches the system dialog. Health Connect lists permissions by name and nothing else; a user
- * who has not been told that Titan writes the type and the times of a workout and not its sets
- * is being asked to grant something they cannot judge — and Health Connect stops showing its
+ * who has not been told that Titan writes the type and the times of a workout and not its sets,
+ * or a weight and not a waist, is being asked to grant something they cannot judge — and Health Connect stops showing its
  * dialog after the second refusal, so an unexplained first ask is one of only two chances.
  *
  * ### Nothing is cached
@@ -42,6 +44,7 @@ class HealthConnectViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val healthConnect: HealthConnect,
     private val importFromHealthConnect: ImportFromHealthConnectUseCase,
+    private val importBodyFromHealthConnect: ImportBodyFromHealthConnectUseCase,
 ) : ViewModel() {
 
     private val screenState = savedStateHandle.savedScreenState(viewModelScope) { ScreenState() }
@@ -59,6 +62,8 @@ class HealthConnectViewModel @Inject constructor(
     val uiState: StateFlow<HealthConnectUiState> = state.asStateFlow()
 
     private var importJob: Job? = null
+
+    private var bodyImportJob: Job? = null
 
     /**
      * The grant read in flight. One at a time, the newest winning: a resume, a dialog's answer
@@ -87,7 +92,9 @@ class HealthConnectViewModel @Inject constructor(
 
             is HealthConnectEvent.PermissionResult -> onPermissionResult(event.granted)
 
-            HealthConnectEvent.ImportRequested -> import()
+            HealthConnectEvent.WorkoutsImportRequested -> import()
+
+            HealthConnectEvent.BodyImportRequested -> importBody()
 
             HealthConnectEvent.DisconnectRequested -> disconnect()
 
@@ -138,14 +145,14 @@ class HealthConnectViewModel @Inject constructor(
     }
 
     /**
-     * Runs the import, one at a time.
+     * Runs the workout import, one at a time.
      *
      * A double tap would otherwise start two that read the same month and race to store it. The
      * unique index would keep the history right, but the second snackbar would say "nothing new"
      * over the first one's count.
      */
     private fun import() {
-        if (importJob?.isActive == true || HealthConnectAccess.READ !in state.value.granted.orEmpty()) return
+        if (importJob?.isActive == true || !state.value.canReadExercise) return
         state.update { it.copy(isImporting = true) }
         importJob = viewModelScope.launch {
             val result = importFromHealthConnect()
@@ -157,6 +164,25 @@ class HealthConnectViewModel @Inject constructor(
             // A refusal means the grant or the provider changed under the screen — read access
             // taken back in Health Connect's settings, or the app uninstalled — so what it draws
             // is read again rather than left offering an import that will fail the same way.
+            if (result.exceptionOrNull() is HealthConnectError) recheck()
+        }
+    }
+
+    /**
+     * Runs the body import, one at a time, for [import]'s reasons — and more so here: a weigh-in
+     * has no record id stored against it, so two imports racing each other would both find it
+     * new and store it twice. Separate from the workout import, which can run beside it.
+     */
+    private fun importBody() {
+        if (bodyImportJob?.isActive == true || !state.value.canReadBody) return
+        state.update { it.copy(isImportingBody = true) }
+        bodyImportJob = viewModelScope.launch {
+            val result = importBodyFromHealthConnect()
+            val message = result.fold(
+                onSuccess = { HealthConnectMessage.ImportedMeasurements(it.imported) },
+                onFailure = { HealthConnectMessage.ImportFailed },
+            )
+            state.update { it.copy(isImportingBody = false, message = message) }
             if (result.exceptionOrNull() is HealthConnectError) recheck()
         }
     }
@@ -199,16 +225,3 @@ class HealthConnectViewModel @Inject constructor(
         val refused: Boolean = false,
     )
 }
-
-/**
- * [HealthConnect.availability], with a status check that throws read as "not on this phone".
- *
- * The check asks the package manager, which can throw; the use cases catch that into their
- * `Result`, and a screen that crashed on it instead would be the one place it surfaced.
- */
-internal fun HealthConnect.availabilityOrUnsupported(): HealthConnectAvailability =
-    try {
-        availability()
-    } catch (_: RuntimeException) {
-        HealthConnectAvailability.UNSUPPORTED
-    }

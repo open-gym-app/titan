@@ -35,6 +35,9 @@ import com.titan.feature.progression.stats.StatsTimeframe
  * @param deleted the entry behind the undo offer, held until the offer is taken or lapses. The
  *   store no longer has it, so this is the only copy — and the offer is what makes a row thrown
  *   away by a short drag a slip rather than a loss.
+ * @param healthConnectAvailable whether Health Connect can be used on this phone, and so whether
+ *   the row that leads to it is drawn — hidden where it cannot, as the settings row is. True by
+ *   default so a preview draws the row; the ViewModel asks the platform before its first frame.
  */
 @Immutable
 data class BodyMeasurementsUiState(
@@ -45,6 +48,7 @@ data class BodyMeasurementsUiState(
     val form: BodyMeasurement? = null,
     val isSaving: Boolean = false,
     val deleted: BodyMeasurement? = null,
+    val healthConnectAvailable: Boolean = true,
 ) {
 
     /**

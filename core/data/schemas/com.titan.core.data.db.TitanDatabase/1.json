@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "3092249e7802b37fbbc6fd8f8c3f5125",
+    "identityHash": "45cdb9788bdc639315d4470d8b571fee",
     "entities": [
       {
         "tableName": "exercise",
@@ -1124,7 +1124,7 @@
       },
       {
         "tableName": "body_measurement",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `weight` INTEGER, `chest` INTEGER, `waist` INTEGER, `arm` INTEGER, `thigh` INTEGER, `body_fat` INTEGER, `notes` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `weight` INTEGER, `chest` INTEGER, `waist` INTEGER, `arm` INTEGER, `thigh` INTEGER, `body_fat` INTEGER, `notes` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `from_health_connect` INTEGER NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -1176,6 +1176,12 @@
           {
             "fieldPath": "updatedAt",
             "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fromHealthConnect",
+            "columnName": "from_health_connect",
             "affinity": "INTEGER",
             "notNull": true
           }
@@ -1451,7 +1457,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '3092249e7802b37fbbc6fd8f8c3f5125')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '45cdb9788bdc639315d4470d8b571fee')"
     ]
   }
 }
