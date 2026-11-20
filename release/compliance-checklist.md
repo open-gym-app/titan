@@ -57,10 +57,10 @@ stay down and step the total with ±15s (#245)") with:
 
 - **Heart rate is not collected.** `workout_set` has `heart_rate_avg` and `heart_rate_max`
   columns, but no screen in this version writes them: the active session only carries them
-  through when a set is edited, and the Health Connect integration (#54) reads and writes exercise
-  sessions only, never heart rate. A version that records heart rate (by hand, or from Health
-  Connect) must add it to the privacy policy's list of health data and to the Health
-  apps declaration before it ships.
+  through when a set is edited, and the Health Connect integration (#54, #350) reads and writes
+  exercise sessions, weight and body fat only, never heart rate. A version that records heart
+  rate (by hand, or from Health Connect) must add it to the privacy policy's list of health data
+  and to the Health apps declaration before it ships.
 
 Re-run the two commands at the release commit and update the hash above. Any new permission or
 library means revisiting every section below.
@@ -159,9 +159,9 @@ weight, body fat, measurements) and fitness data (workouts) are *processed on th
 and stored there. They are not *collected*, so they are not declared, and the form does not
 ask about them further.
 
-**Health Connect.** Exercise sessions written to Health Connect, and the ones read from it, move
-between two stores on the same phone, at the user's request, through a permission they granted
-in Health Connect's own dialog. Nothing is transmitted off the device, so the answer above is
+**Health Connect.** Exercise sessions, weights and body fat written to Health Connect, and the
+ones read from it, move between two stores on the same phone, at the user's request, through a
+permission they granted in Health Connect's own dialog. Nothing is transmitted off the device, so the answer above is
 unchanged. Confirm that reading against Play's current Data safety guidance on Health Connect
 when the form is submitted: it is the one answer here that depends on Play's interpretation
 rather than on what the build does.

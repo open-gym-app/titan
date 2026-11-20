@@ -53,7 +53,7 @@ class WorkManagerHealthConnectBodySyncSchedulerTest {
 
         assertEquals(listOf(3L to 1_000L), ran)
         val work = workManager.getWorkInfosForUniqueWork(
-            WorkManagerHealthConnectBodySyncScheduler.workNameFor(3L),
+            WorkManagerHealthConnectBodySyncScheduler.workNameFor(3L, 1_000L),
         ).get()
         assertEquals(WorkInfo.State.SUCCEEDED, work.single().state)
         assertFalse(work.single().constraints.requiresCharging())
@@ -73,8 +73,18 @@ class WorkManagerHealthConnectBodySyncSchedulerTest {
     fun `a body pass is not named like a session's`() {
         // One id can be a session and a measurement both, and neither may replace the other.
         assertFalse(
-            WorkManagerHealthConnectBodySyncScheduler.workNameFor(3L) ==
+            WorkManagerHealthConnectBodySyncScheduler.workNameFor(3L, 1_000L) ==
                 WorkManagerHealthConnectSyncScheduler.workNameFor(3L),
+        )
+    }
+
+    @Test
+    fun `an entry under a reused id is not named like the one it replaced`() {
+        // "Delete all data" hands ids out again; a pass removing the old entry's records must
+        // not be replaced by one for the new entry, which has a key of its own.
+        assertFalse(
+            WorkManagerHealthConnectBodySyncScheduler.workNameFor(3L, 1_000L) ==
+                WorkManagerHealthConnectBodySyncScheduler.workNameFor(3L, 2_000L),
         )
     }
 

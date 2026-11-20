@@ -28,7 +28,8 @@ import com.titan.core.domain.healthconnect.HealthConnectBodyMetric
  *   [com.titan.core.domain.healthconnect.HealthConnect.canRevokeAccess].
  * @param isImporting the workout import is running; its row is inert until it ends.
  * @param isImportingBody the body import is running; its row is inert until it ends.
- * @param message a sentence to show once, cleared by [HealthConnectEvent.MessageShown].
+ * @param message a sentence to show once. [HealthConnectEvent.MessageShown] replaces it with the
+ *   next one waiting, or clears it.
  */
 @Immutable
 data class HealthConnectUiState(

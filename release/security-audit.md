@@ -100,7 +100,7 @@ Read from the decoded release manifest.
 ### Permissions
 
 The list below is `release/compliance-checklist.md`'s, byte for byte, and matches the merged
-release manifest: ten `uses-permission` entries and AndroidX's signature permission.
+release manifest: fourteen `uses-permission` entries and AndroidX's signature permission.
 
 | Permission | Declared by | Justification |
 | --- | --- | --- |
