@@ -66,6 +66,13 @@ class HealthConnectViewModel @Inject constructor(
     private var bodyImportJob: Job? = null
 
     /**
+     * Messages waiting behind [HealthConnectUiState.message]. The two imports run side by side
+     * and the screen only collects while it is started, so both can finish while the user is in
+     * Health Connect's settings; one slot would keep only the last of them.
+     */
+    private val pendingMessages = ArrayDeque<HealthConnectMessage>()
+
+    /**
      * The grant read in flight. One at a time, the newest winning: a resume, a dialog's answer
      * and a disconnect can each ask within the same moment, and an older answer landing last
      * would draw a grant that is no longer true.
@@ -87,8 +94,10 @@ class HealthConnectViewModel @Inject constructor(
 
             HealthConnectEvent.PermissionRequestLaunched -> state.update { it.copy(permissionRequest = false) }
 
-            HealthConnectEvent.PermissionRequestFailed ->
-                state.update { it.copy(permissionRequest = false, message = HealthConnectMessage.RequestFailed) }
+            HealthConnectEvent.PermissionRequestFailed -> {
+                state.update { it.copy(permissionRequest = false) }
+                post(HealthConnectMessage.RequestFailed)
+            }
 
             is HealthConnectEvent.PermissionResult -> onPermissionResult(event.granted)
 
@@ -98,7 +107,7 @@ class HealthConnectViewModel @Inject constructor(
 
             HealthConnectEvent.DisconnectRequested -> disconnect()
 
-            HealthConnectEvent.MessageShown -> state.update { it.copy(message = null) }
+            HealthConnectEvent.MessageShown -> state.update { it.copy(message = pendingMessages.removeFirstOrNull()) }
         }
     }
 
@@ -148,8 +157,8 @@ class HealthConnectViewModel @Inject constructor(
      * Runs the workout import, one at a time.
      *
      * A double tap would otherwise start two that read the same month and race to store it. The
-     * unique index would keep the history right, but the second snackbar would say "nothing new"
-     * over the first one's count.
+     * unique index would keep the history right, but the first one's count would be followed by a
+     * "nothing new" that reads as if it took the count back.
      */
     private fun import() {
         if (importJob?.isActive == true || !state.value.canReadExercise) return
@@ -160,7 +169,8 @@ class HealthConnectViewModel @Inject constructor(
                 onSuccess = { HealthConnectMessage.Imported(it.imported) },
                 onFailure = { HealthConnectMessage.ImportFailed },
             )
-            state.update { it.copy(isImporting = false, message = message) }
+            state.update { it.copy(isImporting = false) }
+            post(message)
             // A refusal means the grant or the provider changed under the screen — read access
             // taken back in Health Connect's settings, or the app uninstalled — so what it draws
             // is read again rather than left offering an import that will fail the same way.
@@ -182,7 +192,8 @@ class HealthConnectViewModel @Inject constructor(
                 onSuccess = { HealthConnectMessage.ImportedMeasurements(it.imported) },
                 onFailure = { HealthConnectMessage.ImportFailed },
             )
-            state.update { it.copy(isImportingBody = false, message = message) }
+            state.update { it.copy(isImportingBody = false) }
+            post(message)
             if (result.exceptionOrNull() is HealthConnectError) recheck()
         }
     }
@@ -203,8 +214,23 @@ class HealthConnectViewModel @Inject constructor(
             } catch (_: Throwable) {
                 true
             }
-            if (failed) state.update { it.copy(message = HealthConnectMessage.DisconnectFailed) }
+            if (failed) post(HealthConnectMessage.DisconnectFailed)
             recheck()
+        }
+    }
+
+    /**
+     * Shows [message] now if nothing is waiting to be shown, or queues it behind what is.
+     *
+     * A message equal to one already waiting is dropped: the same sentence twice says nothing the
+     * first did not, and the screen only shows a message it has not just shown, so an equal one
+     * moved up by [HealthConnectEvent.MessageShown] would sit in the slot forever.
+     */
+    private fun post(message: HealthConnectMessage) {
+        val current = state.value.message
+        when {
+            current == null -> state.update { it.copy(message = message) }
+            current != message && message !in pendingMessages -> pendingMessages.addLast(message)
         }
     }
 

@@ -281,6 +281,36 @@ class HealthConnectViewModelTest {
         assertNull(viewModel.uiState.value.message)
     }
 
+    @Test
+    fun `both imports finishing before either message is shown keeps both messages`() {
+        healthConnect.granted = setOf(HealthConnectAccess.READ_EXERCISE, HealthConnectAccess.READ_WEIGHT)
+        healthConnect.records += record("run-1")
+        val viewModel = viewModel()
+
+        viewModel.onEvent(HealthConnectEvent.WorkoutsImportRequested)
+        viewModel.onEvent(HealthConnectEvent.BodyImportRequested)
+
+        assertEquals(HealthConnectMessage.Imported(1), viewModel.uiState.value.message)
+        viewModel.onEvent(HealthConnectEvent.MessageShown)
+        assertEquals(HealthConnectMessage.ImportedMeasurements(0), viewModel.uiState.value.message)
+        viewModel.onEvent(HealthConnectEvent.MessageShown)
+        assertNull(viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `the same message waiting twice is shown once`() {
+        healthConnect.granted = setOf(HealthConnectAccess.READ_EXERCISE, HealthConnectAccess.READ_WEIGHT)
+        val viewModel = viewModel()
+        healthConnect.failure = IllegalStateException("provider died")
+
+        viewModel.onEvent(HealthConnectEvent.WorkoutsImportRequested)
+        viewModel.onEvent(HealthConnectEvent.BodyImportRequested)
+
+        assertEquals(HealthConnectMessage.ImportFailed, viewModel.uiState.value.message)
+        viewModel.onEvent(HealthConnectEvent.MessageShown)
+        assertNull(viewModel.uiState.value.message)
+    }
+
     // --- the body import --------------------------------------------------------------
 
     @Test

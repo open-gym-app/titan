@@ -25,7 +25,8 @@ import kotlin.time.Duration.Companion.days
  * Readings taken at the same millisecond become one entry, holding both figures. A smart scale
  * writes its weight and its body fat as two records with one timestamp, and kept apart they would
  * be two rows in the history — and no lean mass, which is only worked out from a weight and a
- * body fat on the same entry. Every imported entry is marked
+ * body fat on the same entry. That holds across imports too: a figure for an instant an earlier
+ * import already made an entry for is added to that entry. Every imported entry is marked
  * [BodyMeasurement.fromHealthConnect], so the sync never writes it back.
  *
  * ### What is skipped
@@ -107,11 +108,29 @@ class ImportBodyFromHealthConnectUseCase(
                     seen.add(DuplicateKey(record.reading.measuredAt, record.reading.metric))
             }
 
-        val entries = fresh
+        // An instant an earlier import already made an entry for — when only one figure could be
+        // read then, or the second record was written after it ran — gets the new figure on that
+        // entry rather than a second entry beside it. An entry logged here is left as it is: a
+        // figure added to it would be written back to Health Connect as Titan's.
+        val importedAt = local.filter { it.fromHealthConnect }.associateBy { it.createdAt }
+        val (completing, adding) = fresh
             .groupBy { it.reading.measuredAt }
-            .map { (measuredAt, readings) -> readings.toEntry(measuredAt, now) }
+            .entries
+            .partition { it.key in importedAt }
+
+        // The inserts first, in their one transaction. A completion that fails after them is
+        // retried by the next import, which still finds its figure missing from the entry.
+        val entries = adding.map { (measuredAt, readings) -> readings.toEntry(measuredAt, now) }
         if (entries.isNotEmpty()) measurements.insertAll(entries)
-        return Result.success(HealthConnectBodyImport(imported = entries.size, skipped = records.size - fresh.size))
+        completing.forEach { (measuredAt, readings) ->
+            measurements.update(importedAt.getValue(measuredAt).completedWith(readings, now))
+        }
+        return Result.success(
+            HealthConnectBodyImport(
+                imported = entries.size + completing.size,
+                skipped = records.size - fresh.size,
+            ),
+        )
     }
 
     /** Whether the form would accept this figure, by [BodyMeasurementValidator]'s own bounds. */
@@ -132,17 +151,32 @@ class ImportBodyFromHealthConnectUseCase(
     private fun List<HealthConnectBodyRecord>.toEntry(
         measuredAt: Long,
         now: Long,
-    ): BodyMeasurement {
-        fun valueOf(metric: HealthConnectBodyMetric): Long? =
-            firstOrNull { it.reading.metric == metric }?.reading?.value
-        return BodyMeasurement(
+    ): BodyMeasurement =
+        BodyMeasurement(
             weight = valueOf(HealthConnectBodyMetric.WEIGHT),
             bodyFat = valueOf(HealthConnectBodyMetric.BODY_FAT)?.toInt(),
             createdAt = measuredAt,
             updatedAt = now,
             fromHealthConnect = true,
         )
-    }
+
+    /**
+     * An entry an earlier import made, with the figures [readings] add to it. The duplicate check
+     * has already dropped any figure the entry holds, so nothing it has is overwritten.
+     */
+    private fun BodyMeasurement.completedWith(
+        readings: List<HealthConnectBodyRecord>,
+        now: Long,
+    ): BodyMeasurement =
+        copy(
+            weight = weight ?: readings.valueOf(HealthConnectBodyMetric.WEIGHT),
+            bodyFat = bodyFat ?: readings.valueOf(HealthConnectBodyMetric.BODY_FAT)?.toInt(),
+            updatedAt = now,
+        )
+
+    /** The first of these records' [metric] figures, or null when none holds one. */
+    private fun List<HealthConnectBodyRecord>.valueOf(metric: HealthConnectBodyMetric): Long? =
+        firstOrNull { it.reading.metric == metric }?.reading?.value
 
     private data class DuplicateKey(
         val measuredAt: Long,
@@ -154,7 +188,7 @@ class ImportBodyFromHealthConnectUseCase(
  * What one run of [ImportBodyFromHealthConnectUseCase] did.
  *
  * @property imported entries added to the history — one per instant, which can hold a weight and
- *   a body fat both.
+ *   a body fat both — plus earlier imported entries given a figure they lacked.
  * @property skipped records read and not added: Titan's own, duplicates, or out of bounds.
  */
 data class HealthConnectBodyImport(

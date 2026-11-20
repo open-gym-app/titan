@@ -34,7 +34,7 @@ class WorkManagerHealthConnectBodySyncScheduler @Inject constructor(
         measuredAt: Long,
     ) {
         workManager.enqueueUniqueWork(
-            workNameFor(measurementId),
+            workNameFor(measurementId, measuredAt),
             ExistingWorkPolicy.REPLACE,
             request(measurementId, measuredAt),
         )
@@ -57,9 +57,14 @@ class WorkManagerHealthConnectBodySyncScheduler @Inject constructor(
 
         /**
          * The unique name an entry's pass is enqueued under — a persisted identifier, as
-         * [WorkManagerHealthConnectSyncScheduler.workNameFor] is. By id alone, so a request
-         * replaces any still pending for the same entry; the date travels in the input data.
+         * [WorkManagerHealthConnectSyncScheduler.workNameFor] is. By id and date, the pair the
+         * records are keyed by, so a request replaces any still pending for the same entry — an
+         * edit, a delete and its undo all keep the date — but never the removal pass of an older
+         * entry whose id "delete all data" handed out again.
          */
-        fun workNameFor(measurementId: Long): String = "health-connect-body-sync-$measurementId"
+        fun workNameFor(
+            measurementId: Long,
+            measuredAt: Long,
+        ): String = "health-connect-body-sync-$measurementId-$measuredAt"
     }
 }

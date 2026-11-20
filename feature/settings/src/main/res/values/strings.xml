@@ -269,10 +269,12 @@
     <string name="reminder_inexact">May arrive late</string>
     <string name="reminder_inexact_detail">Exact alarms are off for Titan, so Android may hold the reminder back a few minutes.</string>
 
-    <!-- Health Connect (#54). The screen behind the Data & privacy row of the same name, the
-         explanation shown before Health Connect's own permission dialog, and the page Health
-         Connect opens when the user asks why Titan wants access. Exercise sessions only: what
-         is written is a workout's type, times, name and notes, never its sets. -->
+    <!-- Health Connect (#54, #350). The screen behind the Data & privacy row of the same name,
+         the explanation shown before Health Connect's own permission dialog, and the page Health
+         Connect opens when the user asks why Titan wants access. Exercise sessions, weight and
+         body fat only: what is written is a workout's type, times, name and notes, never its
+         sets, and a measurement's weight and body fat with when it was taken, never its
+         circumferences or notes. -->
     <string name="health_connect_intro">Titan can write every workout you finish, and the weight and body fat you log, to Health Connect, where other fitness apps can see them, and bring in what they saved there. It all stays on this phone.</string>
     <string name="health_connect_group_connection">Connection</string>
     <string name="health_connect_connect">Connect</string>

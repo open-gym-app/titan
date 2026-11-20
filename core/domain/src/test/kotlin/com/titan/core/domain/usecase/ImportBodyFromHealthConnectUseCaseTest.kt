@@ -117,6 +117,22 @@ class ImportBodyFromHealthConnectUseCaseTest {
         }
 
     @Test
+    fun `a body fat for an instant an earlier import brought a weight in for joins that entry`() =
+        runTest {
+            weight()
+            import()
+            // The scale's app wrote the body fat after the first import ran.
+            bodyFat()
+
+            assertEquals(HealthConnectBodyImport(imported = 1, skipped = 1), import().getOrThrow())
+
+            val entry = measurements.all.single()
+            assertEquals(80_000_000L, entry.weight)
+            assertEquals(180, entry.bodyFat)
+            assertTrue(entry.fromHealthConnect)
+        }
+
+    @Test
     fun `two apps writing one weigh-in bring it in once`() =
         runTest {
             weight(value = 80_000_000L)
