@@ -6,7 +6,7 @@ jdk = "17"
 jdkVendor = "ADOPTIUM"
 agp = "9.5.1"
 kotlin = "2.4.21"
-ksp = "2.3.13"
+ksp = "2.3.14"
 coreKtx = "1.19.1"
 lifecycle = "2.11.0"
 # Compiled against the Android 37 APIs, as is lifecycle 2.11.0 above — both need
