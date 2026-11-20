@@ -267,7 +267,7 @@
     <string name="photos_add_failed">Couldn’t add that photo.</string>
     <string name="photos_delete_failed">Couldn’t delete that photo.</string>
 
-    <!-- ── Health Connect, disabled: body measurements do not sync (#350) ──────── -->
+    <!-- ── Health Connect: the way to the screen that syncs weight and body fat ─ -->
 
     <string name="body_health_connect_heading">Health Connect</string>
     <string name="body_health_connect_label">Sync with Health Connect</string>

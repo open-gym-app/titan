@@ -35,7 +35,7 @@ import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.model.WorkoutSession
 import com.titan.core.domain.model.WorkoutSet
 import com.titan.core.domain.random.RandomSource
-import com.titan.core.domain.repository.BodyMeasurementRepository
+import com.titan.core.domain.repository.FakeBodyMeasurementRepository
 import com.titan.core.domain.repository.HistoryImportRepository
 import com.titan.core.domain.repository.PhotoSource
 import com.titan.core.domain.repository.ProgressPhotoRepository
@@ -594,32 +594,6 @@ private class FakeHistoryImportRepository : HistoryImportRepository {
     override suspend fun forgetRecordsOfSessionsFinishedFrom(finishedAt: Long): Int {
         forgottenFrom = finishedAt
         return 0
-    }
-}
-
-/** The body measurement history, in memory, newest first as the contract orders it. */
-private class FakeBodyMeasurementRepository : BodyMeasurementRepository {
-
-    private val entries = MutableStateFlow<List<BodyMeasurement>>(emptyList())
-    private var nextId = 1L
-
-    override fun getAll(): Flow<List<BodyMeasurement>> =
-        entries.map { all -> all.sortedByDescending(BodyMeasurement::createdAt) }
-
-    override fun getLatest(): Flow<BodyMeasurement?> = getAll().map { it.firstOrNull() }
-
-    override suspend fun insert(measurement: BodyMeasurement): Long {
-        val id = nextId++
-        entries.value += measurement.copy(id = id)
-        return id
-    }
-
-    override suspend fun update(measurement: BodyMeasurement) {
-        entries.value = entries.value.map { if (it.id == measurement.id) measurement else it }
-    }
-
-    override suspend fun delete(id: Long) {
-        entries.value = entries.value.filterNot { it.id == id }
     }
 }
 

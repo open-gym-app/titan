@@ -27,8 +27,11 @@ sealed interface HealthConnectEvent {
     /** The system dialog answered, with the permission names now granted. */
     data class PermissionResult(val granted: Set<String>) : HealthConnectEvent
 
-    /** "Import the last 30 days" was tapped. */
-    data object ImportRequested : HealthConnectEvent
+    /** The workouts group's "Import the last 30 days" was tapped. */
+    data object WorkoutsImportRequested : HealthConnectEvent
+
+    /** The body group's "Import the last 30 days" was tapped. */
+    data object BodyImportRequested : HealthConnectEvent
 
     /** "Disconnect" was tapped. */
     data object DisconnectRequested : HealthConnectEvent

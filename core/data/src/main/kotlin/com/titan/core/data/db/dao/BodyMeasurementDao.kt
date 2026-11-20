@@ -14,6 +14,23 @@ interface BodyMeasurementDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(measurement: BodyMeasurementEntity): Long
 
+    // One `@Insert` over a list is one transaction: all of them land or none do.
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertAll(measurements: List<BodyMeasurementEntity>)
+
+    @Query("SELECT * FROM body_measurement WHERE id = :id")
+    suspend fun get(id: Long): BodyMeasurementEntity?
+
+    // A range over `index_body_measurement_created_at`, read in the index's own order.
+    @Query(
+        "SELECT * FROM body_measurement WHERE created_at >= :measuredFrom AND created_at < :measuredUntil " +
+            "ORDER BY created_at, id",
+    )
+    suspend fun getMeasuredBetween(
+        measuredFrom: Long,
+        measuredUntil: Long,
+    ): List<BodyMeasurementEntity>
+
     @Update
     suspend fun update(measurement: BodyMeasurementEntity)
 

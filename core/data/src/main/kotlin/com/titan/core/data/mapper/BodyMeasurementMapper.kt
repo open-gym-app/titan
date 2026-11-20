@@ -31,6 +31,7 @@ class BodyMeasurementMapper @Inject constructor() {
             notes = entity.notes,
             createdAt = entity.createdAt,
             updatedAt = entity.updatedAt,
+            fromHealthConnect = entity.fromHealthConnect,
         )
 
     fun toEntity(measurement: BodyMeasurement): BodyMeasurementEntity =
@@ -50,5 +51,6 @@ class BodyMeasurementMapper @Inject constructor() {
             notes = measurement.notes,
             createdAt = measurement.createdAt,
             updatedAt = measurement.updatedAt,
+            fromHealthConnect = measurement.fromHealthConnect,
         )
 }

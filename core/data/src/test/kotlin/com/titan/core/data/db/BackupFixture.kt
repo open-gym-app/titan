@@ -180,6 +180,10 @@ private suspend fun TitanDatabase.seedProgressAndSpoils() {
             everySiteMeasured().copy(id = 1, createdAt = STARTED_AT, updatedAt = STARTED_AT),
             // A trip to the tape with no weight on it, which the schema allows.
             bodyMeasurement(weight = null, waist = 828).copy(id = 2, createdAt = STARTED_AT, updatedAt = STARTED_AT),
+            // Imported from Health Connect, so the mark has something to lose on the way through a
+            // backup. Losing it would have the sync write another app's weigh-in back as Titan's.
+            bodyMeasurement(bodyFat = 180)
+                .copy(id = 3, createdAt = FINISHED_AT, updatedAt = FINISHED_AT, fromHealthConnect = true),
         ),
     )
     dao.insertXpClaims(listOf(SessionXpClaimEntity(sessionId = 1)))

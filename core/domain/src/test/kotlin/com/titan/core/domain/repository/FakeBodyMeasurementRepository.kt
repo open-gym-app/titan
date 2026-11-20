@@ -20,6 +20,11 @@ class FakeBodyMeasurementRepository(
     private val entries = MutableStateFlow(initial)
     private var nextId = (initial.maxOfOrNull(BodyMeasurement::id) ?: 0L) + 1
 
+    /** Every batch [insertAll] was handed. */
+    val insertBatches = mutableListOf<List<BodyMeasurement>>()
+
+    val all: List<BodyMeasurement> get() = entries.value
+
     override fun getAll(): Flow<List<BodyMeasurement>> =
         entries.map { rows ->
             check(!failing) { "the body measurement store cannot be read" }
@@ -28,10 +33,24 @@ class FakeBodyMeasurementRepository(
 
     override fun getLatest(): Flow<BodyMeasurement?> = getAll().map(List<BodyMeasurement>::firstOrNull)
 
+    override suspend fun get(id: Long): BodyMeasurement? = entries.value.firstOrNull { it.id == id }
+
+    override suspend fun getMeasuredBetween(
+        measuredFrom: Long,
+        measuredUntil: Long,
+    ): List<BodyMeasurement> =
+        entries.value.filter { it.createdAt in measuredFrom until measuredUntil }
+            .sortedBy(BodyMeasurement::createdAt)
+
     override suspend fun insert(measurement: BodyMeasurement): Long {
         val id = nextId++
         entries.value += measurement.copy(id = id)
         return id
+    }
+
+    override suspend fun insertAll(measurements: List<BodyMeasurement>) {
+        insertBatches += measurements
+        measurements.forEach { insert(it) }
     }
 
     override suspend fun update(measurement: BodyMeasurement) {

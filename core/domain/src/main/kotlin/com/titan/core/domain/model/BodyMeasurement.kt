@@ -95,6 +95,15 @@ data class BodyMeasurement(
 
     val createdAt: Long,
     val updatedAt: Long,
+
+    /**
+     * Whether this entry was imported from another app's Health Connect records rather than
+     * logged here. Such an entry is never written back: Health Connect already holds it under
+     * the app that measured it, and a copy under Titan's name would put every weigh-in in twice
+     * — so an edit to it, even to a figure Health Connect has a type for, stays on this phone.
+     * See [com.titan.core.domain.usecase.ImportBodyFromHealthConnectUseCase].
+     */
+    val fromHealthConnect: Boolean = false,
 ) {
 
     /**
