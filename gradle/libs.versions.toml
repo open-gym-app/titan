@@ -16,7 +16,7 @@ activityCompose = "1.13.0"
 # The splash screen (#207): Android 12's system splash, and the same icon-on-a-colour window
 # drawn by the library itself on API 26–30, from one theme.
 splashscreen = "1.2.0"
-composeBom = "2026.05.00"
+composeBom = "2026.09.00"
 # 2.8+ is the floor for type-safe `composable<Route>` destinations; see docs/ARCHITECTURE.md.
 navigation = "2.10.2"
 # Coil and Hilt move together, and the pairing is load-bearing rather than tidiness. Coil
