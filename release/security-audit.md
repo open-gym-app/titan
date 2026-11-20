@@ -100,7 +100,7 @@ Read from the decoded release manifest.
 ### Permissions
 
 The list below is `release/compliance-checklist.md`'s, byte for byte, and matches the merged
-release manifest: ten `uses-permission` entries and AndroidX's signature permission.
+release manifest: fourteen `uses-permission` entries and AndroidX's signature permission.
 
 | Permission | Declared by | Justification |
 | --- | --- | --- |
@@ -110,6 +110,8 @@ release manifest: ten `uses-permission` entries and AndroidX's signature permiss
 | `android.permission.RECEIVE_BOOT_COMPLETED` | `:core:data`, `androidx.work:work-runtime` | Reschedules reminder alarms after a reboot (`AlarmManager` keeps none) and lets WorkManager reschedule the weekly auto-backup. |
 | `android.permission.health.READ_EXERCISE` | `:core:data` | Health Connect (#54): reads exercise sessions other apps saved in the last 30 days, when the user imports them. Granted in Health Connect's own dialog, after an in-app rationale; never at install. |
 | `android.permission.health.WRITE_EXERCISE` | `:core:data` | Health Connect (#54): writes each finished workout as an exercise session (type, start and end, name, notes; no sets). Granted like the one above. |
+| `android.permission.health.READ_WEIGHT`, `.READ_BODY_FAT` | `:core:data` | Health Connect (#350): reads the weights and body fat other apps saved in the last 30 days, when the user imports them. Granted like the ones above. |
+| `android.permission.health.WRITE_WEIGHT`, `.WRITE_BODY_FAT` | `:core:data` | Health Connect (#350): writes each logged weight and body fat with when it was measured, and removes them when the entry is edited without them or deleted. No other measurement or note. Granted like the ones above. |
 | `android.permission.VIBRATE` | `:core:ui` | The buzz at the end of a rest (`RestExpiryAlert`). |
 | `android.permission.WAKE_LOCK` | `androidx.work:work-runtime` | WorkManager holds a wake lock while the weekly auto-backup runs. |
 | `android.permission.ACCESS_NETWORK_STATE` | `androidx.work:work-runtime` | WorkManager's network constraints. The app sets none, and the permission reads connectivity state only; it cannot open a socket. |

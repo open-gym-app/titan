@@ -147,4 +147,45 @@ class BodyMeasurementRepositoryImplTest : RoomTestBase() {
 
             assertTrue(repository.getAll().first().isEmpty())
         }
+
+    @Test
+    fun `an imported entry keeps its mark through the round trip`() =
+        runBlocking {
+            val imported = FULL.copy(fromHealthConnect = true)
+
+            val id = repository.insert(imported)
+
+            assertEquals(imported.copy(id = id), repository.get(id))
+        }
+
+    @Test
+    fun `get answers null for an id with no row`() =
+        runBlocking {
+            assertNull(repository.get(42L))
+        }
+
+    @Test
+    fun `the measured range is half open and oldest first`() =
+        runBlocking {
+            listOf(99L, 100L, 150L, 200L).shuffled().forEach { at ->
+                repository.insert(BodyMeasurement(weight = 80_000_000, createdAt = at, updatedAt = at))
+            }
+
+            assertEquals(listOf(100L, 150L), repository.getMeasuredBetween(100L, 200L).map { it.createdAt })
+        }
+
+    @Test
+    fun `insertAll stores every entry`() =
+        runBlocking {
+            repository.insertAll(
+                listOf(
+                    BodyMeasurement(weight = 80_000_000, createdAt = 100, updatedAt = 100, fromHealthConnect = true),
+                    BodyMeasurement(bodyFat = 150, createdAt = 200, updatedAt = 200, fromHealthConnect = true),
+                ),
+            )
+
+            val all = repository.getAll().first()
+            assertEquals(listOf(200L, 100L), all.map { it.createdAt })
+            assertTrue(all.all { it.fromHealthConnect })
+        }
 }

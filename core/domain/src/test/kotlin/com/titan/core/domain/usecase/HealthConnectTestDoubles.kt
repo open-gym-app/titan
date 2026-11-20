@@ -3,12 +3,20 @@ package com.titan.core.domain.usecase
 import com.titan.core.domain.healthconnect.HealthConnect
 import com.titan.core.domain.healthconnect.HealthConnectAccess
 import com.titan.core.domain.healthconnect.HealthConnectAvailability
+import com.titan.core.domain.healthconnect.HealthConnectBodyMetric
+import com.titan.core.domain.healthconnect.HealthConnectBodyReading
+import com.titan.core.domain.healthconnect.HealthConnectBodyRecord
 import com.titan.core.domain.healthconnect.HealthConnectRecord
 import com.titan.core.domain.healthconnect.HealthConnectSession
 import com.titan.core.domain.healthconnect.HealthConnectSyncScheduler
+import com.titan.core.domain.model.BodyMeasurement
 import com.titan.core.domain.model.WorkoutSession
+import com.titan.core.domain.repository.BodyMeasurementRepository
 import com.titan.core.domain.repository.FinishedSessionActivity
 import com.titan.core.domain.repository.HealthConnectSessionRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 
 /**
  * Health Connect as a list of records, with the two things a test needs to steer: whether it is
@@ -28,7 +36,16 @@ class FakeHealthConnect(
     /** Every read window asked for, as `from until`. */
     val reads = mutableListOf<LongRange>()
 
-    /** Thrown from [writeSession] and [readSessions] instead of answering, when set. */
+    /** Body records other apps wrote, as [readBodyReadings] will return them. */
+    val bodyRecords = mutableListOf<HealthConnectBodyRecord>()
+
+    /** Every [writeBodyReading] call, in order. */
+    val bodyWrites = mutableListOf<BodyWrite>()
+
+    /** Every [deleteBodyReading] call, in order. */
+    val bodyDeletes = mutableListOf<BodyDelete>()
+
+    /** Thrown from every write and read instead of answering, when set. */
     var failure: Throwable? = null
 
     var revoked = false
@@ -37,6 +54,36 @@ class FakeHealthConnect(
     override fun availability(): HealthConnectAvailability = availability
 
     override val permissions: Set<String> = setOf(READ_PERMISSION, WRITE_PERMISSION)
+
+    override suspend fun writeBodyReading(
+        measurementId: Long,
+        version: Long,
+        reading: HealthConnectBodyReading,
+    ) {
+        failure?.let { throw it }
+        bodyWrites += BodyWrite(measurementId, version, reading)
+    }
+
+    override suspend fun deleteBodyReading(
+        measurementId: Long,
+        measuredAt: Long,
+        metric: HealthConnectBodyMetric,
+    ) {
+        failure?.let { throw it }
+        bodyDeletes += BodyDelete(measurementId, measuredAt, metric)
+    }
+
+    override suspend fun readBodyReadings(
+        metric: HealthConnectBodyMetric,
+        measuredFrom: Long,
+        measuredUntil: Long,
+    ): List<HealthConnectBodyRecord> {
+        failure?.let { throw it }
+        return bodyRecords.filter {
+            it.reading.metric == metric &&
+                it.reading.measuredAt in measuredFrom until measuredUntil
+        }
+    }
 
     override suspend fun grantedAccess(): Set<HealthConnectAccess> =
         if (availability == HealthConnectAvailability.AVAILABLE) granted else emptySet()
@@ -70,6 +117,18 @@ class FakeHealthConnect(
         val sessionId: Long,
         val version: Long,
         val session: HealthConnectSession,
+    )
+
+    data class BodyWrite(
+        val measurementId: Long,
+        val version: Long,
+        val reading: HealthConnectBodyReading,
+    )
+
+    data class BodyDelete(
+        val measurementId: Long,
+        val measuredAt: Long,
+        val metric: HealthConnectBodyMetric,
     )
 
     companion object {
@@ -134,5 +193,49 @@ class RecordingHealthConnectSyncScheduler : HealthConnectSyncScheduler {
     override fun requestSync(sessionId: Long) {
         failure?.let { throw it }
         requested += sessionId
+    }
+}
+
+/** The body measurement history as a list, with the store's ids handed out from one. */
+class FakeBodyMeasurementRepository(initial: List<BodyMeasurement> = emptyList()) : BodyMeasurementRepository {
+
+    private val entries = MutableStateFlow(initial)
+    private var nextId = (initial.maxOfOrNull { it.id } ?: 0L) + 1
+
+    /** Every batch [insertAll] was handed. */
+    val insertBatches = mutableListOf<List<BodyMeasurement>>()
+
+    val all: List<BodyMeasurement> get() = entries.value
+
+    override fun getAll(): Flow<List<BodyMeasurement>> =
+        entries.map { rows -> rows.sortedByDescending { it.createdAt } }
+
+    override fun getLatest(): Flow<BodyMeasurement?> = getAll().map { it.firstOrNull() }
+
+    override suspend fun get(id: Long): BodyMeasurement? = entries.value.firstOrNull { it.id == id }
+
+    override suspend fun getMeasuredBetween(
+        measuredFrom: Long,
+        measuredUntil: Long,
+    ): List<BodyMeasurement> =
+        entries.value.filter { it.createdAt in measuredFrom until measuredUntil }.sortedBy { it.createdAt }
+
+    override suspend fun insert(measurement: BodyMeasurement): Long {
+        val id = nextId++
+        entries.value += measurement.copy(id = id)
+        return id
+    }
+
+    override suspend fun insertAll(measurements: List<BodyMeasurement>) {
+        insertBatches += measurements
+        measurements.forEach { insert(it) }
+    }
+
+    override suspend fun update(measurement: BodyMeasurement) {
+        entries.value = entries.value.map { if (it.id == measurement.id) measurement else it }
+    }
+
+    override suspend fun delete(id: Long) {
+        entries.value = entries.value.filterNot { it.id == id }
     }
 }

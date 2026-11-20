@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.titan.core.domain.healthconnect.HealthConnectAccess
 import com.titan.core.domain.healthconnect.HealthConnectAvailability
+import com.titan.core.domain.healthconnect.HealthConnectBodyMetric
 import com.titan.core.domain.model.ThemePreference
 import com.titan.core.ui.component.HairlineDivider
 import com.titan.core.ui.component.PreferenceGroup
@@ -101,7 +102,8 @@ fun HealthConnectRoute(
  *
  * Two layouts, split on whether anything is granted. Not connected, it is one row that starts the
  * conversation — or, after a refusal, the way to Health Connect's settings, since its dialog will
- * not come back. Connected, it says what is shared, offers the import, and the two ways out.
+ * not come back. Connected, it says what is shared and offers an import, for workouts and for
+ * weight and body fat each, and then the two ways out.
  *
  * @param onManageAccess opens Health Connect's own settings for this app. Hoisted for the reason
  *   the backup screen's pickers are: starting an activity is the route's business.
@@ -159,6 +161,7 @@ fun HealthConnectScreen(
 
                 state.isConnected -> {
                     WorkoutsGroup(state = state, onEvent = onEvent)
+                    BodyGroup(state = state, onEvent = onEvent)
                     AccessGroup(canDisconnect = state.canDisconnect, onEvent = onEvent, onManageAccess = onManageAccess)
                 }
 
@@ -210,7 +213,7 @@ private fun WorkoutsGroup(
     onEvent: (HealthConnectEvent) -> Unit,
 ) {
     PreferenceGroup(title = stringResource(R.string.health_connect_group_workouts)) {
-        if (state.canWrite) {
+        if (state.canWriteExercise) {
             PreferenceInfoRow(
                 label = stringResource(R.string.health_connect_write_on),
                 supporting = stringResource(R.string.health_connect_write_on_detail),
@@ -226,11 +229,50 @@ private fun WorkoutsGroup(
             label = stringResource(R.string.health_connect_import),
             supporting = when {
                 state.isImporting -> stringResource(R.string.health_connect_importing)
-                state.canRead -> stringResource(R.string.health_connect_import_detail)
+                state.canReadExercise -> stringResource(R.string.health_connect_import_detail)
                 else -> stringResource(R.string.health_connect_import_blocked_detail)
             },
-            enabled = state.canRead && !state.isImporting,
-            onClick = { onEvent(HealthConnectEvent.ImportRequested) },
+            enabled = state.canReadExercise && !state.isImporting,
+            onClick = { onEvent(HealthConnectEvent.WorkoutsImportRequested) },
+        )
+    }
+}
+
+/**
+ * The body measurements' half, in [WorkoutsGroup]'s shape. Weight and body fat are two switches
+ * in Health Connect's dialog, so the line about writing says which of them is shared when only
+ * one is, and what to allow for the other.
+ */
+@Composable
+private fun BodyGroup(
+    state: HealthConnectUiState,
+    onEvent: (HealthConnectEvent) -> Unit,
+) {
+    PreferenceGroup(title = stringResource(R.string.health_connect_group_body)) {
+        val writable = state.writableBody
+        val (label, supporting) = when {
+            writable.size == HealthConnectBodyMetric.entries.size ->
+                R.string.health_connect_body_write_on to R.string.health_connect_body_write_on_detail
+
+            HealthConnectBodyMetric.WEIGHT in writable ->
+                R.string.health_connect_body_write_weight to R.string.health_connect_body_write_weight_detail
+
+            HealthConnectBodyMetric.BODY_FAT in writable ->
+                R.string.health_connect_body_write_body_fat to R.string.health_connect_body_write_body_fat_detail
+
+            else -> R.string.health_connect_body_write_off to R.string.health_connect_body_write_off_detail
+        }
+        PreferenceInfoRow(label = stringResource(label), supporting = stringResource(supporting))
+        HairlineDivider()
+        PreferenceRow(
+            label = stringResource(R.string.health_connect_import),
+            supporting = when {
+                state.isImportingBody -> stringResource(R.string.health_connect_importing)
+                state.canReadBody -> stringResource(R.string.health_connect_body_import_detail)
+                else -> stringResource(R.string.health_connect_body_import_blocked_detail)
+            },
+            enabled = state.canReadBody && !state.isImportingBody,
+            onClick = { onEvent(HealthConnectEvent.BodyImportRequested) },
         )
     }
 }
@@ -341,6 +383,12 @@ private fun HealthConnectMessage.text(): String =
             pluralStringResource(R.plurals.health_connect_imported, count, count)
         }
 
+        is HealthConnectMessage.ImportedMeasurements -> if (count == 0) {
+            stringResource(R.string.health_connect_imported_measurements_none)
+        } else {
+            pluralStringResource(R.plurals.health_connect_imported_measurements, count, count)
+        }
+
         HealthConnectMessage.ImportFailed -> stringResource(R.string.health_connect_import_failed)
 
         HealthConnectMessage.DisconnectFailed -> stringResource(R.string.health_connect_disconnect_failed)
@@ -395,7 +443,7 @@ fun HealthConnectNotConnectedPreview() {
     }
 }
 
-@Preview(name = "Health Connect - connected", showBackground = true)
+@Preview(name = "Health Connect - connected", showBackground = true, heightDp = 1000)
 @Composable
 fun HealthConnectConnectedPreview() {
     TitanTheme {
@@ -408,12 +456,14 @@ fun HealthConnectConnectedPreview() {
     }
 }
 
-@Preview(name = "Health Connect - write only, dark", showBackground = true)
+@Preview(name = "Health Connect - write only, dark", showBackground = true, heightDp = 1000)
 @Composable
 fun HealthConnectWriteOnlyPreview() {
     TitanTheme(theme = ThemePreference.DARK) {
         HealthConnectScreen(
-            state = HealthConnectUiState(granted = setOf(HealthConnectAccess.WRITE)),
+            state = HealthConnectUiState(
+                granted = setOf(HealthConnectAccess.WRITE_EXERCISE, HealthConnectAccess.WRITE_WEIGHT),
+            ),
             onEvent = {},
             onBack = {},
             onManageAccess = {},
@@ -421,7 +471,7 @@ fun HealthConnectWriteOnlyPreview() {
     }
 }
 
-@Preview(name = "Health Connect - connected, Android 14", showBackground = true, heightDp = 640)
+@Preview(name = "Health Connect - connected, Android 14", showBackground = true, heightDp = 1000)
 @Composable
 fun HealthConnectDisconnectInSettingsPreview() {
     TitanTheme {
@@ -447,7 +497,7 @@ fun HealthConnectRefusedPreview() {
     }
 }
 
-@Preview(name = "Health Connect - twice the font", showBackground = true, heightDp = 1400, fontScale = 2f)
+@Preview(name = "Health Connect - twice the font", showBackground = true, heightDp = 1800, fontScale = 2f)
 @Composable
 fun HealthConnectLargeFontPreview() {
     TitanTheme {

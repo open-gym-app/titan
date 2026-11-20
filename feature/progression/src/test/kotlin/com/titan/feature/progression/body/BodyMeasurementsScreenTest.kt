@@ -2,6 +2,7 @@ package com.titan.feature.progression.body
 
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -54,6 +55,7 @@ class BodyMeasurementsScreenTest {
 
     private val events = mutableListOf<BodyMeasurementsEvent>()
     private val saved = mutableListOf<BodyMeasurement>()
+    private var healthConnectOpened = 0
 
     // ─── The populated screen ───────────────────────────────────────────────────────────
 
@@ -96,13 +98,22 @@ class BodyMeasurementsScreenTest {
     }
 
     @Test
-    fun `the Health Connect row is present and says it is not ready`() {
+    fun `the Health Connect row opens the Health Connect screen`() {
         show(populated())
 
-        // Workouts sync with Health Connect and measurements do not yet (#350): the row is in its
-        // final position and disabled, drawn by the same component the settings screen's
-        // unshipped rows use.
-        scrollTo(hasText("Sync with Health Connect")).assertIsNotEnabled()
+        scrollTo(hasText("Sync with Health Connect")).assertIsEnabled().performClick()
+
+        assertEquals(1, healthConnectOpened)
+        assertTrue(events.isEmpty())
+    }
+
+    @Test
+    fun `the Health Connect row is not drawn where Health Connect is not available`() {
+        show(populated().copy(healthConnectAvailable = false))
+
+        // The history below it is there to scroll to; the row never is.
+        scrollTo(hasText("HISTORY"))
+        composeTestRule.onAllNodes(hasText("Sync with Health Connect")).assertCountEquals(0)
     }
 
     // ─── The empty screen ───────────────────────────────────────────────────────────────
@@ -123,8 +134,8 @@ class BodyMeasurementsScreenTest {
     fun `the Health Connect row is drawn for a user with nothing logged too`() {
         show(BodyMeasurementsUiState(isLoading = false))
 
-        // They are exactly the person deciding between typing measurements in and waiting for
-        // the sync, which is the question the row answers.
+        // They are exactly the person deciding between typing measurements in and importing
+        // them, which is the question the row answers.
         scrollTo(hasText("Sync with Health Connect")).assertIsDisplayed()
     }
 
@@ -281,7 +292,12 @@ class BodyMeasurementsScreenTest {
     ) {
         composeTestRule.setContent {
             TitanTheme(unitSystem = unitSystem) {
-                BodyMeasurementsScreen(state = state, onEvent = { events += it }, onBack = {})
+                BodyMeasurementsScreen(
+                    state = state,
+                    onEvent = { events += it },
+                    onBack = {},
+                    onOpenHealthConnect = { healthConnectOpened++ },
+                )
             }
         }
     }

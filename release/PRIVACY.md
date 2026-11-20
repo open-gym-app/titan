@@ -1,6 +1,6 @@
 # Titan privacy policy
 
-*Effective 19 November 2026. Also available in [français](PRIVACY.fr.md), [español](PRIVACY.es.md) and [português (Brasil)](PRIVACY.pt-BR.md).*
+*Effective 20 November 2026. Also available in [français](PRIVACY.fr.md), [español](PRIVACY.es.md) and [português (Brasil)](PRIVACY.pt-BR.md).*
 
 Titan is a workout tracker for Android. It is free, open source, and made by volunteers.
 This policy covers the Titan app (`app.titan.gym`) as published on Google Play and built
@@ -45,21 +45,30 @@ uninstall the app.
 
 Body weight, body fat and body measurements are health data. Titan uses them for one
 purpose only: to show you your own entries and trends. They are never transmitted, sold,
-shared, or used for advertising.
+or used for advertising, and never shared except with Health Connect on your phone, if you
+connect it, as described below.
 
-**Health Connect.** Titan can exchange workouts with Health Connect, Android's on-device
-health store, which other fitness apps on your phone also use. It is off until you connect it
-in Settings › Data & privacy › Health Connect and allow it in Health Connect's own dialog, and
-you can disconnect it there, or in Health Connect, at any time. Once connected:
+**Health Connect.** Titan can exchange workouts, body weight and body fat with Health Connect,
+Android's on-device health store, which other fitness apps on your phone also use. It is off
+until you connect it in Settings › Data & privacy › Health Connect and allow it in Health
+Connect's own dialog, and you can disconnect it there, or in Health Connect, at any time. Once
+connected:
 
 - When you finish a workout, Titan writes it to Health Connect as an exercise session: its
   type, when it started and ended, its name and its notes. Your sets, weights and reps are not
   written.
-- When you choose **Import the last 30 days**, Titan reads the exercise sessions other apps
-  saved in Health Connect over the last 30 days and adds them to your history.
+- When you choose **Import the last 30 days** under Workouts, Titan reads the exercise sessions
+  other apps saved in Health Connect over the last 30 days and adds them to your history.
+- When you log, edit or delete a body measurement, Titan writes its weight and body fat to
+  Health Connect, or removes them, with the time you measured them. Your other measurements
+  (chest, waist, arm, thigh) and your notes are not written.
+- When you choose **Import the last 30 days** under Weight and body fat, Titan reads the
+  weights and body fat readings other apps saved in Health Connect over the last 30 days and
+  adds them to your body measurements.
 
-Titan reads and writes exercise sessions only. It does not read or write your body weight,
-body fat, heart rate or any other Health Connect data. Health Connect is on your phone, so
+Each of these needs its own permission, which you grant or refuse in Health Connect's dialog.
+Titan reads and writes exercise sessions, weight and body fat only. It does not read or write
+your heart rate or any other Health Connect data. Health Connect is on your phone, so
 none of this sends anything off it. Data Titan reads from Health Connect is used only to show
 you your own history, and is never transmitted, sold, shared, or used for advertising. What
 Titan writes to Health Connect can be read there by the other apps you have allowed to, under
@@ -105,6 +114,7 @@ one off in Settings › Notifications or in Android's settings.
 | `SCHEDULE_EXACT_ALARM` (Android 12 and below) / `USE_EXACT_ALARM` | To end a rest timer on the second, and to fire a workout reminder at the time you set. |
 | `RECEIVE_BOOT_COMPLETED` | To schedule your workout reminders and the weekly backup again after the phone restarts. |
 | `health.READ_EXERCISE`, `health.WRITE_EXERCISE` | To import workouts from Health Connect and to write the ones you finish to it, as described in § Health data. Health Connect asks you first, and neither is granted unless you connect it. |
+| `health.READ_WEIGHT`, `health.WRITE_WEIGHT`, `health.READ_BODY_FAT`, `health.WRITE_BODY_FAT` | To import body weight and body fat from Health Connect and to write the ones you log to it, as described in § Health data. Granted the same way as the two above. |
 | `VIBRATE` | To buzz when a rest period ends. |
 | `WAKE_LOCK`, `FOREGROUND_SERVICE`, `ACCESS_NETWORK_STATE` | Added by Android's job scheduler library (WorkManager), which runs the weekly backup. None of them grants network access. |
 | `app.titan.gym.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | Added by the AndroidX core library. It keeps other apps from sending the app internal messages. |

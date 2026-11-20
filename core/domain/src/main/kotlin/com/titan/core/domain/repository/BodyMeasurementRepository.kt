@@ -37,8 +37,26 @@ interface BodyMeasurementRepository {
      */
     fun getLatest(): Flow<BodyMeasurement?>
 
+    /** The entry with [id], or null when there is none — what the Health Connect sync reads. */
+    suspend fun get(id: Long): BodyMeasurement?
+
+    /**
+     * Every entry measured in `[measuredFrom, measuredUntil)`, oldest first — the local side of
+     * the Health Connect import's duplicate check, which compares by when a figure was taken.
+     */
+    suspend fun getMeasuredBetween(
+        measuredFrom: Long,
+        measuredUntil: Long,
+    ): List<BodyMeasurement>
+
     /** Stores a new entry and returns its id. */
     suspend fun insert(measurement: BodyMeasurement): Long
+
+    /**
+     * Stores several new entries in one transaction — all of them or, on a failure, none, so an
+     * import that breaks halfway leaves nothing behind for the next one to skip as a duplicate.
+     */
+    suspend fun insertAll(measurements: List<BodyMeasurement>)
 
     /**
      * Overwrites the entry with [BodyMeasurement.id], in full.

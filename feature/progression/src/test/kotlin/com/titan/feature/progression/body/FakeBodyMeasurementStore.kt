@@ -43,6 +43,18 @@ class FakeBodyMeasurementStore(initial: List<BodyMeasurement> = emptyList()) : B
 
     override fun getLatest(): Flow<BodyMeasurement?> = getAll().map(List<BodyMeasurement>::firstOrNull)
 
+    override suspend fun get(id: Long): BodyMeasurement? = entries.value.firstOrNull { it.id == id }
+
+    override suspend fun getMeasuredBetween(
+        measuredFrom: Long,
+        measuredUntil: Long,
+    ): List<BodyMeasurement> =
+        entries.value.filter { it.createdAt in measuredFrom until measuredUntil }.sortedWith(NEWEST_FIRST.reversed())
+
+    override suspend fun insertAll(measurements: List<BodyMeasurement>) {
+        measurements.forEach { insert(it) }
+    }
+
     override suspend fun insert(measurement: BodyMeasurement): Long {
         gate?.await()
         writes += measurement
