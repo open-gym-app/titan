@@ -90,7 +90,7 @@ aboutlibrariesPlugin = "15.3.0"
 # which 0.10.0 moved to a parent interface, so every scanned preview test dies with
 # `NoSuchMethodError` at `RoborazziPreviewScannerSupport.kt:102`. Move it only together with a
 # Roborazzi release whose stack trace no longer shows that; renovate.json holds it below 0.10.
-composablePreviewScanner = "0.9.2"
+composablePreviewScanner = "0.9.3"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
