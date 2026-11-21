@@ -3,7 +3,7 @@ package com.titan.core.domain.importer.stronglifts
 import com.titan.core.domain.importer.DayMonthOrder
 import com.titan.core.domain.importer.ImportContext
 import com.titan.core.domain.importer.ImportedSet
-import com.titan.core.domain.importer.ParseResult
+import com.titan.core.domain.importer.RecordReading
 import com.titan.core.domain.importer.SourceValues
 import com.titan.core.domain.importer.SourceWeightUnit
 import com.titan.core.domain.importer.WeightFigure
@@ -29,11 +29,9 @@ internal class WorkoutRows private constructor(
     override val problem: String?,
 ) : StrongLiftsLayout {
 
-    override fun read(records: List<List<String>>): ParseResult {
-        val order = dayMonthOrder(header, records, DATE)
-        val readRows = records.count { read(it, order) }
-        return history.result(records.size, readRows)
-    }
+    override fun date(record: List<String>): String? = header[record, DATE]
+
+    override fun reading(order: DayMonthOrder?): RecordReading = history.reading { read(it, order) }
 
     /** Reads [record] into the history; whether it had a date and an exercise to read. */
     private fun read(

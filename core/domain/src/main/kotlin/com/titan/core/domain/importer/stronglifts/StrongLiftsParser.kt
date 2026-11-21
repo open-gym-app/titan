@@ -1,16 +1,14 @@
 package com.titan.core.domain.importer.stronglifts
 
 import com.titan.core.domain.backup.ImportSource
-import com.titan.core.domain.importer.DayMonthOrder
+import com.titan.core.domain.importer.DatedRows
 import com.titan.core.domain.importer.HistoryParser
 import com.titan.core.domain.importer.ImportContext
 import com.titan.core.domain.importer.ParseResult
 import com.titan.core.domain.importer.SourceValues
 import com.titan.core.domain.importer.SuffixedExerciseNames
-import com.titan.core.domain.importer.WholeFile
-import com.titan.core.domain.importer.csv.CsvHeader
 import com.titan.core.domain.importer.csv.CsvReader
-import com.titan.core.domain.importer.readAll
+import com.titan.core.domain.importer.readInTwoPasses
 
 /**
  * Reads the workout history StrongLifts exports: Settings › Export Data in the app, which writes
@@ -117,27 +115,17 @@ class StrongLiftsParser : HistoryParser {
             when {
                 layout == null -> ParseResult.NotRecognised
                 problem != null -> ParseResult.Malformed(problem)
-                else -> WholeFile(layout::read).readAll(reader)
+                else -> readInTwoPasses(source, reader, layout, context)
             }
         }
 }
 
-/** One of the two layouts a StrongLifts export comes in, as its header describes it. */
-internal sealed interface StrongLiftsLayout {
+/**
+ * One of the two layouts a StrongLifts export comes in, as its header describes it. Its dates may
+ * be written year last, so its rows are read in two passes; see [readInTwoPasses].
+ */
+internal sealed interface StrongLiftsLayout : DatedRows {
 
     /** Why no figure in one of the columns can be read, its header naming no unit Titan knows; null when none. */
     val problem: String?
-
-    /** The history [records], every row after the header, hold. */
-    fun read(records: List<List<String>>): ParseResult
 }
-
-/**
- * The order the year-last dates in [column] of [records] are written in, for
- * [SourceValues.calendarDate]; see the parser's class doc.
- */
-internal fun dayMonthOrder(
-    header: CsvHeader,
-    records: List<List<String>>,
-    column: String,
-): DayMonthOrder? = SourceValues.dayMonthOrder(records.map { header[it, column] })

@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "6ec3fed2aa217701571c026f4376e6ed",
+    "identityHash": "89559b87106fc4b690fd68e651b467e6",
     "entities": [
       {
         "tableName": "exercise",
@@ -970,15 +970,6 @@
             "createSql": "CREATE INDEX IF NOT EXISTS `index_workout_set_session_exercise_id` ON `${TABLE_NAME}` (`session_exercise_id`)"
           },
           {
-            "name": "index_workout_set_is_completed",
-            "unique": false,
-            "columnNames": [
-              "is_completed"
-            ],
-            "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_workout_set_is_completed` ON `${TABLE_NAME}` (`is_completed`)"
-          },
-          {
             "name": "index_workout_set_completed_at",
             "unique": false,
             "columnNames": [
@@ -1533,7 +1524,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6ec3fed2aa217701571c026f4376e6ed')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '89559b87106fc4b690fd68e651b467e6')"
     ]
   }
 }

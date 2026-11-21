@@ -467,6 +467,11 @@
     <string name="import_failed_not_recognised">Este archivo no es una exportación de %1$s. Comprueba que elegiste la app correcta y revisa cómo exportar desde %1$s.</string>
     <string name="import_failed_malformed">Parece una exportación de %1$s, pero no se pudo leer. Vuelve a exportar desde %1$s y elige el archivo nuevo.</string>
     <string name="import_failed_too_large">Este archivo es demasiado grande para importarlo. Titan lee archivos de hasta %1$s.</string>
+    <plurals name="import_failed_too_many_sets">
+        <item quantity="one">Este archivo contiene más series de las que Titan puede importar. Titan lee hasta %1$s serie.</item>
+        <item quantity="many">Este archivo contiene más series de las que Titan puede importar. Titan lee hasta %1$s series.</item>
+        <item quantity="other">Este archivo contiene más series de las que Titan puede importar. Titan lee hasta %1$s series.</item>
+    </plurals>
     <string name="import_failed_unreadable">No se pudo abrir el archivo. Puede que se haya movido o que se haya retirado el acceso. Vuelve a elegirlo.</string>
     <string name="import_failed_nothing">El archivo se leyó, pero no contiene nada que Titan pueda importar.</string>
     <string name="import_failed_storage">Tu teléfono no pudo guardar la importación, a menudo porque el almacenamiento está lleno. No se cambió nada. Libera espacio e inténtalo de nuevo.</string>

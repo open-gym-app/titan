@@ -124,7 +124,7 @@ class FitNotesParser : HistoryParser {
                 WorkoutLayout.of(header, reader.delimiter, context)?.let(::WorkoutReading)
                     ?: MeasurementLayout.of(header, reader.delimiter, context)?.let(::MeasurementReading)
             }
-            reading?.readAll(reader) ?: ParseResult.NotRecognised
+            reading?.readAll(reader, context) ?: ParseResult.NotRecognised
         }
 }
 
@@ -226,6 +226,9 @@ private class WorkoutReading(private val layout: WorkoutLayout) : RecordReading 
     private val workouts = LinkedHashMap<Long, WorkoutDraft>()
     private var rows = 0
 
+    override var setCount = 0
+        private set
+
     override fun read(record: List<String>) {
         rows++
         val row = layout.rejoined(record)
@@ -238,6 +241,7 @@ private class WorkoutReading(private val layout: WorkoutLayout) : RecordReading 
         evidence.observe(layout, row, reps)
         workouts.getOrPut(startedAt) { WorkoutDraft(startedAt) }
             .sets(exerciseName) += set(row, repsText, reps, evidence.isAssisted)
+        setCount++
     }
 
     override fun result(): ParseResult {
@@ -388,6 +392,8 @@ private class MeasurementReading(private val layout: MeasurementLayout) : Record
     private val unreadableEntries = mutableListOf<BodyMeasurement>()
     private var rows = 0
     private var datedRows = 0
+
+    override val setCount = 0
 
     override fun read(record: List<String>) {
         rows++

@@ -4,6 +4,7 @@ import com.titan.core.domain.importer.DayMonthOrder
 import com.titan.core.domain.importer.ImportContext
 import com.titan.core.domain.importer.ImportedHistory
 import com.titan.core.domain.importer.ParseResult
+import com.titan.core.domain.importer.RecordReading
 import com.titan.core.domain.importer.SourceLengthUnit
 import com.titan.core.domain.importer.SourceValues
 import com.titan.core.domain.importer.SourceWeightUnit
@@ -38,15 +39,27 @@ internal class MeasurementColumns private constructor(
 
     private val cells = PlainCells(header)
 
-    override fun read(records: List<List<String>>): ParseResult {
-        val order = SourceValues.dayMonthOrder(records.map { cells[it, MEASUREMENT_DATE] })
-        val measurements = records.mapNotNull { measurement(it, order) }
-        return if (measurements.isEmpty() && records.isNotEmpty()) {
-            ParseResult.Malformed("none of the file's ${records.size} rows has a measurement_date that can be read")
-        } else {
-            ParseResult.Parsed(ImportedHistory(bodyMeasurements = measurements))
+    override fun date(record: List<String>): String? = cells[record, MEASUREMENT_DATE]
+
+    override fun reading(order: DayMonthOrder?): RecordReading =
+        object : RecordReading {
+            private val measurements = mutableListOf<BodyMeasurement>()
+            private var rows = 0
+
+            override val setCount = 0
+
+            override fun read(record: List<String>) {
+                rows++
+                measurement(record, order)?.let(measurements::add)
+            }
+
+            override fun result(): ParseResult =
+                if (measurements.isEmpty() && rows > 0) {
+                    ParseResult.Malformed("none of the file's $rows rows has a measurement_date that can be read")
+                } else {
+                    ParseResult.Parsed(ImportedHistory(bodyMeasurements = measurements.toList()))
+                }
         }
-    }
 
     /** The measurement [record] holds, or null when its date does not read. */
     private fun measurement(

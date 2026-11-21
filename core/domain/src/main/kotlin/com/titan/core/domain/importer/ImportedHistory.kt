@@ -49,6 +49,10 @@ data class ImportedHistory(
     /** Progress photos, for the sources whose export carries the images themselves. */
     val photos: List<ImportedPhoto> = emptyList(),
 ) {
+    /** How many sets the workouts hold in all, which is what the import's memory follows. */
+    val setCount: Int
+        get() = workouts.sumOf { workout -> workout.exercises.sumOf { it.sets.size } }
+
     /** Whether the source held nothing an import could write. */
     val isEmpty: Boolean
         get() = exercises.isEmpty() && workouts.isEmpty() && templates.isEmpty() &&

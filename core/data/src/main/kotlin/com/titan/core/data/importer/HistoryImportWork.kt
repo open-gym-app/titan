@@ -56,10 +56,12 @@ internal object HistoryImportWork {
     private const val KEY_INTERRUPTED = "interrupted"
     private const val KEY_ERROR = "error"
     private const val KEY_LIMIT_BYTES = "limit_bytes"
+    private const val KEY_LIMIT_SETS = "limit_sets"
     private const val KEY_REASON = "reason"
     private const val ERROR_NOT_RECOGNISED = "not_recognised"
     private const val ERROR_MALFORMED = "malformed"
     private const val ERROR_TOO_LARGE = "too_large"
+    private const val ERROR_TOO_MANY_SETS = "too_many_sets"
     private const val ERROR_UNREADABLE = "unreadable"
     private const val ERROR_NOTHING = "nothing_to_import"
     private const val ERROR_STORAGE = "storage_failure"
@@ -129,6 +131,11 @@ internal object HistoryImportWork {
                 ERROR_TOO_LARGE,
             ).putLong(KEY_LIMIT_BYTES, error.limitBytes)
 
+            is HistoryImportError.TooManySets -> builder.putString(
+                KEY_ERROR,
+                ERROR_TOO_MANY_SETS,
+            ).putInt(KEY_LIMIT_SETS, error.limitSets)
+
             is HistoryImportError.Unreadable -> builder.putString(KEY_ERROR, ERROR_UNREADABLE).putReason(error.reason)
 
             HistoryImportError.NothingToImport -> builder.putString(KEY_ERROR, ERROR_NOTHING)
@@ -149,6 +156,7 @@ internal object HistoryImportWork {
             ERROR_NOT_RECOGNISED -> HistoryImportError.NotRecognised
             ERROR_MALFORMED -> HistoryImportError.Malformed(reason)
             ERROR_TOO_LARGE -> HistoryImportError.TooLarge(output.getLong(KEY_LIMIT_BYTES, 0))
+            ERROR_TOO_MANY_SETS -> HistoryImportError.TooManySets(output.getInt(KEY_LIMIT_SETS, 0))
             ERROR_UNREADABLE -> HistoryImportError.Unreadable(reason)
             ERROR_NOTHING -> HistoryImportError.NothingToImport
             else -> HistoryImportError.StorageFailure(reason)

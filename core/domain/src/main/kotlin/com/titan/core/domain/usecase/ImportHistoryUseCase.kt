@@ -14,6 +14,7 @@ import com.titan.core.domain.importer.ImportPlan
 import com.titan.core.domain.importer.ImportPlanner
 import com.titan.core.domain.importer.ImportedHistory
 import com.titan.core.domain.importer.ImportedPhoto
+import com.titan.core.domain.importer.MAX_IMPORT_SETS
 import com.titan.core.domain.importer.MAX_SOURCE_BYTES
 import com.titan.core.domain.importer.ParseOutcome
 import com.titan.core.domain.importer.ParseResult
@@ -140,6 +141,7 @@ class ImportHistoryUseCase(
     private val backupLock: BackupLock = BackupLock.SHARED,
     private val sessionLock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
     private val maxSourceBytes: Long = MAX_SOURCE_BYTES,
+    private val maxSets: Int = MAX_IMPORT_SETS,
 ) {
 
     /** Parses [source] with [parser] and imports what it holds. */
@@ -150,7 +152,7 @@ class ImportHistoryUseCase(
     ): Flow<HistoryImportProgress> =
         channelFlow {
             send(HistoryImportProgress.Reading)
-            val outcome = parser.parseSafely(source, context, maxSourceBytes)
+            val outcome = parser.parseSafely(source, context.copy(maxSets = maxSets), maxSourceBytes)
             val parsed = ((outcome as? ParseOutcome.Read)?.result as? ParseResult.Parsed)?.history
             send(if (parsed != null) import(parsed) else failed(outcome.refusal()))
         }
@@ -168,6 +170,9 @@ class ImportHistoryUseCase(
     @Suppress("TooGenericExceptionCaught")
     private suspend fun ProducerScope<HistoryImportProgress>.import(history: ImportedHistory): HistoryImportProgress {
         if (history.isEmpty) return failed(HistoryImportError.NothingToImport)
+        // A parser stops at the limit as it reads; this holds a history handed over already parsed
+        // to the same one. See MAX_IMPORT_SETS.
+        if (history.setCount > maxSets) return failed(HistoryImportError.TooManySets(maxSets))
         return try {
             backupLock.exclusively {
                 val (plan, report) = sessionLock.withTransition {
@@ -396,6 +401,8 @@ class ImportHistoryUseCase(
     private fun ParseOutcome.refusal(): HistoryImportError =
         when (this) {
             is ParseOutcome.TooLarge -> HistoryImportError.TooLarge(limitBytes)
+
+            is ParseOutcome.TooManySets -> HistoryImportError.TooManySets(limitSets)
 
             is ParseOutcome.Unreadable -> HistoryImportError.Unreadable(reason)
 

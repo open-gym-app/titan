@@ -1,6 +1,7 @@
 package com.titan.core.domain.importer.plain
 
 import com.titan.core.domain.backup.ImportSource
+import com.titan.core.domain.importer.DatedRows
 import com.titan.core.domain.importer.DayMonthOrder
 import com.titan.core.domain.importer.HistoryParser
 import com.titan.core.domain.importer.ImportContext
@@ -8,10 +9,9 @@ import com.titan.core.domain.importer.ParseResult
 import com.titan.core.domain.importer.SourceValues
 import com.titan.core.domain.importer.SourceWeightUnit
 import com.titan.core.domain.importer.WeightFigure
-import com.titan.core.domain.importer.WholeFile
 import com.titan.core.domain.importer.csv.CsvHeader
 import com.titan.core.domain.importer.csv.CsvReader
-import com.titan.core.domain.importer.readAll
+import com.titan.core.domain.importer.readInTwoPasses
 import java.time.LocalTime
 import java.time.ZoneId
 import java.util.Locale
@@ -88,19 +88,19 @@ class PlainCsvParser : HistoryParser {
             when {
                 layout == null -> ParseResult.NotRecognised
                 problem != null -> ParseResult.Malformed(problem)
-                else -> WholeFile(layout::read).readAll(reader)
+                else -> readInTwoPasses(source, reader, layout, context)
             }
         }
 }
 
-/** One of the two kinds of file the format has, as its header describes it. */
-internal sealed interface PlainCsvLayout {
+/**
+ * One of the two kinds of file the format has, as its header describes it. Its dates may be
+ * written year last, so its rows are read in two passes; see [readInTwoPasses].
+ */
+internal sealed interface PlainCsvLayout : DatedRows {
 
     /** Why no figure in one of the columns can be read, its header naming no unit Titan reads; null when none. */
     val problem: String?
-
-    /** The history [records], every row after the header, hold. */
-    fun read(records: List<List<String>>): ParseResult
 }
 
 /**

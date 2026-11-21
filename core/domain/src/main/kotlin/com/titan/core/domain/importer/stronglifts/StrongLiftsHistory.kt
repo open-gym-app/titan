@@ -8,6 +8,7 @@ import com.titan.core.domain.importer.ImportedSet
 import com.titan.core.domain.importer.ImportedWorkout
 import com.titan.core.domain.importer.ImportedWorkoutExercise
 import com.titan.core.domain.importer.ParseResult
+import com.titan.core.domain.importer.RecordReading
 import com.titan.core.domain.importer.SourceValues
 import com.titan.core.domain.importer.SourceWeightUnit
 import com.titan.core.domain.importer.SuffixedExerciseNames
@@ -33,6 +34,9 @@ internal class StrongLiftsHistory(private val context: ImportContext) {
     private val workouts = LinkedHashMap<Long, WorkoutDraft>()
     private val bodyWeights = LinkedHashMap<LocalDate, BodyMeasurement>()
 
+    /** How many sets the workouts' lines hold so far, performed or not. */
+    private var setCount = 0
+
     /** The exercise StrongLifts calls [name]: one per name, whether or not a set of it was performed. */
     fun exercise(name: String): ImportedExercise =
         exercises.getOrPut(name) {
@@ -50,7 +54,29 @@ internal class StrongLiftsHistory(private val context: ImportContext) {
         startedAt: Long,
         name: String?,
         durationSeconds: () -> Long?,
-    ): WorkoutDraft = workouts.getOrPut(startedAt) { WorkoutDraft(startedAt, name, durationSeconds()) }
+    ): WorkoutDraft =
+        workouts.getOrPut(startedAt) {
+            WorkoutDraft(startedAt, name, durationSeconds()) { sets -> setCount += sets }
+        }
+
+    /**
+     * A reading of a layout's rows into this history: [read] takes one row in and answers whether
+     * it had a date and an exercise that could be read.
+     */
+    fun reading(read: (List<String>) -> Boolean): RecordReading =
+        object : RecordReading {
+            private var rows = 0
+            private var readRows = 0
+
+            override val setCount: Int get() = this@StrongLiftsHistory.setCount
+
+            override fun read(record: List<String>) {
+                rows++
+                if (read(record)) readRows++
+            }
+
+            override fun result(): ParseResult = result(rows, readRows)
+        }
 
     /**
      * [text], the body weight on the row of a workout that started at [takenAt], as the measurement
@@ -81,7 +107,7 @@ internal class StrongLiftsHistory(private val context: ImportContext) {
      * The history read, or [ParseResult.Malformed] when the export had [rows] rows and none of them
      * had a date and an exercise that could be read: [readRows] counts those that did.
      */
-    fun result(
+    private fun result(
         rows: Int,
         readRows: Int,
     ): ParseResult =
@@ -135,6 +161,8 @@ internal class WorkoutDraft(
     private val startedAt: Long,
     private val name: String?,
     private val durationSeconds: Long?,
+    /** Told how many sets each line brings, so the history can count them as they are read. */
+    private val counted: (Int) -> Unit,
 ) {
     private val lines = mutableListOf<Line>()
     private val notes = LinkedHashSet<String>()
@@ -146,6 +174,7 @@ internal class WorkoutDraft(
         rowNote: String?,
     ) {
         lines += Line(exercise, sets, rowNote)
+        counted(sets.size)
     }
 
     /** A note on the workout itself, kept once however many rows carry it. */

@@ -1,9 +1,11 @@
 package com.titan.core.domain.importer.jefit
 
+import com.titan.core.domain.importer.ImportContext
+import com.titan.core.domain.importer.ImportPlanner
 import com.titan.core.domain.importer.ImportedWorkout
 import com.titan.core.domain.importer.ImportedWorkoutExercise
 import com.titan.core.domain.importer.SourceValues
-import java.time.ZoneId
+import com.titan.core.domain.importer.checkSetCount
 
 /**
  * Turns EXERCISE LOGS into workouts, placing each log in the WORKOUT SESSIONS row it names.
@@ -25,7 +27,7 @@ import java.time.ZoneId
  */
 internal class JefitWorkouts(
     tables: JefitTables,
-    private val zone: ZoneId,
+    private val context: ImportContext,
     private val exercises: JefitExercises,
     private val sets: JefitSetReader,
     private val dayNames: Map<String, String>,
@@ -52,19 +54,25 @@ internal class JefitWorkouts(
     var placed = 0
         private set
 
-    /** The sets [read] found of each exercise that count reps, and that are timed without them. */
-    private val shapes = HashMap<JefitExerciseKey, IntArray>()
+    /** The shapes of the sets [read] found of each exercise. */
+    private val shapes = HashMap<JefitExerciseKey, ImportPlanner.ShapeTally>()
 
     /**
      * Whether the sets [read] found of [key] are mostly timed rather than counted: a hold or a
-     * piece of cardio. The planner judges an exercise's type by the same rule, so a routine plans
-     * such an exercise in time rather than in reps; see [JefitRoutines].
+     * piece of cardio. The planner judges an exercise's type with the same tally, so a routine
+     * plans such an exercise in time rather than in reps; see [JefitRoutines].
      */
-    fun isTimed(key: JefitExerciseKey): Boolean = shapes[key]?.let { (counted, timed) -> timed > counted } ?: false
+    fun isTimed(key: JefitExerciseKey): Boolean = shapes[key]?.isTimed ?: false
 
-    /** The workouts [logs] make, in the order their first log appears. */
+    /**
+     * The workouts [logs] make, in the order their first log appears.
+     *
+     * @throws com.titan.core.domain.importer.TooManySetsException once the sets read pass
+     *   [ImportContext.maxSets].
+     */
     fun read(logs: List<JefitLog>): List<ImportedWorkout> {
         val drafts = LinkedHashMap<String, WorkoutDraft>()
+        var setCount = 0
         logs.forEach { log ->
             val key = log.key ?: return@forEach
             val draft = draftFor(log, drafts) ?: return@forEach
@@ -77,14 +85,11 @@ internal class JefitWorkouts(
                 exercises.isAssisted(key),
             )
             if (performed.isNotEmpty()) {
+                setCount += performed.size
+                context.checkSetCount(setCount)
                 draft.exercises += ImportedWorkoutExercise(exercise, performed, notes = notes.remove(key to log.date))
-                val shape = shapes.getOrPut(key) { IntArray(2) }
-                performed.forEach { set ->
-                    when {
-                        (set.reps ?: 0) > 0 -> shape[0]++
-                        (set.duration ?: 0) > 0 -> shape[1]++
-                    }
-                }
+                val shape = shapes.getOrPut(key, ImportPlanner::ShapeTally)
+                performed.forEach { set -> shape.add(set.reps, set.duration, set.distance) }
             }
         }
         return drafts.values.filter { it.exercises.isNotEmpty() }.map(WorkoutDraft::toWorkout)
@@ -102,7 +107,7 @@ internal class JefitWorkouts(
                 WorkoutDraft(startedAt, session.durationSeconds, session.dayId?.let(dayNames::get), session.calories)
             }
         }
-        val noon = SourceValues.localDateAtNoon(log.date, zone) ?: return null
+        val noon = SourceValues.localDateAtNoon(log.date, context.zone) ?: return null
         return drafts.getOrPut("day#$noon") { WorkoutDraft(noon) }
     }
 
