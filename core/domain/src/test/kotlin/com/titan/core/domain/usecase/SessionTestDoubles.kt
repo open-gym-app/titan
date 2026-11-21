@@ -77,8 +77,8 @@ class FakeSessionRepository : SessionRepository {
      * "not in progress", so a row that was never finished cannot inflate the figure the
      * achievement thresholds are read against.
      */
-    override suspend fun countFinished(): Int =
-        sessions.value.values.count { !it.isInProgress && it.completedAt != null }
+    override suspend fun countFinishedBy(atMillis: Long): Int =
+        sessions.value.values.count { !it.isInProgress && (it.completedAt ?: Long.MAX_VALUE) <= atMillis }
 
     override fun getById(id: Long): Flow<WorkoutSession?> = sessions.map { it[id] }
 

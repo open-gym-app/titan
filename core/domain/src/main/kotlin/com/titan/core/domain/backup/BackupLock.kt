@@ -5,7 +5,7 @@ import kotlinx.coroutines.sync.withLock
 
 /**
  * Serialises the operations that take the whole of the user's data at once: an export, manual
- * or automatic, a restore, and "delete all data".
+ * or automatic, a restore, "delete all data", and an import from another app.
  *
  * ### Why they cannot overlap
  *
@@ -17,7 +17,9 @@ import kotlinx.coroutines.sync.withLock
  * whose sets point at sessions it does not contain, which the next restore refuses. One that
  * read the rows after a restore and the settings before it carries the restored history in the
  * old units. A delete-all landing between a restore's rows and its settings leaves an empty
- * device with somebody else's settings.
+ * device with somebody else's settings. An import from another app is one transaction on its own,
+ * but a restore queued behind it would wipe the history it had just merged in, and a wipe that ran
+ * between its duplicate check and its writes would leave it judging a device that no longer exists.
  *
  * The weekly backup is what makes this reachable without two screens at once: it runs from
  * WorkManager whenever the phone is idle and charging, which is also when somebody leaves a
@@ -28,14 +30,16 @@ import kotlinx.coroutines.sync.withLock
  * Cancelling the scheduled work before a restore or a wipe would stop *that* run, and then the
  * next run would start on whatever the store looked like halfway through. A lock is what makes
  * "one of these at a time" true whatever started them. The wait is the price: a restore
- * started during a weekly backup sits on "Validating" until the backup has finished writing.
+ * started during a weekly backup sits on "Validating" until the backup has finished writing, and
+ * an import from another app waits the same way once its file is parsed.
  *
  * ### What it does not cover
  *
  * Ordinary writes — a set logged, a template saved — do not take it. Those are kept out of an
  * export by the read transaction `BackupRepository.readConsistently` holds, and out of a
- * restore by the restore's own transaction. This lock is about the three operations whose
- * steps span more than one store and therefore more than one transaction.
+ * restore by the restore's own transaction. This lock is about the operations whose steps span
+ * more than one store and therefore more than one transaction, and about the import that must not
+ * land while one of them is halfway through.
  *
  * Like `SessionLifecycleLock`, it is process-wide and not durable: the app runs in one process,
  * and WorkManager runs its workers in that same process.
@@ -43,17 +47,19 @@ import kotlinx.coroutines.sync.withLock
  * ### Taken before `SessionLifecycleLock`, never after
  *
  * A restore and a delete-all hold both: this one for their whole run, the session lock from the
- * session reset to the end of the table replace. They take this one first. No session use case
- * takes this one at all, so the order is the only one in the app and the two cannot deadlock.
+ * session reset to the end of the table replace. An import from another app holds both for its
+ * whole transaction. They all take this one first. No session use case takes this one at all, so
+ * the order is the only one in the app and the two cannot deadlock.
  */
 class BackupLock {
 
     private val mutex = Mutex()
 
     /**
-     * Runs [block] with no other export, restore or delete-all running, waiting for one that is.
+     * Runs [block] with no other export, restore, delete-all or import running, waiting for one that
+     * is.
      *
-     * Not re-entrant: [block] must not start another of the three. None of them calls another.
+     * Not re-entrant: [block] must not start another of them. None of them calls another.
      */
     suspend fun <T> exclusively(block: suspend () -> T): T = mutex.withLock { block() }
 

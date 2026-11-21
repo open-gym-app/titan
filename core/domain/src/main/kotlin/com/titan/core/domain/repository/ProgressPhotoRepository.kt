@@ -22,16 +22,23 @@ interface ProgressPhotoRepository {
      *
      * The image is re-encoded on the way in: scaled down to a size a phone screen can use, turned
      * the right way up, and stripped of every piece of metadata it carried — a phone camera's
-     * photo can hold the GPS position of the user's home, and nothing the app keeps should. When
-     * the image records when it was taken, that is the photo's [ProgressPhoto.takenAt]; otherwise
-     * [takenAt] is.
+     * photo can hold the GPS position of the user's home, and nothing the app keeps should.
      *
+     * @param takenAt the photo's [ProgressPhoto.takenAt], unless [preferImageTime] lets the image
+     *   overrule it.
+     * @param preferImageTime whether the time the image records it was taken, when it records one,
+     *   wins over [takenAt]. It does for a photo picked in the app, where [takenAt] is only the
+     *   moment it was added. It does not for an imported one: the import recognises a photo it
+     *   already stored by the time its source declared, which every source gives and many images,
+     *   re-encoded on their way out of another app, no longer carry; letting the image win would
+     *   store the same photo again on every re-run.
      * @throws java.io.IOException if the bytes cannot be read or are not an image, with nothing
      *   stored.
      */
     suspend fun add(
         source: PhotoSource,
         takenAt: Long,
+        preferImageTime: Boolean = true,
     ): Long
 
     /** Removes the photo and its image, or does nothing when no photo has that id. */
