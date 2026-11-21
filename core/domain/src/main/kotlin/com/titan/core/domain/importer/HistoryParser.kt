@@ -3,6 +3,8 @@ package com.titan.core.domain.importer
 import com.titan.core.domain.backup.CappedStream
 import com.titan.core.domain.backup.ImportSource
 import com.titan.core.domain.backup.SourceTooLargeException
+import com.titan.core.domain.importer.csv.CsvReader
+import com.titan.core.domain.importer.csv.MalformedCsvException
 import com.titan.core.domain.model.UnitSystem
 import kotlinx.coroutines.CancellationException
 import java.io.IOException
@@ -79,6 +81,35 @@ sealed interface ParseResult {
      */
     data class Malformed(val reason: String) : ParseResult
 }
+
+/**
+ * One pass over the rows of a CSV export after its header, building a history as it goes.
+ *
+ * A parser that has recognised its format by the header hands every later record to one of
+ * these and answers what it built; [readAll] is that loop, so every CSV parser turns a break in
+ * the CSV into [ParseResult.Malformed] the same way.
+ */
+internal interface RecordReading {
+
+    /** Takes in one record, already split into fields. */
+    fun read(record: List<String>)
+
+    /** What the records read so far amount to. */
+    fun result(): ParseResult
+}
+
+/**
+ * Feeds every record [reader] has left to [this] and answers its [RecordReading.result], or
+ * [ParseResult.Malformed] naming the line when the CSV breaks in a way no row can be recovered
+ * from.
+ */
+internal fun RecordReading.readAll(reader: CsvReader): ParseResult =
+    try {
+        reader.records().forEach(::read)
+        result()
+    } catch (failure: MalformedCsvException) {
+        ParseResult.Malformed(failure.message.orEmpty())
+    }
 
 /**
  * The largest file an import from another app will read: 32 MiB.

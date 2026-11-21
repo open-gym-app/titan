@@ -38,8 +38,9 @@ class SourceUnitsTest {
         assertEquals(520_000L, SourceDistanceUnit.KILOMETRE.toCentimetres(5.2))
         // 3.1 mi is 498,896.64 cm.
         assertEquals(498_897L, SourceDistanceUnit.MILE.toCentimetres(3.1))
+        // 10 ft is 304.8 cm.
+        assertEquals(305L, SourceDistanceUnit.FOOT.toCentimetres(10.0))
         assertEquals(9_144L, SourceDistanceUnit.YARD.toCentimetres(100.0))
-        assertEquals(3_048L, SourceDistanceUnit.FOOT.toCentimetres(100.0))
     }
 
     @Test
@@ -49,6 +50,7 @@ class SourceUnitsTest {
         assertEquals(SourceDistanceUnit.KILOMETRE, SourceDistanceUnit.parse("KM"))
         assertEquals(SourceDistanceUnit.MILE, SourceDistanceUnit.parse("mi."))
         assertEquals(SourceDistanceUnit.MILE, SourceDistanceUnit.parse("miles"))
+        assertEquals(SourceDistanceUnit.FOOT, SourceDistanceUnit.parse("ft"))
         assertEquals(SourceDistanceUnit.YARD, SourceDistanceUnit.parse("yd"))
         assertEquals(SourceDistanceUnit.FOOT, SourceDistanceUnit.parse("Feet"))
         assertNull(SourceDistanceUnit.parse("furlongs"))
@@ -78,5 +80,11 @@ class SourceUnitsTest {
         assertNull(SourceLengthUnit.parse("m"))
         assertNull(SourceLengthUnit.parse("km"))
         assertNull(SourceLengthUnit.parse(""))
+    }
+
+    @Test
+    fun `a bare circumference is in the length the user measures a body in`() {
+        assertEquals(SourceLengthUnit.CENTIMETRE, SourceLengthUnit.of(UnitSystem.METRIC))
+        assertEquals(SourceLengthUnit.INCH, SourceLengthUnit.of(UnitSystem.IMPERIAL))
     }
 }

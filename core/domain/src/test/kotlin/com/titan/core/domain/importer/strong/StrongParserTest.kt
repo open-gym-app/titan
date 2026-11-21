@@ -79,6 +79,24 @@ class StrongParserTest {
     }
 
     @Test
+    fun `no FitNotes export, nor its backup, is a Strong export`() {
+        listOf(
+            "fitnotes-export.csv",
+            "fitnotes-export-legacy.csv",
+            "fitnotes-ios.csv",
+            "fitnotes-body-tracker.csv",
+            "fitnotes-damaged.csv",
+            "FitNotes_Backup.fitnotes",
+        ).forEach { sample ->
+            assertEquals(
+                sample,
+                ParseResult.NotRecognised,
+                ImporterFixtures.read(parser, ImporterFixtures.resource("fitnotes/$sample")),
+            )
+        }
+    }
+
+    @Test
     fun `an export with no workouts in it is an empty history, not a broken file`() {
         assertEquals(ImportedHistory(), parsed("strong-header-only.csv"))
     }

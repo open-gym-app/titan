@@ -74,6 +74,8 @@ enum class SourceWeightUnit(private val milligrams: Double) {
 enum class SourceDistanceUnit(private val centimetres: Double) {
     METRE(CENTIMETRES_PER_METRE),
     KILOMETRE(CENTIMETRES_PER_KILOMETRE),
+
+    /** The international foot, 0.3048 m exactly: FitNotes offers it for a distance. */
     FOOT(CENTIMETRES_PER_FOOT),
     YARD(CENTIMETRES_PER_YARD),
 
@@ -121,7 +123,7 @@ enum class SourceDistanceUnit(private val centimetres: Double) {
             }
 
         /**
-         * The unit [label] names — `m`, `km`, `yd`, `Miles`, `mi.` — or null when it names none. Case,
+         * The unit [label] names — `m`, `km`, `ft`, `yd`, `Miles`, `mi.` — or null when it names none. Case,
          * surrounding space and a trailing full stop are ignored.
          */
         fun parse(label: String): SourceDistanceUnit? = LABELS[unitKey(label)]
@@ -164,6 +166,16 @@ enum class SourceLengthUnit(private val millimetres: Double) {
             "inch" to INCH,
             "inches" to INCH,
         )
+
+        /**
+         * The unit a circumference with no unit beside it is read in: the one [unitSystem] measures
+         * a body in, centimetres or inches.
+         */
+        fun of(unitSystem: UnitSystem): SourceLengthUnit =
+            when (unitSystem) {
+                UnitSystem.METRIC -> CENTIMETRE
+                UnitSystem.IMPERIAL -> INCH
+            }
 
         /**
          * The unit [label] names — `cm`, `in`, `Inches` — or null when it names none. Case,

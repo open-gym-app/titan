@@ -9,14 +9,15 @@ import com.titan.core.domain.importer.ImportedSet
 import com.titan.core.domain.importer.ImportedWorkout
 import com.titan.core.domain.importer.ImportedWorkoutExercise
 import com.titan.core.domain.importer.ParseResult
+import com.titan.core.domain.importer.RecordReading
 import com.titan.core.domain.importer.SourceDistanceUnit
 import com.titan.core.domain.importer.SourceValues
 import com.titan.core.domain.importer.SourceWeightUnit
 import com.titan.core.domain.importer.SuffixedExerciseNames
 import com.titan.core.domain.importer.csv.CsvHeader
 import com.titan.core.domain.importer.csv.CsvReader
-import com.titan.core.domain.importer.csv.MalformedCsvException
 import com.titan.core.domain.importer.csv.QualifiedColumn
+import com.titan.core.domain.importer.readAll
 import com.titan.core.domain.model.SetType
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -95,15 +96,7 @@ class StrongParser : HistoryParser {
         source.open().use { stream ->
             val reader = CsvReader.open(stream)
             val layout = reader.readHeader()?.let { StrongLayout.of(it, context) }
-            if (layout == null) {
-                ParseResult.NotRecognised
-            } else {
-                try {
-                    StrongReading(layout).apply { reader.records().forEach(::read) }.result()
-                } catch (failure: MalformedCsvException) {
-                    ParseResult.Malformed(failure.message.orEmpty())
-                }
-            }
+            layout?.let(::StrongReading)?.readAll(reader) ?: ParseResult.NotRecognised
         }
 }
 
@@ -168,14 +161,14 @@ private class StrongLayout(
 }
 
 /** One pass over an export's rows, building the workouts as it goes. */
-private class StrongReading(private val layout: StrongLayout) {
+private class StrongReading(private val layout: StrongLayout) : RecordReading {
 
     private val names = SuffixedExerciseNames(STRONG_CATALOGUE_NAMES)
     private val exercises = HashMap<String, ImportedExercise>()
     private val workouts = LinkedHashMap<WorkoutKey, WorkoutDraft>()
     private var rows = 0
 
-    fun read(record: List<String>) {
+    override fun read(record: List<String>) {
         rows++
         val date = layout[record, DATE] ?: return
         val exerciseName = layout[record, EXERCISE_NAME] ?: return
@@ -203,7 +196,7 @@ private class StrongReading(private val layout: StrongLayout) {
         }
     }
 
-    fun result(): ParseResult =
+    override fun result(): ParseResult =
         if (workouts.isEmpty() && rows > 0) {
             ParseResult.Malformed("none of the export's $rows rows has a date and an exercise that can be read")
         } else {
