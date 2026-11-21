@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "334f825ab166afe8f9b9b5b79ca2b9fd",
+    "identityHash": "b1f05948bb7bc3d6fb1a13402e518a0b",
     "entities": [
       {
         "tableName": "exercise",
@@ -1105,7 +1105,7 @@
       },
       {
         "tableName": "body_measurement",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `weight` INTEGER, `chest` INTEGER, `waist` INTEGER, `arm` INTEGER, `thigh` INTEGER, `body_fat` INTEGER, `notes` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `weight` INTEGER, `neck` INTEGER, `shoulders` INTEGER, `chest` INTEGER, `waist` INTEGER, `hips` INTEGER, `arm` INTEGER, `forearm` INTEGER, `thigh` INTEGER, `calf` INTEGER, `body_fat` INTEGER, `notes` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -1119,6 +1119,16 @@
             "affinity": "INTEGER"
           },
           {
+            "fieldPath": "neck",
+            "columnName": "neck",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "shoulders",
+            "columnName": "shoulders",
+            "affinity": "INTEGER"
+          },
+          {
             "fieldPath": "chest",
             "columnName": "chest",
             "affinity": "INTEGER"
@@ -1129,13 +1139,28 @@
             "affinity": "INTEGER"
           },
           {
+            "fieldPath": "hips",
+            "columnName": "hips",
+            "affinity": "INTEGER"
+          },
+          {
             "fieldPath": "arm",
             "columnName": "arm",
             "affinity": "INTEGER"
           },
           {
+            "fieldPath": "forearm",
+            "columnName": "forearm",
+            "affinity": "INTEGER"
+          },
+          {
             "fieldPath": "thigh",
             "columnName": "thigh",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "calf",
+            "columnName": "calf",
             "affinity": "INTEGER"
           },
           {
@@ -1432,7 +1457,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '334f825ab166afe8f9b9b5b79ca2b9fd')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b1f05948bb7bc3d6fb1a13402e518a0b')"
     ]
   }
 }

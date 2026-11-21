@@ -10,18 +10,28 @@ class BodyMeasurementValidatorTest {
 
     private fun measurement(
         weight: Long? = null,
+        neck: Int? = null,
+        shoulders: Int? = null,
         chest: Int? = null,
         waist: Int? = null,
+        hips: Int? = null,
         arm: Int? = null,
+        forearm: Int? = null,
         thigh: Int? = null,
+        calf: Int? = null,
         bodyFat: Int? = null,
         notes: String? = null,
     ) = BodyMeasurement(
         weight = weight,
+        neck = neck,
+        shoulders = shoulders,
         chest = chest,
         waist = waist,
+        hips = hips,
         arm = arm,
+        forearm = forearm,
         thigh = thigh,
+        calf = calf,
         bodyFat = bodyFat,
         notes = notes,
         createdAt = 100,
@@ -57,6 +67,11 @@ class BodyMeasurementValidatorTest {
         assertTrue(validate(measurement(arm = 385)).isValid)
         assertTrue(validate(measurement(thigh = 610)).isValid)
         assertTrue(validate(measurement(bodyFat = 155)).isValid)
+        assertTrue(validate(measurement(neck = 390)).isValid)
+        assertTrue(validate(measurement(shoulders = 1_210)).isValid)
+        assertTrue(validate(measurement(hips = 980)).isValid)
+        assertTrue(validate(measurement(forearm = 300)).isValid)
+        assertTrue(validate(measurement(calf = 390)).isValid)
     }
 
     @Test
@@ -90,6 +105,12 @@ class BodyMeasurementValidatorTest {
         assertFalse(validate(measurement(waist = tooBig)).isValid)
         assertFalse(validate(measurement(arm = tooBig)).isValid)
         assertFalse(validate(measurement(thigh = tooBig)).isValid)
+        assertFalse(validate(measurement(neck = tooBig)).isValid)
+        assertFalse(validate(measurement(shoulders = tooBig)).isValid)
+        assertFalse(validate(measurement(hips = tooBig)).isValid)
+        assertFalse(validate(measurement(forearm = tooBig)).isValid)
+        assertFalse(validate(measurement(calf = tooBig)).isValid)
+        assertFalse(validate(measurement(calf = 0)).isValid)
         assertFalse(validate(measurement(waist = 0)).isValid)
 
         assertTrue(validate(measurement(waist = BodyMeasurementValidator.CIRCUMFERENCE_MIN_MM)).isValid)

@@ -3,6 +3,7 @@ package com.titan.feature.progression.body.component
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -44,6 +45,7 @@ import com.titan.core.ui.format.weightSuffix
 import com.titan.core.ui.theme.LocalUnitSystem
 import com.titan.core.ui.theme.TitanTheme
 import com.titan.feature.progression.R
+import com.titan.feature.progression.body.BodySite
 import com.titan.feature.progression.body.NEW_ENTRY
 
 /**
@@ -79,7 +81,7 @@ fun MeasurementFormSheet(
 }
 
 /**
- * Weight, four circumferences, body fat and a note — every one of them optional.
+ * Weight, nine circumferences, body fat and a note — every one of them optional.
  *
  * ### It holds its own text, and hands back a finished entry
  *
@@ -135,23 +137,21 @@ fun MeasurementForm(
     var weightText by rememberSaveable(entry, unitSystem) {
         mutableStateOf(entry.weight?.let { formatWeightValue(it, unitSystem) }.orEmpty())
     }
-    var chestText by rememberSaveable(entry, unitSystem) { mutableStateOf(entry.chest.seed(unitSystem)) }
-    var waistText by rememberSaveable(entry, unitSystem) { mutableStateOf(entry.waist.seed(unitSystem)) }
-    var armText by rememberSaveable(entry, unitSystem) { mutableStateOf(entry.arm.seed(unitSystem)) }
-    var thighText by rememberSaveable(entry, unitSystem) { mutableStateOf(entry.thigh.seed(unitSystem)) }
+    // One saved box per site, called in the same order on every composition — the list is an
+    // enum's entries — so each `rememberSaveable` keeps its slot.
+    val siteTexts = BodySite.entries.associateWith { site ->
+        rememberSaveable(entry, unitSystem) { mutableStateOf(site.of(entry).seed(unitSystem)) }
+    }
     var bodyFatText by rememberSaveable(entry, unitSystem) {
         mutableStateOf(entry.bodyFat?.let(::formatPercentTenthsValue).orEmpty())
     }
     var notesText by rememberSaveable(entry) { mutableStateOf(entry.notes.orEmpty()) }
 
     val weight = weightText.parsed(WEIGHT_RANGE) { parseWeightMilligrams(it, unitSystem) }
-    val chest = chestText.parsedLength(unitSystem)
-    val waist = waistText.parsedLength(unitSystem)
-    val arm = armText.parsedLength(unitSystem)
-    val thigh = thighText.parsedLength(unitSystem)
+    val sites = siteTexts.mapValues { (_, text) -> text.value.parsedLength(unitSystem) }
     val bodyFat = bodyFatText.parsed(BODY_FAT_RANGE, ::parsePercentTenths)
 
-    val figures = listOf(weight, chest, waist, arm, thigh, bodyFat)
+    val figures = listOf(weight, bodyFat) + sites.values
     // An entry has to record something and every figure has to be within its bound — the two
     // rules `BodyMeasurementValidator` would refuse it for, checked here so the button is dead
     // rather than the save silent. And not while a write is already in flight: the sheet is
@@ -187,50 +187,25 @@ fun MeasurementForm(
             isError = weight.isError,
         )
 
-        // Two across, because the four circumferences are one question asked four times and a
-        // column of full-width boxes would put the notes field below the fold on every phone.
-        // They are also kept together and in the order the card above lists them, so the form
+        // Two across, because the circumferences are one question asked nine times and a column
+        // of full-width boxes would put the notes field a long scroll below the fold. They are
+        // kept together and head to foot, the order the card above lists them in, so the form
         // and the readout are read the same way round.
-        MeasurementFieldRow(
-            first = {
-                MeasurementField(
-                    value = chestText,
-                    onValueChange = { chestText = it },
-                    label = stringResource(R.string.body_field_chest, lengthUnit),
-                    isError = chest.isError,
-                    modifier = it,
-                )
-            },
-            second = {
-                MeasurementField(
-                    value = waistText,
-                    onValueChange = { waistText = it },
-                    label = stringResource(R.string.body_field_waist, lengthUnit),
-                    isError = waist.isError,
-                    modifier = it,
-                )
-            },
-        )
-        MeasurementFieldRow(
-            first = {
-                MeasurementField(
-                    value = armText,
-                    onValueChange = { armText = it },
-                    label = stringResource(R.string.body_field_arm, lengthUnit),
-                    isError = arm.isError,
-                    modifier = it,
-                )
-            },
-            second = {
-                MeasurementField(
-                    value = thighText,
-                    onValueChange = { thighText = it },
-                    label = stringResource(R.string.body_field_thigh, lengthUnit),
-                    isError = thigh.isError,
-                    modifier = it,
-                )
-            },
-        )
+        BodySite.entries.chunked(2).forEach { pair ->
+            MeasurementFieldRow(
+                fields = pair.map { site ->
+                    { modifier: Modifier ->
+                        MeasurementField(
+                            value = siteTexts.getValue(site).value,
+                            onValueChange = { siteTexts.getValue(site).value = it },
+                            label = stringResource(site.field, lengthUnit),
+                            isError = sites.getValue(site).isError,
+                            modifier = modifier,
+                        )
+                    }
+                },
+            )
+        }
 
         // Full width, beside the weight rather than the tape: it is the other figure the two
         // composition tiles are built from, and it is measured with neither a scale nor a tape.
@@ -258,12 +233,8 @@ fun MeasurementForm(
             Button(
                 onClick = {
                     onSave(
-                        entry.copy(
+                        sites.entries.fold(entry) { edited, (site, figure) -> site.on(edited, figure.value) }.copy(
                             weight = weight.value,
-                            chest = chest.value,
-                            waist = waist.value,
-                            arm = arm.value,
-                            thigh = thigh.value,
                             bodyFat = bodyFat.value,
                             // Blank clears the note, which is the only way to take one back
                             // off an entry — see `BodyMeasurementRepository.update`, which
@@ -286,7 +257,7 @@ fun MeasurementForm(
  *
  * [OutlinedTextField] rather than the app's own `TitanValueField`, matching every other form
  * in the app: the cell is for a table of figures being logged mid-set, where a floating label
- * and a 56dp height would not fit four across. Here there are seven boxes stacked in a sheet,
+ * and a 56dp height would not fit four across. Here there are twelve boxes stacked in a sheet,
  * each of which needs to say what it is *and* what unit it is in, which is the label a Material
  * field already carries.
  *
@@ -314,18 +285,18 @@ private fun MeasurementField(
     )
 }
 
-/** Two boxes side by side, each given half the row. */
+/**
+ * Two boxes side by side, each given half the row. A row of one keeps its box at half width, so
+ * the odd site out lines up with the column above it rather than stretching across both.
+ */
 @Composable
-private fun MeasurementFieldRow(
-    first: @Composable (Modifier) -> Unit,
-    second: @Composable (Modifier) -> Unit,
-) {
+private fun MeasurementFieldRow(fields: List<@Composable (Modifier) -> Unit>) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md),
     ) {
-        first(Modifier.weight(1f))
-        second(Modifier.weight(1f))
+        fields.forEach { field -> field(Modifier.weight(1f)) }
+        repeat(2 - fields.size) { Spacer(Modifier.weight(1f)) }
     }
 }
 
@@ -380,7 +351,7 @@ private val BODY_FAT_RANGE = BodyMeasurementValidator.BODY_FAT_MIN..BodyMeasurem
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 
-@Preview(name = "Measurement form", showBackground = true, widthDp = 360, heightDp = 700)
+@Preview(name = "Measurement form", showBackground = true, widthDp = 360, heightDp = 900)
 @Composable
 fun MeasurementFormPreview() {
     TitanTheme(theme = ThemePreference.LIGHT) {
@@ -388,7 +359,7 @@ fun MeasurementFormPreview() {
     }
 }
 
-@Preview(name = "Measurement form - dark", showBackground = true, widthDp = 360, heightDp = 700)
+@Preview(name = "Measurement form - dark", showBackground = true, widthDp = 360, heightDp = 900)
 @Composable
 fun MeasurementFormDarkPreview() {
     TitanTheme(theme = ThemePreference.DARK) {

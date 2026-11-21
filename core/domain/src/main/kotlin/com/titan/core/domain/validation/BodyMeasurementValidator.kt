@@ -84,10 +84,7 @@ object BodyMeasurementValidator {
                     )
                 }
             }
-            circumferenceViolation("chest", chest)?.let(::add)
-            circumferenceViolation("waist", waist)?.let(::add)
-            circumferenceViolation("arm", arm)?.let(::add)
-            circumferenceViolation("thigh", thigh)?.let(::add)
+            circumferences.forEach { (field, value) -> circumferenceViolation(field, value)?.let(::add) }
             bodyFat?.let { value ->
                 if (value !in BODY_FAT_MIN..BODY_FAT_MAX) {
                     add(
