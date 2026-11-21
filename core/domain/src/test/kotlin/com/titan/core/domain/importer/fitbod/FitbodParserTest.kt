@@ -120,6 +120,24 @@ class FitbodParserTest {
     }
 
     @Test
+    fun `no StrongLifts export is a Fitbod export`() {
+        listOf(
+            "stronglifts-export.csv",
+            "stronglifts-export-lb.csv",
+            "stronglifts-export-semicolon.csv",
+            "stronglifts-spreadsheet.csv",
+            "stronglifts-spreadsheet-us.csv",
+            "stronglifts-damaged.csv",
+        ).forEach { sample ->
+            assertEquals(
+                sample,
+                ParseResult.NotRecognised,
+                ImporterFixtures.read(parser, ImporterFixtures.resource("stronglifts/$sample")),
+            )
+        }
+    }
+
+    @Test
     fun `an export with no sets in it is an empty history, not a broken file`() {
         assertEquals(ImportedHistory(), parsedText(header))
         assertEquals(ImportedHistory(), parsedText("$header\n\n"))

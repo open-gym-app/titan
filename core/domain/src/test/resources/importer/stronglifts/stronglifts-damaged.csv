@@ -1,0 +1,6 @@
+Date (yyyy/mm/dd),Workout,Workout Name,Program Name,Body Weight (KG),Exercise,Sets×Reps,Sets×Time,Top Set (Reps×KG),e1RM (KG),Reps,Volume (KG),Workout Volume (KG),Duration (hours),Start Time (h:mm),End Time (h:mm),Notes,Set 1 (Reps),Set 1 (KG),Set 2 (Reps),Set 2 (KG),Set 3 (Reps),Set 3 (KG),Set 4 (Reps),Set 4 (KG),Set 5 (Reps),Set 5 (KG)
+2026/10/01,1,"Workout A","",abc,"Squat",,,,,,,,0.75,6:00 PM,6:45 PM,"",5,100,five,100,5,heavy,-2,100,3,110
+soon,1,"Workout A","",80,"Squat",,,,,,,,0.75,6:00 PM,6:45 PM,"",5,100,,,,,,,,
+2026/10/01,1,"Workout A","",80,"",,,,,,,,0.75,6:00 PM,6:45 PM,"",5,100,,,,,,,,
+2026/10/01,1,"Workout A","",80,"Bench Press",,,,,,,,0.75,6:00 PM,6:45 PM,"",5,70,,,,,,,,
+2026/13/45,2,"Workout B","",80,"Squat",,,,,,,,0.75,6:00 PM,6:45 PM,"",5,100,,,,,,,,
