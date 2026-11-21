@@ -58,9 +58,10 @@ class SuffixedExerciseNames(catalogueNames: Map<String, String>) {
         /**
          * Equipment names as these sources write them, by [ExerciseMatcher.normalised] label.
          *
-         * A Smith machine and a plate-loaded machine are [EquipmentType.MACHINE] because that is
-         * where the seed catalogue files them (its Smith machine rows all are), and a treadmill
-         * because the catalogue's treadmill runs and walks are machine rows too.
+         * A Smith machine — Hevy also writes it `(Smith)` — and a plate-loaded machine are
+         * [EquipmentType.MACHINE] because that is where the seed catalogue files them (its Smith
+         * machine rows all are), and a treadmill because the catalogue's treadmill runs and
+         * walks are machine rows too.
          */
         private val EQUIPMENT = mapOf(
             "barbell" to EquipmentType.BARBELL,
@@ -68,6 +69,7 @@ class SuffixedExerciseNames(catalogueNames: Map<String, String>) {
             "dumbbells" to EquipmentType.DUMBBELL,
             "machine" to EquipmentType.MACHINE,
             "smith machine" to EquipmentType.MACHINE,
+            "smith" to EquipmentType.MACHINE,
             "plate loaded" to EquipmentType.MACHINE,
             "treadmill" to EquipmentType.MACHINE,
             "cable" to EquipmentType.CABLE,
@@ -101,5 +103,18 @@ class SuffixedExerciseNames(catalogueNames: Map<String, String>) {
          */
         fun equipmentOf(label: String): EquipmentType? =
             EQUIPMENT[ExerciseMatcher.normalised(label.substringBefore(" - "))]
+
+        /**
+         * Whether [name] is the assisted variation of a movement — "Pull Up (Assisted)" — whose
+         * weight is the counterweight a machine took off rather than a load.
+         *
+         * Both apps that write such names record the assistance as a positive number, and Titan
+         * has no column for it. A parser reads the weight of such a set as not recorded, because
+         * imported as a load it would make the easiest set the heaviest one; the reps are still
+         * the set. This is the reading [ImportPlanner] gives a negative weight.
+         */
+        fun isAssisted(name: String): Boolean = split(name).second.equals(ASSISTED, ignoreCase = true)
+
+        private const val ASSISTED = "Assisted"
     }
 }

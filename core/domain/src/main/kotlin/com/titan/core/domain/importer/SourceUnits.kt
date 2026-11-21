@@ -7,6 +7,8 @@ import com.titan.core.domain.model.CENTIMETRES_PER_MILE
 import com.titan.core.domain.model.CENTIMETRES_PER_YARD
 import com.titan.core.domain.model.MILLIGRAMS_PER_KILOGRAM
 import com.titan.core.domain.model.MILLIGRAMS_PER_POUND
+import com.titan.core.domain.model.MILLIMETRES_PER_CENTIMETRE
+import com.titan.core.domain.model.MILLIMETRES_PER_INCH
 import com.titan.core.domain.model.UnitSystem
 import java.util.Locale
 import kotlin.math.roundToLong
@@ -123,6 +125,51 @@ enum class SourceDistanceUnit(private val centimetres: Double) {
          * surrounding space and a trailing full stop are ignored.
          */
         fun parse(label: String): SourceDistanceUnit? = LABELS[unitKey(label)]
+    }
+}
+
+/**
+ * The unit a source wrote a body circumference in, and the one conversion from it to Titan's
+ * millimetres.
+ *
+ * Kept apart from [SourceDistanceUnit] because the two are read from different labels and
+ * stored at different scales: an `in` beside a waist is an inch, and a tape measure is never
+ * read in kilometres or miles, so no label is shared and no rounding is either.
+ */
+enum class SourceLengthUnit(private val millimetres: Double) {
+    MILLIMETRE(1.0),
+    CENTIMETRE(MILLIMETRES_PER_CENTIMETRE),
+
+    /** The international inch, 25.4 mm exactly. */
+    INCH(MILLIMETRES_PER_INCH),
+    ;
+
+    /** [value] in millimetres, rounded to the nearest one. */
+    fun toMillimetres(value: Double): Long = (value * millimetres).roundToLong()
+
+    companion object {
+
+        private val LABELS = mapOf(
+            "mm" to MILLIMETRE,
+            "millimeter" to MILLIMETRE,
+            "millimeters" to MILLIMETRE,
+            "millimetre" to MILLIMETRE,
+            "millimetres" to MILLIMETRE,
+            "cm" to CENTIMETRE,
+            "centimeter" to CENTIMETRE,
+            "centimeters" to CENTIMETRE,
+            "centimetre" to CENTIMETRE,
+            "centimetres" to CENTIMETRE,
+            "in" to INCH,
+            "inch" to INCH,
+            "inches" to INCH,
+        )
+
+        /**
+         * The unit [label] names — `cm`, `in`, `Inches` — or null when it names none. Case,
+         * surrounding space and a trailing full stop (`in.`) are ignored.
+         */
+        fun parse(label: String): SourceLengthUnit? = LABELS[unitKey(label)]
     }
 }
 

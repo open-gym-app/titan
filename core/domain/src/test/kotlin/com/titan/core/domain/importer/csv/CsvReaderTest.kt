@@ -142,6 +142,15 @@ class CsvReaderTest {
         assertNull(CsvReader(StringReader("")).readRecord())
     }
 
+    @Test
+    fun `readHeader is the first record as a header, and null for no records or no CSV at all`() {
+        val reader = open("Date,Reps\n2024-01-01,5\n")
+
+        assertEquals("5", reader.readHeader()?.get(reader.readRecord()!!, "reps"))
+        assertNull(open("").readHeader())
+        assertNull(open("\"never closed\nDate,Reps\n").readHeader())
+    }
+
     // ------------------------------------------------------------------ header
 
     @Test
@@ -193,5 +202,18 @@ class CsvReaderTest {
         assertEquals(QualifiedColumn("Duration (sec)", "sec"), header.qualified("Duration"))
         assertNull(header.qualified("Workout"))
         assertNull(CsvHeader(listOf("Weight Unit")).qualified("Weight"))
+    }
+
+    @Test
+    fun `a suffixed lookup finds every snake_case column with the name before the underscore`() {
+        val header = CsvHeader(listOf("weight_kg", "reps", " Weight_LBS ", "weighted", "weight_", "distance_km"))
+
+        assertEquals(
+            listOf(QualifiedColumn("weight_kg", "kg"), QualifiedColumn("Weight_LBS", "LBS")),
+            header.suffixed("weight"),
+        )
+        assertEquals(listOf(QualifiedColumn("distance_km", "km")), header.suffixed(" Distance "))
+        assertTrue(header.suffixed("reps").isEmpty())
+        assertTrue(header.suffixed("we").isEmpty())
     }
 }

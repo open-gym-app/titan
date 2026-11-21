@@ -13,8 +13,8 @@ import java.util.Locale
 import kotlin.math.roundToLong
 
 /**
- * Reads the values every export writes as text — numbers, elapsed times, timestamps — the same
- * way for every source.
+ * Reads the values every export writes as text — numbers, elapsed times, timestamps, notes — the
+ * same way for every source.
  *
  * These answer "what does this cell say", never "is that allowed": a negative weight or a
  * thirty-hour workout comes back as written, because [ImportPlanner] is where Titan's rules are
@@ -152,6 +152,22 @@ object SourceValues {
             null
         }
     }
+
+    /**
+     * [text] as a note, with every line break as `\n`, trimmed, or null when nothing is left.
+     *
+     * Two exporters break lines in ways the rest of the app does not. Some write a note's line
+     * break as the two characters `\n` rather than quoting a real one — Strong on iOS and Hevy's
+     * app both do — so those are restored; and a quoted CRLF or lone CR, from a spreadsheet or
+     * a website's export, is made the `\n` everything else is stored with. A literal backslash
+     * followed by an `n` in a note is rarer than either exporter's notes, so it is not kept.
+     */
+    fun note(text: String?): String? =
+        text?.replace("\\n", "\n")
+            ?.replace("\r\n", "\n")
+            ?.replace('\r', '\n')
+            ?.trim()
+            ?.takeIf(String::isNotEmpty)
 
     private fun String.toLongOrZero(): Long = if (isEmpty()) 0L else toLong()
 }

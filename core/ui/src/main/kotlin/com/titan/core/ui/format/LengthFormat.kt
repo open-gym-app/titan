@@ -3,6 +3,8 @@ package com.titan.core.ui.format
 import android.icu.util.MeasureUnit
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
+import com.titan.core.domain.model.MILLIMETRES_PER_CENTIMETRE
+import com.titan.core.domain.model.MILLIMETRES_PER_INCH
 import com.titan.core.domain.model.UnitSystem
 import com.titan.core.ui.theme.LocalUnitSystem
 import kotlin.math.roundToInt
@@ -66,8 +68,8 @@ val UnitSystem.lengthSuffix: String
  */
 val UnitSystem.millimetresPerLengthUnit: Double
     get() = when (this) {
-        UnitSystem.METRIC -> 10.0
-        UnitSystem.IMPERIAL -> 25.4
+        UnitSystem.METRIC -> MILLIMETRES_PER_CENTIMETRE
+        UnitSystem.IMPERIAL -> MILLIMETRES_PER_INCH
     }
 
 /**

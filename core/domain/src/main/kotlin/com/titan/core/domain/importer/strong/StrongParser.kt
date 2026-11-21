@@ -94,8 +94,7 @@ class StrongParser : HistoryParser {
     ): ParseResult =
         source.open().use { stream ->
             val reader = CsvReader.open(stream)
-            val header = readHeader(reader)
-            val layout = header?.let { StrongLayout.of(it, context) }
+            val layout = reader.readHeader()?.let { StrongLayout.of(it, context) }
             if (layout == null) {
                 ParseResult.NotRecognised
             } else {
@@ -105,17 +104,6 @@ class StrongParser : HistoryParser {
                     ParseResult.Malformed(failure.message.orEmpty())
                 }
             }
-        }
-
-    /**
-     * The first record as a header, or null when there is none — including when it is not CSV
-     * at all, which is a file that is not an export rather than a broken one.
-     */
-    private fun readHeader(reader: CsvReader): CsvHeader? =
-        try {
-            reader.readRecord()?.let(::CsvHeader)
-        } catch (_: MalformedCsvException) {
-            null
         }
 }
 
@@ -197,7 +185,7 @@ private class StrongReading(private val layout: StrongLayout) {
         workout.durationSeconds = workout.durationSeconds ?: SourceValues.elapsedSeconds(
             layout[record, layout.durationColumn],
         )
-        workout.notes = workout.notes ?: layout[record, WORKOUT_NOTES]?.let(::noteText)
+        workout.notes = workout.notes ?: SourceValues.note(layout[record, WORKOUT_NOTES])
 
         val block = workout.blocks.lastOrNull()?.takeIf { it.exercise.name == exerciseName }
             ?: ExerciseDraft(exercises.getOrPut(exerciseName) { names.exercise(exerciseName) })
@@ -297,11 +285,11 @@ private class ExerciseDraft(val exercise: ImportedExercise) {
     val sets = mutableListOf<ImportedSet>()
 
     /** Whether the exercise is an `(Assisted)` one, whose weight is a counterweight. */
-    val isAssisted: Boolean = SuffixedExerciseNames.split(exercise.name).second.equals(ASSISTED, ignoreCase = true)
+    val isAssisted: Boolean = SuffixedExerciseNames.isAssisted(exercise.name)
     private val notes = LinkedHashSet<String>()
 
     fun note(text: String?) {
-        text?.let(::noteText)?.trim()?.takeIf(String::isNotEmpty)?.let(notes::add)
+        SourceValues.note(text)?.let(notes::add)
     }
 
     /** A rest timer row: the rest after the set before it, if there is one to attach it to. */
@@ -316,13 +304,6 @@ private class ExerciseDraft(val exercise: ImportedExercise) {
             notes = notes.joinToString("\n").ifEmpty { null },
         )
 }
-
-/**
- * [text] with every line break as `\n`: the ones iOS exports escape restored — it writes a note's
- * line break as the two characters `\n` rather than quoting a real one — and a quoted CRLF or CR
- * made the line break the rest of the app writes.
- */
-private fun noteText(text: String): String = text.replace("\\n", "\n").replace("\r\n", "\n").replace('\r', '\n')
 
 private const val DATE = "Date"
 private const val WORKOUT_NUMBER = "Workout #"
@@ -351,8 +332,6 @@ private val SET_TYPES = mapOf(
     "d" to SetType.DROP_SET,
     "f" to SetType.FAILURE,
 )
-
-private const val ASSISTED = "Assisted"
 
 /** Strong writes RPE as written (`8.5`); Titan stores it times ten. */
 private const val RPE_SCALE = 10
