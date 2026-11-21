@@ -13,6 +13,7 @@ import com.titan.core.data.db.dao.ExerciseDao
 import com.titan.core.data.db.dao.LocalDataDao
 import com.titan.core.data.db.dao.MuscleGroupDao
 import com.titan.core.data.db.dao.PersonalRecordDao
+import com.titan.core.data.db.dao.ProgressPhotoDao
 import com.titan.core.data.db.dao.QuestCompletionDao
 import com.titan.core.data.db.dao.SessionExerciseDao
 import com.titan.core.data.db.dao.SessionLootClaimDao
@@ -30,6 +31,7 @@ import com.titan.core.data.db.entity.ExerciseMuscleGroupEntity
 import com.titan.core.data.db.entity.ExerciseTagEntity
 import com.titan.core.data.db.entity.MuscleGroupEntity
 import com.titan.core.data.db.entity.PersonalRecordEntity
+import com.titan.core.data.db.entity.ProgressPhotoEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
 import com.titan.core.data.db.entity.SessionExerciseEntity
 import com.titan.core.data.db.entity.SessionLootClaimEntity
@@ -63,6 +65,7 @@ import com.titan.core.data.db.entity.WorkoutTemplateEntity
         SessionLootClaimEntity::class,
         QuestCompletionEntity::class,
         CollectedItemEntity::class,
+        ProgressPhotoEntity::class,
     ],
     version = 1,
     exportSchema = true,
@@ -85,6 +88,7 @@ abstract class TitanDatabase : RoomDatabase() {
     abstract fun sessionLootClaimDao(): SessionLootClaimDao
     abstract fun questCompletionDao(): QuestCompletionDao
     abstract fun collectedItemDao(): CollectedItemDao
+    abstract fun progressPhotoDao(): ProgressPhotoDao
 
     /**
      * Every table, whole, for export and import — see [BackupDao] for why backup gets a DAO of

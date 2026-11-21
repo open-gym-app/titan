@@ -8,6 +8,7 @@ import com.titan.core.domain.navigation.DeepLinks
 import com.titan.feature.progression.achievements.AchievementsRoute
 import com.titan.feature.progression.body.BodyMeasurementsRoute
 import com.titan.feature.progression.exercise.ExerciseProgressionRoute
+import com.titan.feature.progression.photos.ProgressPhotosRoute
 import com.titan.feature.progression.quests.QuestLogRoute
 import com.titan.feature.progression.records.PersonalRecordsRoute
 import com.titan.feature.progression.stats.StatsRoute
@@ -79,6 +80,10 @@ data object AchievementsDestination
 @Serializable
 data object BodyMeasurementsDestination
 
+/** The progress photos (#304), one push above the body measurements and reached only from them. */
+@Serializable
+data object ProgressPhotosDestination
+
 /**
  * The Stats tab.
  *
@@ -116,11 +121,13 @@ fun NavGraphBuilder.progressionGraph(actions: StatsExploreActions) {
  *   opens is a *routing* decision, and `:app` is where every other one of those is made.
  * @param onOpenAchievements the quest log's milestone row was tapped. Hoisted for the same
  *   reason, and named for the event rather than the destination as everything here is.
+ * @param onOpenProgressPhotos the body screen's photos row was tapped. Hoisted for the same reason.
  */
 fun NavGraphBuilder.progressionDetailGraph(
     onBack: () -> Unit,
     onOpenExerciseProgression: (Long) -> Unit,
     onOpenAchievements: () -> Unit,
+    onOpenProgressPhotos: () -> Unit,
 ) {
     composable<PersonalRecordsDestination> {
         PersonalRecordsRoute(onBack = onBack, onOpenExercise = onOpenExerciseProgression)
@@ -139,6 +146,9 @@ fun NavGraphBuilder.progressionDetailGraph(
         AchievementsRoute(onBack = onBack)
     }
     composable<BodyMeasurementsDestination> {
-        BodyMeasurementsRoute(onBack = onBack)
+        BodyMeasurementsRoute(onBack = onBack, onOpenPhotos = onOpenProgressPhotos)
+    }
+    composable<ProgressPhotosDestination> {
+        ProgressPhotosRoute(onBack = onBack)
     }
 }

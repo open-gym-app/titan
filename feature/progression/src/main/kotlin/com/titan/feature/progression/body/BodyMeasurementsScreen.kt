@@ -45,6 +45,7 @@ import com.titan.feature.progression.body.component.HealthConnectGroup
 import com.titan.feature.progression.body.component.MeasurementFormSheet
 import com.titan.feature.progression.body.component.MeasurementHistoryRow
 import com.titan.feature.progression.body.component.MeasurementsCard
+import com.titan.feature.progression.body.component.ProgressPhotosGroup
 import com.titan.feature.progression.stats.component.TimeframeSelector
 
 /**
@@ -57,6 +58,7 @@ import com.titan.feature.progression.stats.component.TimeframeSelector
 @Composable
 fun BodyMeasurementsRoute(
     onBack: () -> Unit,
+    onOpenPhotos: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: BodyMeasurementsViewModel = hiltViewModel(),
 ) {
@@ -66,6 +68,7 @@ fun BodyMeasurementsRoute(
         state = state,
         onEvent = viewModel::onEvent,
         onBack = onBack,
+        onOpenPhotos = onOpenPhotos,
         modifier = modifier,
     )
 }
@@ -103,6 +106,7 @@ fun BodyMeasurementsScreen(
     onEvent: (BodyMeasurementsEvent) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenPhotos: () -> Unit = {},
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     // The undo, which is what lets a row go on a short drag with no question asked — see
@@ -183,6 +187,8 @@ fun BodyMeasurementsScreen(
             } else {
                 readings(state = state, onEvent = onEvent)
             }
+
+            item { ProgressPhotosGroup(onOpen = onOpenPhotos) }
 
             item { HealthConnectGroup() }
 

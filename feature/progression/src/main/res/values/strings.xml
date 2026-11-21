@@ -244,6 +244,29 @@
     <string name="body_fat_label">Body fat</string>
     <string name="body_lean_mass_label">Lean mass</string>
 
+    <!-- ── Progress photos (#304) ───────────────────────────────────────────────── -->
+
+    <string name="body_photos_heading">Photos</string>
+    <string name="body_photos_label">Progress photos</string>
+    <string name="body_photos_detail">Kept on this phone only — never in a backup or the cloud</string>
+    <string name="photos_title">Progress photos</string>
+    <string name="photos_add">Add a progress photo</string>
+    <string name="photos_take">Take a photo</string>
+    <string name="photos_pick">Choose from gallery</string>
+    <string name="photos_empty_title">No progress photos yet</string>
+    <string name="photos_empty_body">Take one now and then to see how you change. They stay on this phone: never in a backup, never in the cloud.</string>
+    <string name="photos_photo_description">Progress photo, %1$s</string>
+    <string name="photos_compare">Compare</string>
+    <string name="photos_compare_hint">Pick a photo to compare with %1$s</string>
+    <string name="photos_cancel">Cancel</string>
+    <string name="photos_delete">Delete</string>
+    <string name="photos_delete_title">Delete this photo?</string>
+    <string name="photos_delete_body">The photo from %1$s is removed from this phone. There is no copy anywhere else.</string>
+    <string name="photos_delete_confirm">Delete</string>
+    <string name="photos_close">Close</string>
+    <string name="photos_add_failed">Couldn’t add that photo.</string>
+    <string name="photos_delete_failed">Couldn’t delete that photo.</string>
+
     <!-- ── Health Connect, disabled until #54 ───────────────────────────────────── -->
 
     <string name="body_health_connect_heading">Health Connect</string>

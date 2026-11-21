@@ -168,6 +168,10 @@
         <item quantity="one">body measurement</item>
         <item quantity="other">body measurements</item>
     </plurals>
+    <plurals name="settings_count_progress_photos">
+        <item quantity="one">progress photo</item>
+        <item quantity="other">progress photos</item>
+    </plurals>
 
     <!-- Backup & restore (#38). The screen behind the Data & privacy row of the same name. -->
     <string name="backup_footprint_title">On this device</string>
