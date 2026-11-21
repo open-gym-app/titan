@@ -18,7 +18,7 @@ titan/
     ├── session/            # New session -> active session -> summary (not a tab)
     ├── history/            # Session browsing: history, templates, calendar (Sessions tab)
     ├── progression/        # Analytics and gamification (Stats tab)
-    └── settings/           # Settings (reached from the top app bar, not a tab)
+    └── settings/           # Settings, backup and the import from another app (reached from the top app bar, not a tab)
 ```
 
 Gradle module names: `:app`, `:benchmark`, `:core:domain`, `:core:data`, `:core:ui`,
@@ -313,6 +313,15 @@ SettingsDestination             full screen, no bars
 Settings is the one non-tab destination that is a *flat* destination rather than a nested
 graph: the graph-per-tab exists so the bottom bar can ask whether a tab's route is anywhere in
 the current destination's hierarchy, and settings has no tab to keep selected.
+
+**The import from another app crosses two features through `:app`.** `ImportDestination` lives
+in `:feature:settings`, beside the backup it is the opposite of, and is pushed from the Data &
+privacy row. Onboarding's last step offers it too, and onboarding may not name another feature's
+destination, so it reports `onFinishedIntoImport` and `:app` turns that into Home with the import
+pushed over it. The import's notifications reach it through `titan://settings/import`. The import
+itself does not run on the screen at all: the screen hands it to `HistoryImportRunner`, a domain
+port that `:core:data` implements as a foreground WorkManager worker, and observes it — see
+PERSISTENCE.md, "Importing from another app".
 
 **The template editor is the first screen to live *inside* a tab.** Everything else pushed over
 the shell — the exercise detail, the plate calculator, the picker — is a mode with its own bar;

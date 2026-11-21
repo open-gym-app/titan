@@ -199,6 +199,24 @@ class OnboardingScreenTest {
         assertEquals(emptyList<OnboardingEvent>(), events)
     }
 
+    @Test
+    fun `the closing step offers an import from another app, which reports ImportRequested`() {
+        setContent(OnboardingUiState(step = OnboardingStep.READY))
+
+        composeTestRule.onNodeWithText("Coming from another app?").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("never replaced", substring = true).performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Import my history").performScrollTo().performClick()
+
+        assertEquals(listOf<OnboardingEvent>(OnboardingEvent.ImportRequested), events)
+    }
+
+    @Test
+    fun `the import button is inert while the flow is being recorded`() {
+        setContent(OnboardingUiState(step = OnboardingStep.READY, isFinishing = true))
+
+        composeTestRule.onNodeWithText("Import my history").performScrollTo().assertIsNotEnabled()
+    }
+
     private fun setContent(state: OnboardingUiState) {
         composeTestRule.setContent {
             TitanTheme {

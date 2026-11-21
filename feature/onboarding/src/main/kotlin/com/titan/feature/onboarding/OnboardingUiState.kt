@@ -23,6 +23,9 @@ import com.titan.core.domain.model.UserPreferences
  * @param isFinished onboarding is over and recorded — the flow's way of saying it is done.
  *   Set only once [UserPreferences.onboardingCompleted] has actually been written, because
  *   navigating on anything less means the next launch asks the same five questions again.
+ * @param finishesIntoImport the finish was asked for by the last step's import button, so
+ *   leaving goes to the import from another app rather than to Home. Meaningful only with
+ *   [isFinished].
  * @param message a one-shot outcome to show and forget. Present only between the event that
  *   caused it and the screen acknowledging it with [OnboardingEvent.MessageShown].
  */
@@ -32,6 +35,7 @@ data class OnboardingUiState(
     val preferences: UserPreferences = UserPreferences(),
     val isFinishing: Boolean = false,
     val isFinished: Boolean = false,
+    val finishesIntoImport: Boolean = false,
     val message: OnboardingMessage? = null,
 )
 

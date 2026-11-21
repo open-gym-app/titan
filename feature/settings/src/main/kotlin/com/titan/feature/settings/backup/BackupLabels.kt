@@ -3,10 +3,12 @@ package com.titan.feature.settings.backup
 import android.text.format.Formatter
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.titan.core.domain.backup.AutoBackupSchedule
 import com.titan.core.domain.backup.model.ImportError
 import com.titan.core.domain.model.DataFootprint
+import com.titan.core.ui.format.formatCount
 import com.titan.core.ui.format.formatDayAndMonth
 import com.titan.core.ui.format.formatMonthAndYear
 import com.titan.core.ui.format.formatPercentTenths
@@ -67,9 +69,17 @@ internal fun ImportError.message(): String =
 
         is ImportError.LiveStateNotCleared -> stringResource(R.string.backup_error_live_state)
 
-        is ImportError.SettingsNotRestored -> stringResource(R.string.backup_error_settings, rowsRestored)
+        is ImportError.SettingsNotRestored -> pluralStringResource(
+            R.plurals.backup_error_settings,
+            rowsRestored.pluralQuantity(),
+            formatCount(rowsRestored),
+        )
 
-        is ImportError.RemindersNotRescheduled -> stringResource(R.string.backup_error_reminders, rowsRestored)
+        is ImportError.RemindersNotRescheduled -> pluralStringResource(
+            R.plurals.backup_error_reminders,
+            rowsRestored.pluralQuantity(),
+            formatCount(rowsRestored),
+        )
     }
 
 /**
@@ -139,3 +149,12 @@ private const val ANNOUNCEMENT_STEP_PERCENT = 10
 
 /** [formatPercentTenths] counts in tenths of a percent; these figures are whole ones. */
 private const val TENTHS_PER_PERCENT = 10
+
+/**
+ * A row count as the quantity a `<plurals>` chooses its form by.
+ *
+ * Rows are counted in a `Long` and Android's plural rules take an `Int`; a count past the
+ * largest `Int` reads as the largest, which selects the same form any count that size does.
+ * The figure itself goes in separately, through `formatCount`, so it is never cut down.
+ */
+internal fun Long.pluralQuantity(): Int = coerceAtMost(Int.MAX_VALUE.toLong()).toInt()

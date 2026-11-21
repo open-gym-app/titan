@@ -1,6 +1,7 @@
 package com.titan.core.domain.validation
 
 import com.titan.core.domain.model.ExerciseType
+import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.model.WorkoutSet
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -85,6 +86,7 @@ class SetValidatorTest {
             weight = SetValidator.WEIGHT_MAX_MG,
             duration = SetValidator.DURATION_MAX_SECONDS,
             distance = SetValidator.DISTANCE_MAX_CM,
+            restAfter = SetValidator.REST_MAX_SECONDS,
         )
         assertEquals(ValidationResult.Valid, SetValidator.validate(atUpperBounds))
     }
@@ -299,6 +301,33 @@ class SetValidatorTest {
     @Test
     fun `zero rest is allowed`() {
         assertEquals(ValidationResult.Valid, SetValidator.validate(set(restAfter = 0L)))
+    }
+
+    @Test
+    fun `a rest above the ceiling is refused with a reason naming rest`() {
+        val reason = reasonOf(set(restAfter = SetValidator.REST_MAX_SECONDS + 1))
+        assertTrue("reason should name the field: $reason", reason.contains("restAfter"))
+    }
+
+    @Test
+    fun `the rest ceiling is the longest rest the app's own setting allows`() {
+        assertEquals(UserPreferences.MAX_REST_DURATION.inWholeSeconds, SetValidator.REST_MAX_SECONDS)
+    }
+
+    @Test
+    fun `a heart rate of zero was not measured, and both rates are bounded`() {
+        assertTrue(SetValidator.validate(set().copy(heartRateAvg = SetValidator.HEART_RATE_MIN_BPM)).isValid)
+        assertTrue(SetValidator.validate(set().copy(heartRateMax = SetValidator.HEART_RATE_MAX_BPM)).isValid)
+
+        val reasonAvg = reasonOf(set().copy(heartRateAvg = 0))
+        assertTrue("reason should name the field: $reasonAvg", reasonAvg.contains("heartRateAvg"))
+        val reasonMax = reasonOf(set().copy(heartRateMax = SetValidator.HEART_RATE_MAX_BPM + 1))
+        assertTrue("reason should name the field: $reasonMax", reasonMax.contains("heartRateMax"))
+    }
+
+    @Test
+    fun `a stray digit in a heart rate is refused`() {
+        assertFalse(SetValidator.validate(set().copy(heartRateAvg = 1_450)).isValid)
     }
 
     @Test

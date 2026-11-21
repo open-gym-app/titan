@@ -1,6 +1,7 @@
 package com.titan.core.domain.validation
 
 import com.titan.core.domain.model.ExerciseType
+import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.model.WorkoutSet
 
 /**
@@ -14,7 +15,8 @@ import com.titan.core.domain.model.WorkoutSet
  * which `WorkoutSet` itself rejects, so it is not re-checked here.
  *
  * Every bound is expressed in the canonical storage units: weight in milligrams,
- * distance and elevation gain in centimeters, duration and rest in seconds.
+ * distance and elevation gain in centimeters, duration and rest in seconds, heart
+ * rate in beats per minute.
  *
  * The ceilings are deliberately generous. They exist to catch a stray digit or a
  * unit mix-up, not to police what a user may log, so anything a real athlete does
@@ -61,6 +63,23 @@ object SetValidator {
     /** Rest is a duration, so it cannot run backwards. */
     const val REST_MIN_SECONDS = 0L
 
+    /**
+     * One day, in seconds: the longest rest the app's own rest setting allows
+     * ([UserPreferences.MAX_REST_DURATION]), and so the longest a rest between two sets
+     * of one workout can sensibly be. Past it is seconds read as minutes, or a timer
+     * left running overnight.
+     */
+    const val REST_MAX_SECONDS = 86_400L
+
+    /** A heart rate of zero was not measured; "not measured" is null, as for [STEPS_MIN]. */
+    const val HEART_RATE_MIN_BPM = 1
+
+    /**
+     * 300 beats per minute — well past the fastest rate a heart reaches in exercise, and
+     * under the stray digit (1450 for 145) this exists to catch.
+     */
+    const val HEART_RATE_MAX_BPM = 300
+
     /** A flat run climbs nothing, and says so: zero is a measurement, null is none. */
     const val ELEVATION_GAIN_MIN_CM = 0L
 
@@ -99,7 +118,8 @@ object SetValidator {
         set: WorkoutSet,
         exerciseType: ExerciseType? = null,
     ): ValidationResult {
-        val violations = set.boundViolations() + set.cardioViolations() + set.shapeViolations(exerciseType)
+        val violations = set.boundViolations() + set.cardioViolations() + set.heartRateViolations() +
+            set.shapeViolations(exerciseType)
 
         return if (violations.isEmpty()) {
             ValidationResult.Valid
@@ -144,8 +164,11 @@ object SetValidator {
                 }
             }
             restAfter?.let { value ->
-                if (value < REST_MIN_SECONDS) {
-                    add("restAfter must be at least $REST_MIN_SECONDS s, was $value s")
+                if (value !in REST_MIN_SECONDS..REST_MAX_SECONDS) {
+                    add(
+                        "restAfter must be within $REST_MIN_SECONDS s..${REST_MAX_SECONDS / SECONDS_PER_DAY} day " +
+                            "($REST_MIN_SECONDS..$REST_MAX_SECONDS s), was $value s",
+                    )
                 }
             }
         }
@@ -170,6 +193,22 @@ object SetValidator {
                     add("steps must be within $STEPS_MIN..$STEPS_MAX, was $value")
                 }
             }
+        }
+
+    /**
+     * Range checks on the average and the highest heart rate, which a set from a watch or another
+     * app may carry whatever it was. Each is checked on its own: a source that records only one
+     * of the two is common, and nothing here relates them.
+     */
+    private fun WorkoutSet.heartRateViolations(): List<String> =
+        listOfNotNull(
+            heartRateAvg.outsideHeartRates("heartRateAvg"),
+            heartRateMax.outsideHeartRates("heartRateMax"),
+        )
+
+    private fun Int?.outsideHeartRates(field: String): String? =
+        this?.takeIf { it !in HEART_RATE_MIN_BPM..HEART_RATE_MAX_BPM }?.let { value ->
+            "$field must be within $HEART_RATE_MIN_BPM..$HEART_RATE_MAX_BPM bpm, was $value bpm"
         }
 
     /**

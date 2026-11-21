@@ -8,6 +8,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.WorkManagerTestInitHelper
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -43,6 +44,12 @@ class WorkManagerAutoBackupSchedulerTest {
             // assertions below are not racing WorkManager's own executor.
             Configuration.Builder().setExecutor(SynchronousExecutor()).build(),
         )
+    }
+
+    /** Closes the test WorkManager's database, which every `initialiseWorkManager` opens afresh. */
+    @After
+    fun closeWorkManager() {
+        WorkManagerTestInitHelper.closeWorkDatabase()
     }
 
     @Test

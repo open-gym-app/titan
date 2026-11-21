@@ -1,5 +1,6 @@
 package com.titan.core.data.di
 
+import com.titan.core.domain.importer.HistoryParsers
 import com.titan.core.domain.usecase.ApplyTemplateUseCase
 import com.titan.core.domain.usecase.ExportUseCase
 import com.titan.core.domain.usecase.FinishSessionUseCase
@@ -14,6 +15,7 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertSame
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -76,6 +78,9 @@ class UseCaseBindingsTest {
     @Inject
     lateinit var setAutoBackupEnabled: Provider<SetAutoBackupEnabledUseCase>
 
+    @Inject
+    lateinit var historyParsers: Provider<HistoryParsers>
+
     @Before
     fun inject() {
         hilt.inject()
@@ -114,6 +119,12 @@ class UseCaseBindingsTest {
     @Test
     fun `the import from another app resolves`() {
         assertNotNull(importHistory.get())
+    }
+
+    /** Every source the import screen offers reaches the parser written for it, not a stand-in. */
+    @Test
+    fun `the import parsers are the supported ones`() {
+        assertSame(HistoryParsers.SUPPORTED, historyParsers.get())
     }
 
     /**

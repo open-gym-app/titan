@@ -14,6 +14,9 @@
     <string name="notification_channel_progression">Rachas y recompensas</string>
     <string name="notification_channel_progression_description">Niveles nuevos, misiones completadas y botín.</string>
 
+    <string name="notification_channel_history_import">Importación desde otra app</string>
+    <string name="notification_channel_history_import_description">Muestra el avance de una importación mientras se ejecuta y avisa cuando termina.</string>
+
     <!-- The rest countdown, as it reads from a lock screen. -->
     <string name="rest_notification_resting">Descansando</string>
     <string name="rest_notification_paused">Descanso en pausa</string>
@@ -105,5 +108,21 @@
     <string name="default_template_bike">Bicicleta</string>
     <string name="default_template_row">Remo</string>
     <string name="default_template_stretch">Estiramientos y movilidad</string>
+
+    <!-- The import from another app. -->
+    <string name="history_import_notification_title">Importando tu historial de entrenamiento</string>
+    <string name="history_import_notification_reading">Leyendo el archivo…</string>
+    <string name="history_import_notification_writing">Guardando entrenamientos: %1$s de %2$s</string>
+    <string name="history_import_notification_photos">Guardando fotos: %1$s de %2$s</string>
+    <string name="history_import_notification_cancel">Cancelar</string>
+    <string name="history_import_notification_stop_photos">Detener fotos</string>
+    <string name="history_import_notification_done">Importación terminada</string>
+    <plurals name="history_import_notification_done_workouts">
+        <item quantity="one">%1$s entrenamiento añadido a tu historial.</item>
+        <item quantity="many">%1$s entrenamientos añadidos a tu historial.</item>
+        <item quantity="other">%1$s entrenamientos añadidos a tu historial.</item>
+    </plurals>
+    <string name="history_import_notification_failed">La importación no terminó</string>
+    <string name="history_import_notification_failed_body">No se importó nada. Abre Titan para ver por qué e intentarlo de nuevo.</string>
 
 </resources>

@@ -14,6 +14,9 @@
     <string name="notification_channel_progression">Enchaînements et récompenses</string>
     <string name="notification_channel_progression_description">Nouveaux niveaux, quêtes terminées et butin.</string>
 
+    <string name="notification_channel_history_import">Import depuis une autre application</string>
+    <string name="notification_channel_history_import_description">Indique l’avancement d’un import pendant qu’il tourne, et prévient quand il est terminé.</string>
+
     <!-- The rest countdown, as it reads from a lock screen. -->
     <string name="rest_notification_resting">Repos</string>
     <string name="rest_notification_paused">Repos en pause</string>
@@ -105,5 +108,21 @@
     <string name="default_template_bike">Vélo</string>
     <string name="default_template_row">Rameur</string>
     <string name="default_template_stretch">Étirements et mobilité</string>
+
+    <!-- The import from another app. -->
+    <string name="history_import_notification_title">Import de votre historique d’entraînement</string>
+    <string name="history_import_notification_reading">Lecture du fichier…</string>
+    <string name="history_import_notification_writing">Enregistrement des séances : %1$s sur %2$s</string>
+    <string name="history_import_notification_photos">Enregistrement des photos : %1$s sur %2$s</string>
+    <string name="history_import_notification_cancel">Annuler</string>
+    <string name="history_import_notification_stop_photos">Arrêter les photos</string>
+    <string name="history_import_notification_done">Import terminé</string>
+    <plurals name="history_import_notification_done_workouts">
+        <item quantity="one">%1$s séance ajoutée à votre historique.</item>
+        <item quantity="many">%1$s séances ajoutées à votre historique.</item>
+        <item quantity="other">%1$s séances ajoutées à votre historique.</item>
+    </plurals>
+    <string name="history_import_notification_failed">Import inachevé</string>
+    <string name="history_import_notification_failed_body">Rien n’a été importé. Ouvrez Titan pour savoir pourquoi et réessayer.</string>
 
 </resources>
