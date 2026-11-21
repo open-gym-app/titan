@@ -228,8 +228,8 @@ private class StrongReading(private val layout: StrongLayout) : RecordReading {
         val reps = SourceValues.decimal(repsText)
         val distance = SourceValues.decimal(distanceText)
         val seconds = SourceValues.elapsedSeconds(secondsText)
-        val unreadable = unread(weightText, weight) || unread(repsText, reps) ||
-            unread(distanceText, distance) || unread(secondsText, seconds)
+        val unreadable = SourceValues.isUnread(weightText, weight) || SourceValues.isUnread(repsText, reps) ||
+            SourceValues.isUnread(distanceText, distance) || SourceValues.isUnread(secondsText, seconds)
         if (unreadable) return ImportedSet(setType = type)
 
         return ImportedSet(
@@ -241,12 +241,6 @@ private class StrongReading(private val layout: StrongLayout) : RecordReading {
             rpe = SourceValues.decimal(layout[record, RPE])?.let { (it * RPE_SCALE).roundToInt() },
         )
     }
-
-    /** Whether a cell held [text] that did not read as a [value]. */
-    private fun unread(
-        text: String?,
-        value: Any?,
-    ): Boolean = text != null && value == null
 }
 
 /** What tells one workout's rows from another's. */

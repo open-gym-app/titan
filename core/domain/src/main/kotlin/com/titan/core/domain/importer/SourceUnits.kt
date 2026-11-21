@@ -227,4 +227,63 @@ enum class SourceLengthUnit(private val millimetres: Double) {
     }
 }
 
+/**
+ * The unit a source wrote a length of time in, and the one conversion from it to Titan's seconds.
+ *
+ * A duration's unit is said where a weight's is — in the header (`Duration (hours)`, `Duration(s)`)
+ * or beside the figure (JEFIT's interval unit) — and the same three units turn up everywhere, each
+ * spelt several ways. One table of their labels keeps a `min` in one export the same minute as a
+ * `minutes` in the next.
+ */
+enum class SourceDurationUnit(private val seconds: Double) {
+    SECOND(1.0),
+    MINUTE(SECONDS_PER_MINUTE),
+    HOUR(SECONDS_PER_HOUR),
+    ;
+
+    /** [value] in seconds, rounded to the nearest one. */
+    fun toSeconds(value: Double): Long = (value * seconds).roundToLong()
+
+    /**
+     * [text] as a length of time in whole seconds: a bare number in this unit, or a clock or units
+     * spelt out (`1:05:00`, `1h 5m`), which say their own and are read as
+     * [SourceValues.elapsedSeconds] reads them. Null when it is blank or none of those.
+     *
+     * A header's unit is what a bare number in the column is counted in, and nothing more: a cell
+     * that writes its own unit, or a clock, is not counted in minutes because its column is.
+     */
+    fun seconds(text: String?): Long? =
+        SourceValues.decimal(text)?.let(::toSeconds) ?: SourceValues.elapsedSeconds(text)
+
+    companion object {
+
+        private val LABELS = mapOf(
+            "s" to SECOND,
+            "sec" to SECOND,
+            "secs" to SECOND,
+            "second" to SECOND,
+            "seconds" to SECOND,
+            "m" to MINUTE,
+            "min" to MINUTE,
+            "mins" to MINUTE,
+            "minute" to MINUTE,
+            "minutes" to MINUTE,
+            "h" to HOUR,
+            "hr" to HOUR,
+            "hrs" to HOUR,
+            "hour" to HOUR,
+            "hours" to HOUR,
+        )
+
+        /**
+         * The unit [label] names — `s`, `min`, `Hours` — or null when it names none. Case,
+         * surrounding space and a trailing full stop (`sec.`) are ignored.
+         */
+        fun parse(label: String): SourceDurationUnit? = LABELS[unitKey(label)]
+    }
+}
+
+private const val SECONDS_PER_MINUTE = 60.0
+private const val SECONDS_PER_HOUR = 3_600.0
+
 private fun unitKey(label: String): String = label.trim().removeSuffix(".").trim().lowercase(Locale.ROOT)

@@ -40,6 +40,32 @@ object ImporterFixtures {
         return ImportSource { checkNotNull(ImporterFixtures::class.java.getResourceAsStream(location)) }
     }
 
+    /**
+     * The file called [name] in the repository's `docs/`, opened afresh on every read: the example
+     * files `docs/import-csv.md` offers users, which are tested as they are published rather than
+     * through a copy that could drift. `core/domain/build.gradle.kts` declares them as the tests'
+     * input.
+     */
+    fun document(name: String): ImportSource {
+        val file = File(DOCS, name)
+        check(file.isFile) { "no document at $file" }
+        return ImportSource { file.inputStream() }
+    }
+
+    /**
+     * Every plain CSV sample, by name: the fixtures under `importer/plain/` and the example files
+     * the format's documentation publishes. Every other parser's tests offer it each of these and
+     * expect it to be turned away.
+     */
+    val plainCsvSamples: Map<String, ImportSource>
+        get() = listOf(
+            "plain-workouts.csv",
+            "plain-workouts-spreadsheet.csv",
+            "plain-measurements.csv",
+            "plain-damaged.csv",
+        ).associateWith { resource("plain/$it") } +
+            listOf("import-csv-workouts.csv", "import-csv-measurements.csv").associateWith(::document)
+
     /** [text] as the UTF-8 bytes of a file, for the cases too small to be worth one. */
     fun text(text: String): ImportSource = bytes(text.toByteArray(Charsets.UTF_8))
 
@@ -107,6 +133,9 @@ object ImporterFixtures {
      * from. `core/domain/build.gradle.kts` declares it as the tests' input.
      */
     private val SEED = File("../data/src/main/assets/seed/exercises.sql")
+
+    /** The repository's `docs/`, from this module's directory, as [SEED] is found. */
+    private val DOCS = File("../../docs")
 
     /** One exercise row's leading columns: `(id, 'name', 'TYPE', 'DISCIPLINE', 'EQUIPMENT'`. */
     private val EXERCISE_ROW = Regex("\\((\\d+), '((?:[^']|'')*)', '([A-Z_]+)', '[A-Z_]+', '([A-Z_]+)'")

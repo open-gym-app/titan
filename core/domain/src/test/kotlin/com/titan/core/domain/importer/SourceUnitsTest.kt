@@ -104,6 +104,36 @@ class SourceUnitsTest {
     }
 
     @Test
+    fun `a duration converts to seconds, rounded to the nearest`() {
+        assertEquals(45L, SourceDurationUnit.SECOND.toSeconds(45.0))
+        assertEquals(90L, SourceDurationUnit.MINUTE.toSeconds(1.5))
+        // StrongLifts writes hours to seven decimals: 0.0094444 h is 33.99984 s.
+        assertEquals(34L, SourceDurationUnit.HOUR.toSeconds(0.0094444))
+    }
+
+    @Test
+    fun `a duration unit reads from the labels exports write`() {
+        assertEquals(SourceDurationUnit.SECOND, SourceDurationUnit.parse("s"))
+        assertEquals(SourceDurationUnit.SECOND, SourceDurationUnit.parse(" Sec. "))
+        assertEquals(SourceDurationUnit.MINUTE, SourceDurationUnit.parse("min"))
+        assertEquals(SourceDurationUnit.MINUTE, SourceDurationUnit.parse("Minutes"))
+        assertEquals(SourceDurationUnit.HOUR, SourceDurationUnit.parse("hours"))
+        assertEquals(SourceDurationUnit.HOUR, SourceDurationUnit.parse("HRS"))
+        assertNull(SourceDurationUnit.parse("days"))
+        assertNull(SourceDurationUnit.parse(""))
+    }
+
+    @Test
+    fun `a bare number is in the duration's unit, and a clock or spelt-out time in its own`() {
+        assertEquals(5_400L, SourceDurationUnit.MINUTE.seconds("90"))
+        assertEquals(90L, SourceDurationUnit.MINUTE.seconds("1,5"))
+        assertEquals(3_900L, SourceDurationUnit.MINUTE.seconds("1:05:00"))
+        assertEquals(3_900L, SourceDurationUnit.HOUR.seconds("1h 5m"))
+        assertEquals(45L, SourceDurationUnit.SECOND.seconds(" 45 "))
+        listOf(null, "", "soon", "1:99").forEach { text -> assertNull(text, SourceDurationUnit.MINUTE.seconds(text)) }
+    }
+
+    @Test
     fun `a bare circumference is in the length the user measures a body in`() {
         assertEquals(SourceLengthUnit.CENTIMETRE, SourceLengthUnit.of(UnitSystem.METRIC))
         assertEquals(SourceLengthUnit.INCH, SourceLengthUnit.of(UnitSystem.IMPERIAL))

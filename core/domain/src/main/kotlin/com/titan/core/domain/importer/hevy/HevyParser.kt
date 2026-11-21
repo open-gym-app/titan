@@ -267,8 +267,8 @@ private class WorkoutReading(
         val reps = SourceValues.decimal(repsText)
         val distance = distanceFigure?.let(::centimetres)
         val seconds = SourceValues.elapsedSeconds(secondsText)
-        val unreadable = unread(weightFigure, weight) || unread(repsText, reps) ||
-            unread(distanceFigure, distance) || unread(secondsText, seconds)
+        val unreadable = SourceValues.isUnread(weightFigure, weight) || SourceValues.isUnread(repsText, reps) ||
+            SourceValues.isUnread(distanceFigure, distance) || SourceValues.isUnread(secondsText, seconds)
         if (unreadable) return ImportedSet(setType = type)
 
         return ImportedSet(
@@ -280,12 +280,6 @@ private class WorkoutReading(
             rpe = SourceValues.decimal(layout[record, RPE])?.let { (it * RPE_SCALE).roundToInt() },
         )
     }
-
-    /** Whether a cell held [figure] that did not read as a [value]. */
-    private fun unread(
-        figure: Any?,
-        value: Any?,
-    ): Boolean = figure != null && value == null
 }
 
 /** What tells one workout's rows from the next one's. */
