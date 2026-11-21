@@ -58,11 +58,11 @@ espresso = "3.7.0"
 detekt = "2.0.0-alpha.6"
 mockk = "1.14.12"
 turbine = "1.2.1"
-robolectric = "4.17"
+robolectric = "4.18"
 androidxTestCore = "1.7.0"
 jacoco = "0.8.16"
 roborazzi = "1.79.0"
-sonarqube = "7.5.0.8588"
+sonarqube = "7.6.0.18749"
 # Generates the open source licences screen (#208) from the dependency graph at build time.
 # Applied to `:app` only — it scans the module it is applied to, and `:app` is the module
 # every other one is reachable from. Not Google's `oss-licenses-plugin`: that one pulls in
