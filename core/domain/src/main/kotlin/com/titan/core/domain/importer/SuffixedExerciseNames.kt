@@ -34,13 +34,13 @@ import com.titan.core.domain.model.EquipmentType
  * ### Equipment at the front of the name
  *
  * Some libraries put the equipment first instead: JEFIT's "Barbell Bench Press", "Cable Seated
- * Row", "Machine Leg Extension". With [leadingEquipment], a name with no equipment in a trailing
- * parenthesis has it read from its first words, so a custom exercise is created with it and the
- * matcher holds a match to it, as it does for a parenthesis. The name is not shortened for it:
- * "Barbell Squat" without its first word is a different catalogue row's name ("Squat" on any
- * equipment) far more often than it is a better match, and the source's table already maps the
- * names that need it. Off by default, because a source that writes plain words ("Cable Face Pull"
- * in FitNotes) is read as it always was.
+ * Row", "Machine Leg Extension", and Fitbod's "Dumbbell Incline Fly". With [leadingEquipment], a
+ * name with no equipment in a trailing parenthesis has it read from its first words, so a custom
+ * exercise is created with it and the matcher holds a match to it, as it does for a parenthesis.
+ * The name is not shortened for it: "Barbell Squat" without its first word is a different catalogue
+ * row's name ("Squat" on any equipment) far more often than it is a better match, and the source's
+ * table already maps the names that need it. Off by default, because a source that writes plain
+ * words ("Cable Face Pull" in FitNotes) is read as it always was.
  *
  * @param catalogueNames a source name, as the source writes it, to the name of the catalogue
  *   exercise it is known to be. Looked up by [ExerciseMatcher.normalised] name, so case and
@@ -150,6 +150,21 @@ class SuffixedExerciseNames(
          */
         fun isAssisted(name: String): Boolean = split(name).second.equals(ASSISTED, ignoreCase = true)
 
+        /**
+         * Whether [name] calls itself assisted anywhere: in a parenthesis, as [isAssisted] reads
+         * it, or as a word of the name, as libraries that put the variation in front of the
+         * movement write it ("Assisted Chin Up" in Fitbod, "Machine Assisted Pull-Up" in JEFIT).
+         *
+         * Wider than [isAssisted] on purpose, and only for those libraries. Every assisted
+         * exercise seen in their exports is an assistance machine, whose weight is a counterweight
+         * for the reasons [isAssisted] gives. Strong, Hevy and FitNotes spell such a machine with
+         * the parenthesis, so their parsers keep the narrower rule, and a name of the user's own
+         * that merely starts with the word ("Assisted Pistol Squats") keeps its weight there.
+         */
+        fun namesAssistance(name: String): Boolean =
+            isAssisted(name) || ASSISTED_WORD in ExerciseMatcher.normalised(name).split(' ')
+
         private const val ASSISTED = "Assisted"
+        private const val ASSISTED_WORD = "assisted"
     }
 }

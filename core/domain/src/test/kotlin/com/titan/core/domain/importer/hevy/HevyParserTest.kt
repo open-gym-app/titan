@@ -116,6 +116,22 @@ class HevyParserTest {
     }
 
     @Test
+    fun `no Fitbod export is a Hevy export`() {
+        listOf(
+            "fitbod-export.csv",
+            "fitbod-export-resaved.csv",
+            "fitbod-support-export.csv",
+            "fitbod-damaged.csv",
+        ).forEach { sample ->
+            assertEquals(
+                sample,
+                ParseResult.NotRecognised,
+                ImporterFixtures.read(parser, ImporterFixtures.resource("fitbod/$sample")),
+            )
+        }
+    }
+
+    @Test
     fun `an export with no workouts or no measurements in it is an empty history, not a broken file`() {
         assertEquals(ImportedHistory(), parsedText("title,start_time,end_time,exercise_title,set_index,set_type\n"))
         assertEquals(ImportedHistory(), parsedText("date,weight_kg,fat_percent,waist_cm\n"))
