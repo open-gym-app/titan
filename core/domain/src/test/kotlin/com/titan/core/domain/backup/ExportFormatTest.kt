@@ -99,8 +99,8 @@ class ExportFormatTest {
             assertEquals(
                 listOf(
                     "id", "session_exercise_id", "set_number", "reps", "weight", "duration", "distance",
-                    "heart_rate_avg", "heart_rate_max", "rest_after", "rpe", "set_type", "completed_at",
-                    "is_completed", "notes", "created_at", "updated_at",
+                    "heart_rate_avg", "heart_rate_max", "elevation_gain", "steps", "rest_after", "rpe", "set_type",
+                    "completed_at", "is_completed", "notes", "created_at", "updated_at",
                 ),
                 set.keys.toList(),
             )

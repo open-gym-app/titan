@@ -23,16 +23,19 @@ import com.titan.core.domain.stats.MuscleVolumeCalculator
 import com.titan.core.domain.stats.SessionStatsCalculator
 import com.titan.core.domain.stats.TimedWorkCalculator
 import com.titan.core.domain.usecase.CreateTemplateUseCase
+import com.titan.core.domain.usecase.RecordSessionEffortUseCase
 import com.titan.core.domain.usecase.RenameSessionUseCase
 import com.titan.core.ui.component.muscleContributions
 import com.titan.core.ui.state.savedScreenState
 import com.titan.feature.session.SessionProgressionHandoff
 import com.titan.feature.session.navigation.SessionSummaryDestination
+import com.titan.feature.session.summary.component.CaloriesInput
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -83,6 +86,7 @@ class SessionSummaryViewModel @Inject constructor(
     personalRecordRepository: PersonalRecordRepository,
     private val createTemplate: CreateTemplateUseCase,
     private val renameSession: RenameSessionUseCase,
+    private val recordEffort: RecordSessionEffortUseCase,
     progressionHandoff: SessionProgressionHandoff,
 ) : ViewModel() {
 
@@ -227,6 +231,8 @@ class SessionSummaryViewModel @Inject constructor(
             templateNameTaken = screen.templateNameTaken,
             nameDraft = screen.nameDraft,
             isSavingName = screen.isSavingName,
+            caloriesDraft = screen.caloriesDraft,
+            isSavingEffort = screen.isSavingEffort,
             message = screen.message,
         )
 
@@ -243,6 +249,18 @@ class SessionSummaryViewModel @Inject constructor(
                 screenState.update { it.copy(noteDraft = null, isSavingNotes = false) }
 
             SessionSummaryEvent.NoteSaved -> saveNote()
+
+            is SessionSummaryEvent.RatingChosen -> rate(event.rating)
+
+            SessionSummaryEvent.CaloriesEditRequested -> openCalories()
+
+            is SessionSummaryEvent.CaloriesChanged ->
+                screenState.update { it.copy(caloriesDraft = event.text) }
+
+            SessionSummaryEvent.CaloriesEditCancelled ->
+                screenState.update { it.copy(caloriesDraft = null) }
+
+            SessionSummaryEvent.CaloriesSaved -> saveCalories()
 
             SessionSummaryEvent.SaveAsTemplateRequested -> openTemplateDialog()
 
@@ -371,6 +389,73 @@ class SessionSummaryViewModel @Inject constructor(
                 screenState.update {
                     it.copy(isSavingNotes = false, message = SessionSummaryMessage.NOTES_SAVE_FAILED)
                 }
+            }
+        }
+    }
+
+    /**
+     * Sets the rating to [star], or clears it when [star] already is the rating — tapping the lit
+     * star is how a rating is taken back. Written on the tap, as the set row's RPE is.
+     */
+    private fun rate(star: Int) {
+        val session = loaded.value?.session ?: return
+        writeEffort(calories = session.calories, rating = star.takeUnless { it == session.rating })
+    }
+
+    /** Opens the calories field on the figure already stored, or empty. */
+    private fun openCalories() {
+        val session = loaded.value?.session ?: return
+        screenState.update { it.copy(caloriesDraft = session.calories?.toString().orEmpty()) }
+    }
+
+    /** Writes the typed calories, refusing — silently, the button is dead — a figure that is not one. */
+    private fun saveCalories() {
+        val session = loaded.value?.session ?: return
+        val calories = when (val input = CaloriesInput.of(screenState.value.caloriesDraft ?: return)) {
+            CaloriesInput.Empty -> null
+            is CaloriesInput.Figure -> input.kilocalories
+            CaloriesInput.Invalid -> return
+        }
+        writeEffort(calories = calories, rating = session.rating, closesCalories = true)
+    }
+
+    /**
+     * Writes both figures through [RecordSessionEffortUseCase]. The calories field closes on
+     * success only, for the note's reason: what is in it is the only copy of what was typed.
+     *
+     * The card stays inert until [loaded] carries what was written, not just until the write
+     * returns. Each write passes the figure it is not editing back from [loaded], and Room
+     * re-emits a moment after the write lands: a star tapped in that gap would send the old
+     * calories with it and quietly undo the save.
+     */
+    private fun writeEffort(
+        calories: Int?,
+        rating: Int?,
+        closesCalories: Boolean = false,
+    ) {
+        val session = loaded.value?.session ?: return
+        if (screenState.value.isSavingEffort) return
+        screenState.update { it.copy(isSavingEffort = true) }
+
+        viewModelScope.launch {
+            recordEffort(session.id, calories = calories, rating = rating).onFailure { failure ->
+                if (failure is CancellationException) throw failure
+                screenState.update {
+                    it.copy(
+                        isSavingEffort = false,
+                        message = SessionSummaryMessage.EFFORT_SAVE_FAILED,
+                    )
+                }
+                return@launch
+            }
+            // A session gone from under the recap releases the card too; there is nothing left
+            // for a stale figure to overwrite.
+            loaded.first { read ->
+                val stored = read?.session ?: return@first true
+                stored.calories == calories && stored.rating == rating
+            }
+            screenState.update {
+                it.copy(isSavingEffort = false, caloriesDraft = if (closesCalories) null else it.caloriesDraft)
             }
         }
     }
@@ -512,6 +597,8 @@ class SessionSummaryViewModel @Inject constructor(
             celebration = celebration,
             streakSave = streakSave,
             notes = session.notes,
+            rating = session.rating,
+            calories = session.calories,
             isLoading = false,
         )
     }
@@ -540,6 +627,9 @@ private data class ScreenState(
     val noteDraft: String? = null,
     @Transient
     val isSavingNotes: Boolean = false,
+    val caloriesDraft: String? = null,
+    @Transient
+    val isSavingEffort: Boolean = false,
     val templateName: String? = null,
     val templateCategory: TemplateCategory? = null,
     @Transient

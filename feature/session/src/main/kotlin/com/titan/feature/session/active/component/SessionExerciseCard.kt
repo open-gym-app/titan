@@ -485,6 +485,8 @@ internal fun SetEntryError.message(): String =
         SetEntryError.RepsNotANumber -> stringResource(R.string.active_reps_not_a_number)
         SetEntryError.DurationNotATime -> stringResource(R.string.active_duration_not_a_time)
         SetEntryError.DistanceNotANumber -> stringResource(R.string.active_distance_not_a_number)
+        SetEntryError.ElevationNotANumber -> stringResource(R.string.active_elevation_not_a_number)
+        SetEntryError.StepsNotANumber -> stringResource(R.string.active_steps_not_a_number)
         is SetEntryError.Refused -> reason
     }
 

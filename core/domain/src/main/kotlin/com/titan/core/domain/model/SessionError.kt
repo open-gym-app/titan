@@ -183,6 +183,15 @@ sealed class SessionError(
     )
 
     /**
+     * The calories or the rating a session was given are out of bounds — see
+     * [com.titan.core.domain.validation.SessionEffortValidator].
+     */
+    data class EffortRejected(val reason: String) :
+        SessionError(
+            "the session's effort was refused: $reason",
+        )
+
+    /**
      * The state machine referenced a session that is not in the repository —
      * a stale state value, e.g. after the underlying row was deleted.
      */

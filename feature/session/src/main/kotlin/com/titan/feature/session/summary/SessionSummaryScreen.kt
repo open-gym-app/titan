@@ -56,6 +56,7 @@ import com.titan.core.ui.format.formatTimeOfDay
 import com.titan.core.ui.theme.TitanTheme
 import com.titan.feature.session.R
 import com.titan.feature.session.summary.component.AchievementsUnlockedCard
+import com.titan.feature.session.summary.component.EffortCard
 import com.titan.feature.session.summary.component.ExerciseBreakdownCard
 import com.titan.feature.session.summary.component.NewRecordsCard
 import com.titan.feature.session.summary.component.SessionMusclesCard
@@ -376,6 +377,24 @@ private fun SummaryContent(
             }
         }
 
+        item(key = SECTION_EFFORT) {
+            SummarySection {
+                Section(title = stringResource(R.string.summary_effort)) {
+                    EffortCard(
+                        rating = state.rating,
+                        calories = state.calories,
+                        caloriesDraft = state.caloriesDraft,
+                        isSaving = state.isSavingEffort,
+                        onRate = { onEvent(SessionSummaryEvent.RatingChosen(it)) },
+                        onEditCalories = { onEvent(SessionSummaryEvent.CaloriesEditRequested) },
+                        onCaloriesDraftChange = { onEvent(SessionSummaryEvent.CaloriesChanged(it)) },
+                        onSaveCalories = { onEvent(SessionSummaryEvent.CaloriesSaved) },
+                        onCancelCalories = { onEvent(SessionSummaryEvent.CaloriesEditCancelled) },
+                    )
+                }
+            }
+        }
+
         item(key = SECTION_NOTES) {
             SummarySection {
                 Section(title = stringResource(R.string.summary_notes)) {
@@ -633,6 +652,7 @@ private fun SessionSummaryMessage.labelRes(): Int =
     when (this) {
         SessionSummaryMessage.NAME_SAVE_FAILED -> R.string.summary_error_rename
         SessionSummaryMessage.NOTES_SAVE_FAILED -> R.string.summary_error_notes
+        SessionSummaryMessage.EFFORT_SAVE_FAILED -> R.string.summary_effort_save_failed
         SessionSummaryMessage.TEMPLATE_SAVED -> R.string.summary_template_saved
         SessionSummaryMessage.TEMPLATE_SAVE_FAILED -> R.string.summary_error_template
     }
@@ -740,4 +760,5 @@ private const val SECTION_STREAK = "streak"
 private const val SECTION_RECORDS = "records"
 private const val SECTION_MUSCLES = "muscles"
 private const val SECTION_EXERCISES = "exercises"
+private const val SECTION_EFFORT = "effort"
 private const val SECTION_NOTES = "notes"

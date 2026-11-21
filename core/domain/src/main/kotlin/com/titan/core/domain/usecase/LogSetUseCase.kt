@@ -145,6 +145,8 @@ private fun ActiveSet.toWorkoutSet(
         distance = distance,
         heartRateAvg = heartRateAvg,
         heartRateMax = heartRateMax,
+        elevationGain = elevationGain,
+        steps = steps,
         restAfter = restAfter,
         rpe = rpe,
         setType = setType,

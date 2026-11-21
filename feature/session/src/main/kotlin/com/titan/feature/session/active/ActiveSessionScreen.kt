@@ -95,6 +95,7 @@ import com.titan.core.ui.format.formatSessionDate
 import com.titan.core.ui.format.formatSet
 import com.titan.core.ui.theme.TitanTheme
 import com.titan.feature.session.R
+import com.titan.feature.session.active.component.CardioDetailsSheet
 import com.titan.feature.session.active.component.CollapsedExerciseRow
 import com.titan.feature.session.active.component.FinishSessionDialog
 import com.titan.feature.session.active.component.MobilitySuggestionCard
@@ -542,6 +543,23 @@ fun ActiveSessionScreen(
     RestAlert(rest = { clocks().rest })
 
     RestSheet(state = state, rest = { clocks().rest }, onEvent = onEvent)
+
+    state.cardioDetails?.let { edit ->
+        CardioDetailsSheet(
+            edit = edit,
+            // The row's place in its table, which is what the row itself is numbered by.
+            setNumber = state.exercises
+                .firstOrNull { it.sessionExerciseId == edit.sessionExerciseId }
+                ?.sets?.indexOfFirst { it.id == edit.setId }
+                ?.takeIf { it >= 0 }
+                ?.let { it + 1 }
+                ?: 1,
+            onElevationChange = { onEvent(ActiveSessionEvent.CardioElevationChanged(it)) },
+            onStepsChange = { onEvent(ActiveSessionEvent.CardioStepsChanged(it)) },
+            onSave = { onEvent(ActiveSessionEvent.CardioDetailsSaved) },
+            onDismiss = { onEvent(ActiveSessionEvent.CardioDetailsDismissed) },
+        )
+    }
 
     if (state.confirmingFinish) {
         val progress = state.header?.progress ?: SessionProgress()

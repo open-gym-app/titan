@@ -39,6 +39,10 @@ data class WorkoutSessionEntity(
     val lastActiveAt: Long,
     @ColumnInfo(name = "notes")
     val notes: String? = null,
+    @ColumnInfo(name = "calories")
+    val calories: Int? = null,
+    @ColumnInfo(name = "rating")
+    val rating: Int? = null,
     @ColumnInfo(name = "created_at")
     val createdAt: Long,
     @ColumnInfo(name = "updated_at")

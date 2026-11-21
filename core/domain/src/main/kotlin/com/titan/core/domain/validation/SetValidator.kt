@@ -14,7 +14,7 @@ import com.titan.core.domain.model.WorkoutSet
  * which `WorkoutSet` itself rejects, so it is not re-checked here.
  *
  * Every bound is expressed in the canonical storage units: weight in milligrams,
- * distance in centimeters, duration and rest in seconds.
+ * distance and elevation gain in centimeters, duration and rest in seconds.
  *
  * The ceilings are deliberately generous. They exist to catch a stray digit or a
  * unit mix-up, not to police what a user may log, so anything a real athlete does
@@ -61,6 +61,18 @@ object SetValidator {
     /** Rest is a duration, so it cannot run backwards. */
     const val REST_MIN_SECONDS = 0L
 
+    /** A flat run climbs nothing, and says so: zero is a measurement, null is none. */
+    const val ELEVATION_GAIN_MIN_CM = 0L
+
+    /** 50 km, in centimeters — twice the climb of the longest mountain ultras. */
+    const val ELEVATION_GAIN_MAX_CM = 5_000_000L
+
+    /** A count of zero steps was not walked; "not counted" is null. */
+    const val STEPS_MIN = 1
+
+    /** Ten million — a multi-day walk, an order of magnitude past a day's steps. */
+    const val STEPS_MAX = 10_000_000
+
     private const val MG_PER_KG = 1_000_000L
     private const val CM_PER_KM = 100_000L
     private const val SECONDS_PER_DAY = 86_400L
@@ -87,7 +99,7 @@ object SetValidator {
         set: WorkoutSet,
         exerciseType: ExerciseType? = null,
     ): ValidationResult {
-        val violations = set.boundViolations() + set.shapeViolations(exerciseType)
+        val violations = set.boundViolations() + set.cardioViolations() + set.shapeViolations(exerciseType)
 
         return if (violations.isEmpty()) {
             ValidationResult.Valid
@@ -134,6 +146,28 @@ object SetValidator {
             restAfter?.let { value ->
                 if (value < REST_MIN_SECONDS) {
                     add("restAfter must be at least $REST_MIN_SECONDS s, was $value s")
+                }
+            }
+        }
+
+    /**
+     * Range checks on the climb and the steps — the two figures only a piece of cardio carries, kept
+     * apart from [boundViolations] so each list stays one screen of the same kind of check.
+     */
+    private fun WorkoutSet.cardioViolations(): List<String> =
+        buildList {
+            elevationGain?.let { value ->
+                if (value !in ELEVATION_GAIN_MIN_CM..ELEVATION_GAIN_MAX_CM) {
+                    add(
+                        "elevationGain must be within ${ELEVATION_GAIN_MIN_CM / CM_PER_KM} km.." +
+                            "${ELEVATION_GAIN_MAX_CM / CM_PER_KM} km " +
+                            "($ELEVATION_GAIN_MIN_CM..$ELEVATION_GAIN_MAX_CM cm), was $value cm",
+                    )
+                }
+            }
+            steps?.let { value ->
+                if (value !in STEPS_MIN..STEPS_MAX) {
+                    add("steps must be within $STEPS_MIN..$STEPS_MAX, was $value")
                 }
             }
         }

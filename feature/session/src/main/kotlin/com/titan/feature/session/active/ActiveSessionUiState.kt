@@ -174,6 +174,8 @@ data class ActiveSessionUiState(
     val timedExerciseId: Long? = null,
     val notificationPermissionRequest: Boolean = false,
     val workingExerciseId: Long? = null,
+    /** The set whose climb and steps are being edited, or null when that sheet is down. */
+    val cardioDetails: CardioDetailsEdit? = null,
     val isLoading: Boolean = true,
     val message: ActiveSessionMessage? = null,
 ) {
@@ -562,8 +564,19 @@ data class SetEntry(
     val rpe: Int? = null,
     val setType: SetType = SetType.NORMAL,
     val notes: String? = null,
+    /**
+     * The climb and the steps of an endurance set, as typed — in the system's elevation unit and
+     * as a count. Edited from the set's menu rather than in a column of the row (see
+     * `CardioDetailsSheet`), and neither one makes a set loggable on its own: they describe a
+     * piece of cardio, they do not stand in for it.
+     */
+    val elevation: String = "",
+    val steps: String = "",
     val error: SetEntryError? = null,
 ) {
+
+    /** Whether a climb or a step count is recorded — what draws the line under the row. */
+    val hasCardioDetails: Boolean get() = elevation.isNotBlank() || steps.isNotBlank()
 
     /**
      * Whether what is typed is enough to log, as far as the values themselves go.
@@ -591,6 +604,21 @@ data class SetEntry(
     val isStarted: Boolean
         get() = hasFigure || rpe != null || notes != null
 }
+
+/**
+ * The climb and steps of one logged set, as the sheet edits them.
+ *
+ * @property elevation typed in the system's elevation unit, as [SetEntry.elevation] is.
+ * @property error why the set would be refused, or null — the sheet's Save is dead while it is set.
+ */
+@Immutable
+data class CardioDetailsEdit(
+    val sessionExerciseId: Long,
+    val setId: Long,
+    val elevation: String,
+    val steps: String,
+    val error: SetEntryError?,
+)
 
 /**
  * A set that is already written, as the row it is drawn in.
@@ -793,6 +821,14 @@ sealed interface SetEntryError {
     /** The distance field holds something that is not a number. */
     @Serializable
     data object DistanceNotANumber : SetEntryError
+
+    /** The elevation field holds something that is not a number. */
+    @Serializable
+    data object ElevationNotANumber : SetEntryError
+
+    /** The steps field holds something that is not a whole number. */
+    @Serializable
+    data object StepsNotANumber : SetEntryError
 
     /** The values parsed and the domain refused them. [reason] is the validator's wording. */
     @Serializable
