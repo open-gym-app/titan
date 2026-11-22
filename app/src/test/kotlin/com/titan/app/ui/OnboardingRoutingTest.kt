@@ -138,19 +138,31 @@ class OnboardingRoutingTest {
         assertFalse(runBlocking { preferences.observe().first() }.onboardingCompleted)
     }
 
-    /** Walk the five steps, choosing a non-default answer on each of the three questions. */
+    /**
+     * Walk the five steps, choosing a non-default answer on each of the three questions.
+     *
+     * Each answer is tapped only once its step is on the screen. The first step change waits on
+     * the store's first read, as [awaitDisplayed] explains, so a tap made as soon as `Continue`
+     * returns can land before the step it is meant for has arrived, on a node that is not there
+     * yet. The later steps wait the same way, so no tap depends on how quickly the step before
+     * it drew.
+     */
     private fun answerEveryStep() {
         composeTestRule.onNodeWithText(CONTINUE).performClick()
 
+        awaitDisplayed(HYPERTROPHY)
         composeTestRule.onNodeWithText(HYPERTROPHY).performClick()
         composeTestRule.onNodeWithText(CONTINUE).performClick()
 
+        awaitDisplayed(INTERMEDIATE)
         composeTestRule.onNodeWithText(INTERMEDIATE).performClick()
         composeTestRule.onNodeWithText(CONTINUE).performClick()
 
+        awaitDisplayed(IMPERIAL)
         composeTestRule.onNodeWithText(IMPERIAL).performClick()
         composeTestRule.onNodeWithText(CONTINUE).performClick()
 
+        awaitDisplayed(START)
         composeTestRule.onNodeWithText(START).performClick()
         composeTestRule.waitForIdle()
     }
