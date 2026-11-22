@@ -1,6 +1,7 @@
 package com.titan.app.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -127,7 +128,7 @@ class OnboardingRoutingTest {
     @Test
     fun `back inside the flow walks the steps rather than leaving it`() {
         composeTestRule.onNodeWithText(CONTINUE).performClick()
-        composeTestRule.onNodeWithText(GOAL_TITLE).assertIsDisplayed()
+        awaitDisplayed(GOAL_TITLE)
 
         pressBack()
 
@@ -169,6 +170,23 @@ class OnboardingRoutingTest {
     }
 
     /**
+     * Wait for [text] to be on the screen, not merely in the tree.
+     *
+     * The flow's state is the step combined with the preferences store, so the first step change
+     * reaches the screen only once the store's first read has — a DataStore read on its own
+     * dispatcher, which Compose's idling does not track and which a cold JVM on a loaded CI runner
+     * can finish after the click. The step then slides in after `waitForIdle` has already
+     * returned, and an assertion made at that instant finds the incoming step composed but not
+     * yet displayed.
+     */
+    private fun awaitDisplayed(text: String) {
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
+            composeTestRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() &&
+                composeTestRule.onNodeWithText(text).isDisplayed()
+        }
+    }
+
+    /**
      * The system back gesture, as the platform delivers it.
      *
      * Through the activity's dispatcher rather than `navController.popBackStack()`, because
@@ -199,7 +217,8 @@ class OnboardingRoutingTest {
         const val SETTINGS_ACTION = "Settings"
 
         /**
-         * How long a wait for Home is given, over `waitUntil`'s own second.
+         * How long a wait for Home is given, over `waitUntil`'s own second — and, being a
+         * bound on a hang, the same bound for [awaitDisplayed]'s wait on the store's first read.
          *
          * A bound on a hang, not a budget for a draw. `setContent` puts *onboarding* up
          * here, so Home is only ever reached from inside a test, and it arrives cold:
