@@ -31,14 +31,15 @@ interface ProgressPhotoRepository {
      *   moment it was added. It does not for an imported one: the import recognises a photo it
      *   already stored by the time its source declared, which every source gives and many images,
      *   re-encoded on their way out of another app, no longer carry; letting the image win would
-     *   store the same photo again on every re-run.
+     *   store the same photo again on every re-run. Neither answer is the obvious one, so each
+     *   caller gives its own rather than inherit a default.
      * @throws java.io.IOException if the bytes cannot be read or are not an image, with nothing
      *   stored.
      */
     suspend fun add(
         source: PhotoSource,
         takenAt: Long,
-        preferImageTime: Boolean = true,
+        preferImageTime: Boolean,
     ): Long
 
     /** Removes the photo and its image, or does nothing when no photo has that id. */

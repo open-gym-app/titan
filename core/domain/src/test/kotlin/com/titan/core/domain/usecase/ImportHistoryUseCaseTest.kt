@@ -325,7 +325,7 @@ class ImportHistoryUseCaseTest {
     @Test
     fun `a photo already on the device is not stored again`() =
         runBlocking {
-            photos.add(PhotoSource { ByteArray(1).inputStream() }, takenAt = DAY)
+            photos.add(PhotoSource { ByteArray(1).inputStream() }, takenAt = DAY, preferImageTime = true)
 
             val report = import(
                 ImportedHistory(

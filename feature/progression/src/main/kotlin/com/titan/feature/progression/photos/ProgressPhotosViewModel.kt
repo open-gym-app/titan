@@ -105,7 +105,7 @@ class ProgressPhotosViewModel @Inject constructor(
         screen.update { it.copy(isAdding = true) }
         viewModelScope.launch {
             try {
-                repository.add(event.source, takenAt = clock.nowMillis())
+                repository.add(event.source, takenAt = clock.nowMillis(), preferImageTime = true)
                 screen.update { it.copy(isAdding = false) }
             } catch (cancellation: CancellationException) {
                 throw cancellation
