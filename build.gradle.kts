@@ -153,6 +153,11 @@ subprojects {
                 showStackTraces = true
             }
         }
+
+        val usesRobolectric = configurations.findByName("testImplementation")?.dependencies
+            ?.any { it.group == "org.robolectric" && it.name == "robolectric" } == true
+        if (usesRobolectric) resolveRobolectricRuntimeThroughGradle()
+
         tasks.findByName("check")?.dependsOn(
             rootProject.tasks.named("detekt"),
             rootProject.tasks.named("checkArchitecture"),
@@ -201,5 +206,80 @@ subprojects {
                 }
             }
         }
+    }
+}
+
+/**
+ * The Android runtimes Robolectric runs this build's tests on, one per SDK level a test asks for.
+ *
+ * `AndroidSdk.ROBOLECTRIC` (34) is the level every module is pinned to; 28 and 29 are the two
+ * `AppBackupDirectoryTest` pins to either side of scoped storage. The version strings are the
+ * ones Robolectric's `DefaultSdkProvider` hardcodes for those levels, and the `-i7` suffix is
+ * its instrumentation version, so a Robolectric upgrade usually changes them. A runtime missing
+ * from this list does not quietly fall back to the network: the test fails with "no artifacts
+ * found for org.robolectric:android-all-instrumented:<version>", and that version is the one to
+ * put here.
+ */
+val robolectricRuntimeModule = "org.robolectric:android-all-instrumented"
+val robolectricSdkRuntimes = listOf(
+    "9-robolectric-4913185-2-i7",
+    "10-robolectric-5803371-i7",
+    "14-robolectric-10818077-i7",
+)
+
+/**
+ * Has Gradle, not each test JVM, download the Android runtimes Robolectric runs on.
+ *
+ * Left to itself, Robolectric fetches each runtime (about 100 MB) from Maven Central the first
+ * time a test JVM needs it, into `~/.m2`, which nothing in CI caches. So every module's test task
+ * on every CI run downloaded them again. A stack of pull requests pushed together starts a dozen
+ * runs at once, and Maven Central answered with HTTP 429: every Robolectric test class in the
+ * module failed at `classMethod` before running a single test. Resolved through a configuration,
+ * the jars are downloaded once per build, retried like any other dependency, and kept in the
+ * Gradle cache CI already restores. Robolectric then reads where they are from the generated
+ * `robolectric-deps.properties` and never touches the network.
+ */
+fun Project.resolveRobolectricRuntimeThroughGradle() {
+    // One configuration per runtime rather than one for all of them: they are versions of the
+    // same module, and a single configuration would resolve the conflict by keeping the newest.
+    val runtimes = robolectricSdkRuntimes.associateWith { version ->
+        configurations.create("robolectricRuntime-$version") {
+            isCanBeConsumed = false
+            isTransitive = false
+            dependencies.add(project.dependencies.create("$robolectricRuntimeModule:$version"))
+        }
+    }
+    val jars = files(runtimes.values)
+
+    val depsFile = layout.buildDirectory.file("robolectric/robolectric-deps.properties")
+    val writeDeps = tasks.register("writeRobolectricDeps") {
+        description = "Writes where Robolectric finds the Android runtimes Gradle resolved."
+        inputs.files(jars).withPropertyName("runtimes")
+        outputs.file(depsFile)
+        doLast {
+            // Keyed by `group:module:version` with the colons escaped, the form Robolectric's
+            // `PropertiesDependencyResolver` looks a runtime up by.
+            val entries = runtimes.map { (version, configuration) ->
+                val key = "$robolectricRuntimeModule:$version".replace(":", "\\:")
+                "$key=${configuration.singleFile.invariantSeparatorsPath}"
+            }
+            depsFile.get().asFile.writeText(entries.joinToString("\n", postfix = "\n"))
+        }
+    }
+
+    tasks.withType<Test>().configureEach {
+        dependsOn(writeDeps)
+        // The jars by content, so the test task is up to date or cached whichever Gradle cache
+        // directory they were downloaded to. The properties file itself is not an input: it holds
+        // that directory's absolute path, and it changes only when the jars do.
+        inputs.files(jars)
+            .withPropertyName("robolectricRuntimes")
+            .withPathSensitivity(PathSensitivity.NONE)
+        // Relative to the test JVM's working directory, which Robolectric resolves it against,
+        // so the system property, an input of the task, is the same string on every machine.
+        systemProperty(
+            "robolectric-deps.properties",
+            depsFile.get().asFile.relativeTo(workingDir).invariantSeparatorsPath,
+        )
     }
 }
