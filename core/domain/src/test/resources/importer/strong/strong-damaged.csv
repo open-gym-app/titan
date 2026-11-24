@@ -1,0 +1,9 @@
+Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE
+2024-05-01 18:00:00,"Good",45m,"Bench Press (Barbell)",1,100.0,5.0,0,0.0,"","",
+2024-05-01 18:00:00,"Good",45m,"Bench Press (Barbell)",2,heavy,5.0,0,0.0,,,
+2024-05-01 18:00:00,"Good",45m,"Bench Press (Barbell)",3,100.0,5.0,0,0.0,,,hard
+2024-05-01 18:00:00,"Good",45m,,1,100.0,5.0,0,0.0,,,
+2024-05-01 18:00:00,"Good",45m,"Bench Press (Barbell)"
+yesterday evening,"Lost",45m,"Squat (Barbell)",1,100.0,5.0,0,0.0,,,
+,"No date",45m,"Squat (Barbell)",1,100.0,5.0,0,0.0,,,
+2024-05-01 18:00:00,"Good",45m,"Bench Press (Barbell)",Superset,100.0,5.0,0,0.0,,,

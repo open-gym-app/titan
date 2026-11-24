@@ -266,8 +266,50 @@ class CsvHeader(columns: List<String>) {
         name: String,
     ): String? = indexOf(name)?.let(record::getOrNull)?.trim()?.takeIf(String::isNotEmpty)
 
+    /**
+     * The first column called [name] with or without a qualifier in parentheses after it —
+     * `Weight`, `Weight (kg)`, `Weight (lbs)` — or null when the header has none.
+     *
+     * Exports put a column's unit in its header as often as anywhere, and change it with the
+     * user's settings, so one app writes `Weight (kg)` for one user and `Weight (lbs)` for the
+     * next. Looking the column up by what precedes the parenthesis finds it either way, and the
+     * qualifier is what says which unit the figures are in.
+     */
+    fun qualified(name: String): QualifiedColumn? {
+        val wanted = name.key()
+        return columns.firstNotNullOfOrNull { column ->
+            val parts = QUALIFIED.matchEntire(column)
+            when {
+                column.key() == wanted -> QualifiedColumn(column, qualifier = null)
+
+                parts != null && parts.groupValues[1].key() == wanted -> QualifiedColumn(
+                    column,
+                    parts.groupValues[2].trim(),
+                )
+
+                else -> null
+            }
+        }
+    }
+
     private fun String.key(): String = trim().lowercase(Locale.ROOT)
+
+    private companion object {
+        val QUALIFIED = Regex("(.*?)\\s*\\(([^()]*)\\)")
+    }
 }
+
+/**
+ * A column [CsvHeader.qualified] found.
+ *
+ * @property name the column's full name, as [CsvHeader.get] reads it.
+ * @property qualifier what its header held in parentheses — `kg` in `Weight (kg)` — or null when
+ *   it held none.
+ */
+data class QualifiedColumn(
+    val name: String,
+    val qualifier: String?,
+)
 
 /**
  * The input is not CSV this reader can make sense of.
