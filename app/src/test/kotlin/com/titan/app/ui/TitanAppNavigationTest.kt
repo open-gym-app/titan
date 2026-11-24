@@ -9,6 +9,7 @@ import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
@@ -164,9 +165,15 @@ class TitanAppNavigationTest {
     fun `the library is a tab, and keeps the bar rather than a way back`() {
         composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).performClick()
 
-        // The real screen over a real (empty) database, so the count is zero and the empty
-        // state is what it draws — both of which are the library and nothing else.
-        composeTestRule.onNodeWithText(LIBRARY_EMPTY_COUNT).assertIsDisplayed()
+        // The library's own chrome, which it draws whether or not its read has landed — unlike
+        // the count beside it, which says "0" or the catalogue size depending on that read.
+        // Waited for on the screen rather than asserted at once: the read is a Room query
+        // Compose's idling does not track, and on a loaded runner the frame it lands in can be
+        // the one an immediate assertion reads, with the tab composed but not yet displayed.
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
+            composeTestRule.onAllNodesWithContentDescription(LIBRARY_SEARCH).fetchSemanticsNodes().isNotEmpty() &&
+                composeTestRule.onNodeWithContentDescription(LIBRARY_SEARCH).isDisplayed()
+        }
         composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).assertIsSelected()
 
         // The two properties that make it a tab rather than the push it used to be: the bar
@@ -307,10 +314,10 @@ class TitanAppNavigationTest {
      *
      * It cannot be driven from this test yet. `ExerciseLibraryScreen`'s state is a combine over
      * four queries, and under Robolectric it never leaves its initial value — the picker draws
-     * its chrome and no rows, whatever it is given and however long it is waited on. The tab's
-     * own test above passes only because "0 EXERCISES" is what a library that has not loaded
-     * also says. Whatever stalls it is older than this flow and is nothing to do with the
-     * picker's result; until it is fixed there is no row here to tick.
+     * its chrome and no rows, whatever it is given and however long it is waited on, which is
+     * why the tab's own test above checks the chrome and nothing drawn from the read. Whatever
+     * stalls it is older than this flow and is nothing to do with the picker's result; until
+     * it is fixed there is no row here to tick.
      */
 
     @Test
@@ -763,10 +770,6 @@ class TitanAppNavigationTest {
 
         // Settings' first group header, uppercased by the eyebrow style.
         const val SETTINGS_GROUP_APPEARANCE = "APPEARANCE"
-
-        // The library's header count. Zero here: the seed does not run against the test
-        // database, and what the tab draws over an empty catalogue is still the tab.
-        const val LIBRARY_EMPTY_COUNT = "0 EXERCISES"
 
         // The library's search button, the box it opens, and something to type into it.
         const val LIBRARY_SEARCH = "Search"

@@ -171,10 +171,15 @@
 
     <string name="body_weight_label">Poids de corps</string>
 
+    <string name="body_part_neck">Cou</string>
+    <string name="body_part_shoulders">Épaules</string>
     <string name="body_part_chest">Poitrine</string>
     <string name="body_part_waist">Taille</string>
+    <string name="body_part_hips">Hanches</string>
     <string name="body_part_arm">Bras</string>
+    <string name="body_part_forearm">Avant-bras</string>
     <string name="body_part_thigh">Cuisse</string>
+    <string name="body_part_calf">Mollet</string>
     <string name="body_measurement_description">%1$s, %2$s</string>
 
     <string name="body_fat_label">Masse grasse</string>
@@ -204,10 +209,15 @@
     <string name="body_form_save">Enregistrer</string>
     <string name="body_form_cancel">Annuler</string>
     <string name="body_field_weight">Poids (%1$s)</string>
+    <string name="body_field_neck">Cou (%1$s)</string>
+    <string name="body_field_shoulders">Épaules (%1$s)</string>
     <string name="body_field_chest">Poitrine (%1$s)</string>
     <string name="body_field_waist">Taille (%1$s)</string>
+    <string name="body_field_hips">Hanches (%1$s)</string>
     <string name="body_field_arm">Bras (%1$s)</string>
+    <string name="body_field_forearm">Avant-bras (%1$s)</string>
     <string name="body_field_thigh">Cuisse (%1$s)</string>
+    <string name="body_field_calf">Mollet (%1$s)</string>
     <string name="body_field_body_fat">Masse grasse (%1$s)</string>
     <string name="body_field_notes">Notes</string>
 

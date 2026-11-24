@@ -52,7 +52,7 @@ data class BodyMeasurementsUiState(
      * entry's fields.
      *
      * Every measurement is independently optional, so a user who stepped on the scale this
-     * morning without reaching for the tape has a newest entry holding a weight and five
+     * morning without reaching for the tape has a newest entry holding a weight and ten
      * nulls. Reading the tiles off that entry would blank a chest measurement the user took
      * last week and has not been asked to retake — so each figure is carried down from
      * wherever it was last recorded. See [latestReadings].
@@ -103,9 +103,11 @@ data class BodyMeasurementsUiState(
  * The latest reading of each figure, carried down from wherever in the history it was recorded.
  *
  * A type of its own rather than a synthesised [BodyMeasurement], because it is not an entry:
- * its fields can come off six different dates, and handing that to anything expecting a row —
+ * its fields can come off a dozen different dates, and handing that to anything expecting a row —
  * the form, the history list, an export — would be a measurement set nobody ever took.
  *
+ * @param circumferences the latest reading at each [BodySite] ever measured, in millimetres. A
+ *   site never measured has no entry, rather than a null one.
  * @param leanMass the last lean mass that could be *computed*, which is a stricter thing than
  *   the last weight and the last body fat. Both have to come off the same entry — see
  *   [BodyMeasurement.leanMass] — so pairing this month's weight with a body-fat figure from
@@ -114,26 +116,25 @@ data class BodyMeasurementsUiState(
 @Immutable
 data class BodyReadings(
     val weight: Long? = null,
-    val chest: Int? = null,
-    val waist: Int? = null,
-    val arm: Int? = null,
-    val thigh: Int? = null,
+    val circumferences: Map<BodySite, Int> = emptyMap(),
     val bodyFat: Int? = null,
     val leanMass: Long? = null,
 ) {
 
     /** Whether any circumference has ever been measured — what the parts card is drawn for. */
-    val hasCircumference: Boolean = chest != null || waist != null || arm != null || thigh != null
+    val hasCircumference: Boolean get() = circumferences.isNotEmpty()
+
+    /** The latest reading at [site], or null if it has never been measured. */
+    operator fun get(site: BodySite): Int? = circumferences[site]
 }
 
 /** [BodyReadings] off a **newest-first** history. See [BodyMeasurementsUiState.readings]. */
 fun List<BodyMeasurement>.latestReadings(): BodyReadings =
     BodyReadings(
         weight = firstNotNullOfOrNull(BodyMeasurement::weight),
-        chest = firstNotNullOfOrNull(BodyMeasurement::chest),
-        waist = firstNotNullOfOrNull(BodyMeasurement::waist),
-        arm = firstNotNullOfOrNull(BodyMeasurement::arm),
-        thigh = firstNotNullOfOrNull(BodyMeasurement::thigh),
+        circumferences = BodySite.entries
+            .mapNotNull { site -> firstNotNullOfOrNull(site::of)?.let { site to it } }
+            .toMap(),
         bodyFat = firstNotNullOfOrNull(BodyMeasurement::bodyFat),
         leanMass = firstNotNullOfOrNull(BodyMeasurement::leanMass),
     )

@@ -171,10 +171,15 @@
 
     <string name="body_weight_label">Peso corporal</string>
 
+    <string name="body_part_neck">Cuello</string>
+    <string name="body_part_shoulders">Hombros</string>
     <string name="body_part_chest">Pecho</string>
     <string name="body_part_waist">Cintura</string>
+    <string name="body_part_hips">Cadera</string>
     <string name="body_part_arm">Brazo</string>
+    <string name="body_part_forearm">Antebrazo</string>
     <string name="body_part_thigh">Muslo</string>
+    <string name="body_part_calf">Pantorrilla</string>
     <string name="body_measurement_description">%1$s, %2$s</string>
 
     <string name="body_fat_label">Grasa corporal</string>
@@ -204,10 +209,15 @@
     <string name="body_form_save">Guardar</string>
     <string name="body_form_cancel">Cancelar</string>
     <string name="body_field_weight">Peso (%1$s)</string>
+    <string name="body_field_neck">Cuello (%1$s)</string>
+    <string name="body_field_shoulders">Hombros (%1$s)</string>
     <string name="body_field_chest">Pecho (%1$s)</string>
     <string name="body_field_waist">Cintura (%1$s)</string>
+    <string name="body_field_hips">Cadera (%1$s)</string>
     <string name="body_field_arm">Brazo (%1$s)</string>
+    <string name="body_field_forearm">Antebrazo (%1$s)</string>
     <string name="body_field_thigh">Muslo (%1$s)</string>
+    <string name="body_field_calf">Pantorrilla (%1$s)</string>
     <string name="body_field_body_fat">Grasa corporal (%1$s)</string>
     <string name="body_field_notes">Notas</string>
 

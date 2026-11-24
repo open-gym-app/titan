@@ -122,9 +122,24 @@ class BodyMeasurementsViewModelTest {
             // blank a chest measurement the user took three weeks ago and has not been asked to
             // retake.
             assertEquals(bodyKg(78, 4), readings.weight)
-            assertEquals(bodyCm(82), readings.waist)
-            assertEquals(bodyCm(102), readings.chest)
-            assertNull(readings.arm)
+            assertEquals(bodyCm(82), readings[BodySite.WAIST])
+            assertEquals(bodyCm(102), readings[BodySite.CHEST])
+            assertNull(readings[BodySite.ARM])
+        }
+
+    @Test
+    fun `a site most users never tape is a reading like any other once somebody has`() =
+        runTest {
+            store.insert(measurementOn(TODAY.minusDays(3), hips = bodyCm(98), forearm = bodyCm(30)))
+            store.insert(measurementOn(TODAY, shoulders = bodyCm(121)))
+            val state = collect()
+
+            val readings = state().readings
+            assertEquals(
+                mapOf(BodySite.SHOULDERS to bodyCm(121), BodySite.HIPS to bodyCm(98), BodySite.FOREARM to bodyCm(30)),
+                readings.circumferences,
+            )
+            assertTrue(readings.hasCircumference)
         }
 
     @Test
@@ -180,8 +195,9 @@ class BodyMeasurementsViewModelTest {
     @Test
     fun `a new entry is pre-filled with the last value of every figure, and no note`() =
         runTest {
+            store.insert(measurementOn(TODAY.minusDays(9), neck = bodyCm(38)))
             store.insert(measurementOn(TODAY.minusDays(7), chest = bodyCm(102), notes = "after a deload"))
-            store.insert(measurementOn(TODAY.minusDays(1), weight = bodyKg(78, 4)))
+            store.insert(measurementOn(TODAY.minusDays(1), weight = bodyKg(78, 4), calf = bodyCm(39)))
             collect()
 
             viewModel.onEvent(BodyMeasurementsEvent.LogRequested)
@@ -190,6 +206,8 @@ class BodyMeasurementsViewModelTest {
             assertEquals(NEW_ENTRY, form.id)
             assertEquals(bodyKg(78, 4), form.weight)
             assertEquals(bodyCm(102), form.chest)
+            assertEquals(bodyCm(38), form.neck)
+            assertEquals(bodyCm(39), form.calf)
             // A note annotates the measurement it was written about; carrying it forward would
             // turn one remark into a history of them.
             assertNull(form.notes)
