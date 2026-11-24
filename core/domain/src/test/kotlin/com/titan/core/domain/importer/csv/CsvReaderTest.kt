@@ -216,4 +216,40 @@ class CsvReaderTest {
         assertTrue(header.suffixed("reps").isEmpty())
         assertTrue(header.suffixed("we").isEmpty())
     }
+
+    @Test
+    fun `every qualified column is found, in header order, for a figure carried in two units`() {
+        val header = CsvHeader(listOf("Date", "Weight (kg)", "Weight (lbs)", "Weight Unit", "Reps"))
+
+        assertEquals(
+            listOf(QualifiedColumn("Weight (kg)", "kg"), QualifiedColumn("Weight (lbs)", "lbs")),
+            header.qualifiedColumns("weight"),
+        )
+        assertEquals(listOf(QualifiedColumn("Reps", qualifier = null)), header.qualifiedColumns("Reps"))
+        assertTrue(header.qualifiedColumns("Distance").isEmpty())
+    }
+
+    @Test
+    fun `a record split at an unquoted delimiter is put back together in the column named`() {
+        val header = CsvHeader(listOf("Date", "Exercise", "Category", "Weight"))
+
+        assertEquals(
+            listOf("2026-10-09", "Curl, EZ Bar, Wide", "Biceps", "30.0"),
+            header.rejoined(listOf("2026-10-09", "Curl", " EZ Bar", " Wide", "Biceps", "30.0"), "exercise", ','),
+        )
+        assertEquals(
+            listOf("a;b", "c", "d", "e"),
+            header.rejoined(listOf("a", "b", "c", "d", "e"), "Date", ';'),
+        )
+    }
+
+    @Test
+    fun `a record no longer than the header, or a column the header lacks, leaves the record alone`() {
+        val header = CsvHeader(listOf("Date", "Exercise", "Category"))
+        val short = listOf("2026-10-09", "Curl")
+        val long = listOf("2026-10-09", "Curl", "EZ Bar", "Biceps")
+
+        assertEquals(short, header.rejoined(short, "Exercise", ','))
+        assertEquals(long, header.rejoined(long, "Comment", ','))
+    }
 }

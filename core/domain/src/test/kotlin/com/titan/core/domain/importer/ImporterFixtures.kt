@@ -4,6 +4,7 @@ import com.titan.core.domain.backup.ImportSource
 import com.titan.core.domain.model.EquipmentType
 import com.titan.core.domain.model.Exercise
 import com.titan.core.domain.model.ExerciseType
+import com.titan.core.domain.model.MuscleGroup
 import com.titan.core.domain.model.UnitSystem
 import java.io.File
 import java.time.ZoneId
@@ -11,11 +12,12 @@ import java.time.ZoneOffset
 
 /**
  * What every parser's tests share: the sample exports under `src/test/resources/importer/`, the
- * contexts a parse runs in, the engine's own way of running a parser, and the catalogue a fresh
- * install has, to plan a parsed history against.
+ * contexts a parse runs in, the engine's own way of running a parser, and the catalogue and muscle
+ * groups a fresh install has, to plan a parsed history against.
  *
- * One app's samples live in a directory of their own (`importer/strong/`, `importer/hevy/`), so
- * a parser's tests can also offer it another app's export and expect it to be turned away.
+ * One app's samples live in a directory of their own (`importer/strong/`, `importer/hevy/`,
+ * `importer/fitnotes/`), so a parser's tests can also offer it another app's export and expect it
+ * to be turned away.
  */
 object ImporterFixtures {
 
@@ -80,11 +82,20 @@ object ImporterFixtures {
      */
     val catalogue: List<Exercise> by lazy(::readCatalogue)
 
-    /** The device a fresh install is: the seeded catalogue, nothing logged, and [nowMillis]. */
+    /**
+     * Every muscle group the seed puts on a fresh install, read from `exercises.sql` like
+     * [catalogue], so a parser's table of muscle names is tested against the names that ship.
+     */
+    val muscleGroups: List<MuscleGroup> by lazy(::readMuscleGroups)
+
+    /**
+     * The device a fresh install is: the seeded catalogue and muscle groups, nothing logged, and
+     * [nowMillis].
+     */
     fun freshInstall(nowMillis: Long) =
         ImportBaseline(
             exercises = catalogue,
-            muscleGroups = emptyList(),
+            muscleGroups = muscleGroups,
             sessionStarts = emptySet(),
             measurementTimes = emptySet(),
             templates = emptyList(),
@@ -100,6 +111,9 @@ object ImporterFixtures {
     /** One exercise row's leading columns: `(id, 'name', 'TYPE', 'DISCIPLINE', 'EQUIPMENT'`. */
     private val EXERCISE_ROW = Regex("\\((\\d+), '((?:[^']|'')*)', '([A-Z_]+)', '[A-Z_]+', '([A-Z_]+)'")
     private val DECLARED_COUNT = Regex("-- (\\d+) exercises")
+
+    /** One muscle group row: `(id, 'NAME')`. */
+    private val MUSCLE_GROUP_ROW = Regex("\\((\\d+), '([A-Z_]+)'\\)")
 
     private fun readCatalogue(): List<Exercise> {
         val sql = SEED.readText()
@@ -118,6 +132,16 @@ object ImporterFixtures {
             .toList()
         val declared = DECLARED_COUNT.find(sql)?.groupValues?.get(1)?.toInt()
         check(rows.size == declared) { "read ${rows.size} exercises from $SEED, which declares $declared" }
+        return rows
+    }
+
+    private fun readMuscleGroups(): List<MuscleGroup> {
+        val rows = SEED.readText().lineSequence()
+            .filter { it.startsWith("INSERT OR IGNORE INTO muscle_group (") }
+            .flatMap { MUSCLE_GROUP_ROW.findAll(it) }
+            .map { row -> MuscleGroup(id = row.groupValues[1].toLong(), name = row.groupValues[2]) }
+            .toList()
+        check(rows.isNotEmpty()) { "read no muscle groups from $SEED" }
         return rows
     }
 }

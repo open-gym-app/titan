@@ -132,6 +132,43 @@ class SourceValuesTest {
         assertNull(SourceValues.localTimestamp("+999999999-12-31 23:59:59", ZoneOffset.UTC))
     }
 
+    // ------------------------------------------------------------------ localDateAtNoon
+
+    @Test
+    fun `a date with no time is noon that day, in the zone the user is in`() {
+        assertEquals(millis("2024-03-02T12:00:00Z"), SourceValues.localDateAtNoon("2024-03-02", ZoneOffset.UTC))
+        assertEquals(millis("2024-03-02T17:00:00Z"), SourceValues.localDateAtNoon(" 2024-03-02 ", newYork))
+        assertEquals(millis("2024-03-02T12:00:00Z"), SourceValues.localDateAtNoon("2024/3/2", ZoneOffset.UTC))
+    }
+
+    @Test
+    fun `noon is the same day in UTC east and west of it, and on the days the clocks change`() {
+        val tokyo = ZoneId.of("Asia/Tokyo")
+        val honolulu = ZoneId.of("Pacific/Honolulu")
+        assertEquals(millis("2024-03-02T03:00:00Z"), SourceValues.localDateAtNoon("2024-03-02", tokyo))
+        assertEquals(millis("2024-03-02T22:00:00Z"), SourceValues.localDateAtNoon("2024-03-02", honolulu))
+        // New York's clocks went forward on 10 March 2024 and back on 3 November.
+        assertEquals(millis("2024-03-10T16:00:00Z"), SourceValues.localDateAtNoon("2024-03-10", newYork))
+        assertEquals(millis("2024-11-03T17:00:00Z"), SourceValues.localDateAtNoon("2024-11-03", newYork))
+    }
+
+    @Test
+    fun `a date that is not year first, does not exist or carries a time is null`() {
+        listOf(
+            null,
+            "",
+            "yesterday",
+            "02/03/2024",
+            "2024-02-30",
+            "2024-13-01",
+            "2024-03/02",
+            "24-03-02",
+            "2024-03-02 18:04:11",
+        ).forEach { text ->
+            assertNull(text, SourceValues.localDateAtNoon(text, ZoneOffset.UTC))
+        }
+    }
+
     // ------------------------------------------------------------------ note
 
     @Test
