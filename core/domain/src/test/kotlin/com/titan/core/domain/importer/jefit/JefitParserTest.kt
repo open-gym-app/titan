@@ -133,6 +133,24 @@ class JefitParserTest {
     }
 
     @Test
+    fun `no StrongLifts export is a JEFIT export`() {
+        listOf(
+            "stronglifts-export.csv",
+            "stronglifts-export-lb.csv",
+            "stronglifts-export-semicolon.csv",
+            "stronglifts-spreadsheet.csv",
+            "stronglifts-spreadsheet-us.csv",
+            "stronglifts-damaged.csv",
+        ).forEach { sample ->
+            assertEquals(
+                sample,
+                ParseResult.NotRecognised,
+                ImporterFixtures.read(parser, ImporterFixtures.resource("stronglifts/$sample")),
+            )
+        }
+    }
+
+    @Test
     fun `an export with nothing in its sections is an empty history, not a broken file`() {
         assertEquals(
             ImportedHistory(),

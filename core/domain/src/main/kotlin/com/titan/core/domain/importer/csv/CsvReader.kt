@@ -358,7 +358,12 @@ class CsvHeader(columns: List<String>) {
     private fun String.key(): String = trim().lowercase(Locale.ROOT)
 
     private companion object {
-        val QUALIFIED = Regex("(.*?)\\s*\\(([^()]*)\\)")
+        /**
+         * A name and the qualifier in the last parentheses. Greedy, with both groups trimmed by
+         * the caller: a lazy name followed by `\s*` would overlap it on a run of spaces, and a
+         * hostile header cell would take quadratic time to reject.
+         */
+        val QUALIFIED = Regex("(.*)\\(([^()]*)\\)")
         const val SUFFIX_SEPARATOR = '_'
     }
 }

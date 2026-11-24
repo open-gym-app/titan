@@ -4,6 +4,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 
@@ -191,6 +193,105 @@ class SourceValuesTest {
         ).forEach { text ->
             assertNull(text, SourceValues.localDateAtNoon(text, ZoneOffset.UTC))
         }
+    }
+
+    @Test
+    fun `a year-last date is noon too, once the order of its day and month is given`() {
+        assertEquals(
+            millis("2017-05-02T12:00:00Z"),
+            SourceValues.localDateAtNoon("02/05/17", ZoneOffset.UTC, DayMonthOrder.DAY_FIRST),
+        )
+        assertEquals(
+            millis("2017-02-05T12:00:00Z"),
+            SourceValues.localDateAtNoon("02/05/17", ZoneOffset.UTC, DayMonthOrder.MONTH_FIRST),
+        )
+        assertNull(SourceValues.localDateAtNoon("+999999999-12-31", ZoneOffset.UTC))
+    }
+
+    // ------------------------------------------------------------------ calendarDate
+
+    @Test
+    fun `a calendar date is year first, or year last in the order given, with a two-digit year in the 2000s`() {
+        assertEquals(LocalDate.of(2024, 3, 2), SourceValues.calendarDate("2024/03/02"))
+        assertEquals(LocalDate.of(2024, 3, 2), SourceValues.calendarDate("2024-3-2", DayMonthOrder.MONTH_FIRST))
+        assertEquals(LocalDate.of(2017, 5, 2), SourceValues.calendarDate(" 02/05/17 ", DayMonthOrder.DAY_FIRST))
+        assertEquals(LocalDate.of(2015, 2, 13), SourceValues.calendarDate("02/13/2015", DayMonthOrder.MONTH_FIRST))
+        assertEquals(LocalDate.of(2015, 2, 13), SourceValues.calendarDate("13.02.2015", DayMonthOrder.DAY_FIRST))
+        assertEquals(LocalDate.of(2015, 2, 13), SourceValues.calendarDate("13-2-15", DayMonthOrder.DAY_FIRST))
+    }
+
+    @Test
+    fun `a year-last date without an order, or one that does not exist in it, is null`() {
+        assertNull(SourceValues.calendarDate("02/05/17"))
+        assertNull(SourceValues.calendarDate("02/13/2015", DayMonthOrder.DAY_FIRST))
+        assertNull(SourceValues.calendarDate("02/05.2017", DayMonthOrder.DAY_FIRST))
+        assertNull(SourceValues.calendarDate("02/05/017", DayMonthOrder.DAY_FIRST))
+        assertNull(SourceValues.calendarDate(null, DayMonthOrder.DAY_FIRST))
+    }
+
+    // ------------------------------------------------------------------ dayMonthOrder
+
+    @Test
+    fun `a file's dates prove their order by a number only a day can be`() {
+        assertEquals(
+            DayMonthOrder.DAY_FIRST,
+            SourceValues.dayMonthOrder(listOf("02/05/17", null, "2017-05-20", "15/05/17", "nonsense")),
+        )
+        assertEquals(DayMonthOrder.MONTH_FIRST, SourceValues.dayMonthOrder(listOf("02/05/2015", "02/13/2015")))
+    }
+
+    @Test
+    fun `dates that never prove an order, or prove both, give none`() {
+        assertNull(SourceValues.dayMonthOrder(listOf("02/05/17", "03/05/17")))
+        assertNull(SourceValues.dayMonthOrder(listOf("13/05/17", "05/13/17")))
+        assertNull(SourceValues.dayMonthOrder(listOf("2017/05/13", "32/05/17", "13/13/17")))
+        assertNull(SourceValues.dayMonthOrder(emptyList()))
+    }
+
+    // ------------------------------------------------------------------ timeOfDay
+
+    @Test
+    fun `a time of day reads on a 24-hour clock or a 12-hour one with its word`() {
+        assertEquals(LocalTime.of(18, 4), SourceValues.timeOfDay("18:04"))
+        assertEquals(LocalTime.of(7, 0), SourceValues.timeOfDay(" 07:00 "))
+        assertEquals(LocalTime.of(22, 56), SourceValues.timeOfDay("10:56 PM"))
+        assertEquals(LocalTime.of(22, 56), SourceValues.timeOfDay("10:56\u202FPM"))
+        assertEquals(LocalTime.of(18, 4), SourceValues.timeOfDay("6:04 p.m."))
+        assertEquals(LocalTime.of(18, 4), SourceValues.timeOfDay("6:04 p. m."))
+        assertEquals(LocalTime.of(0, 30), SourceValues.timeOfDay("12:30 AM"))
+        assertEquals(LocalTime.of(12, 30), SourceValues.timeOfDay("12:30 pm"))
+        assertEquals(LocalTime.of(18, 4), SourceValues.timeOfDay("오후 6:04"))
+        assertEquals(LocalTime.of(18, 4), SourceValues.timeOfDay("下午6:04"))
+    }
+
+    @Test
+    fun `anything that is not a time of day is null`() {
+        listOf(null, "", "soon", "25:00", "18:60", "13:00 PM", "0:30 AM", "AM 6:04 PM", "6:04 tonight", "18:04:61")
+            .forEach { text -> assertNull(text, SourceValues.timeOfDay(text)) }
+    }
+
+    // ------------------------------------------------------------------ localDateAt
+
+    @Test
+    fun `a date and a time of day apart are the instant they name together, in the zone given`() {
+        assertEquals(
+            millis("2026-08-11T22:56:00Z"),
+            SourceValues.localDateAt("2026/08/11", "10:56 PM", ZoneOffset.UTC),
+        )
+        assertEquals(
+            millis("2017-05-15T22:56:00Z"),
+            SourceValues.localDateAt("15/05/17", "18:56", newYork, DayMonthOrder.DAY_FIRST),
+        )
+        // 02:30 never happened in New York on 10 March 2024.
+        assertEquals(millis("2024-03-10T07:30:00Z"), SourceValues.localDateAt("2024-03-10", "2:30 AM", newYork))
+    }
+
+    @Test
+    fun `a date or a time that does not read is no instant`() {
+        assertNull(SourceValues.localDateAt("2026/08/11", null, ZoneOffset.UTC))
+        assertNull(SourceValues.localDateAt("2026/08/11", "soon", ZoneOffset.UTC))
+        assertNull(SourceValues.localDateAt("15/05/17", "18:56", ZoneOffset.UTC))
+        assertNull(SourceValues.localDateAt("+999999999-12-31", "23:59", ZoneOffset.UTC))
     }
 
     // ------------------------------------------------------------------ note
