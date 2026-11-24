@@ -64,6 +64,20 @@ class CsvReader(
         }
     }
 
+    /**
+     * The next record as a [CsvHeader] — the header, when nothing has been read yet — or null
+     * when there is none, including when it is not CSV at all: to a parser recognising its
+     * format, that is a file that is not an export rather than a broken one.
+     *
+     * @throws java.io.IOException if [reader] fails.
+     */
+    fun readHeader(): CsvHeader? =
+        try {
+            readRecord()?.let(::CsvHeader)
+        } catch (_: MalformedCsvException) {
+            null
+        }
+
     /** Every remaining record, read lazily. */
     fun records(): Sequence<List<String>> = generateSequence { readRecord() }
 
@@ -292,19 +306,38 @@ class CsvHeader(columns: List<String>) {
         }
     }
 
+    /**
+     * Every column called [name] followed by an underscore and a qualifier — `weight_kg`,
+     * `weight_lbs` — in header order, each with the qualifier after the underscore.
+     *
+     * The snake_case counterpart of [qualified], for the exports whose headers are identifiers
+     * rather than labels. It answers every match rather than the first because such exports
+     * name the unit in place of a separate column, and a file that carries the same figure in
+     * two units (`weight_kg` beside `weight_lbs`) leaves the parser to choose between them.
+     */
+    fun suffixed(name: String): List<QualifiedColumn> {
+        val prefix = name.trim() + SUFFIX_SEPARATOR
+        return columns.mapNotNull { column ->
+            val qualifier = column.substring(minOf(prefix.length, column.length)).trim()
+            val matches = column.regionMatches(0, prefix, 0, prefix.length, ignoreCase = true)
+            if (matches && qualifier.isNotEmpty()) QualifiedColumn(column, qualifier) else null
+        }
+    }
+
     private fun String.key(): String = trim().lowercase(Locale.ROOT)
 
     private companion object {
         val QUALIFIED = Regex("(.*?)\\s*\\(([^()]*)\\)")
+        const val SUFFIX_SEPARATOR = '_'
     }
 }
 
 /**
- * A column [CsvHeader.qualified] found.
+ * A column [CsvHeader.qualified] or [CsvHeader.suffixed] found.
  *
  * @property name the column's full name, as [CsvHeader.get] reads it.
- * @property qualifier what its header held in parentheses — `kg` in `Weight (kg)` — or null when
- *   it held none.
+ * @property qualifier what its header held in parentheses — `kg` in `Weight (kg)` — or after the
+ *   underscore — `kg` in `weight_kg` — or null when it held none.
  */
 data class QualifiedColumn(
     val name: String,

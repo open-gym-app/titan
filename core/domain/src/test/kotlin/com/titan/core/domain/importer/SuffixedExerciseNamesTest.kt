@@ -2,7 +2,9 @@ package com.titan.core.domain.importer
 
 import com.titan.core.domain.model.EquipmentType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SuffixedExerciseNamesTest {
@@ -35,6 +37,7 @@ class SuffixedExerciseNamesTest {
         assertEquals(EquipmentType.BARBELL, SuffixedExerciseNames.equipmentOf("Barbell"))
         assertEquals(EquipmentType.CABLE, SuffixedExerciseNames.equipmentOf("Cable - Straight Bar"))
         assertEquals(EquipmentType.MACHINE, SuffixedExerciseNames.equipmentOf("Smith Machine"))
+        assertEquals(EquipmentType.MACHINE, SuffixedExerciseNames.equipmentOf("Smith"))
         assertEquals(EquipmentType.MACHINE, SuffixedExerciseNames.equipmentOf("plate loaded"))
         assertEquals(EquipmentType.EXERCISE_BALL, SuffixedExerciseNames.equipmentOf("Stability Ball"))
         assertEquals(EquipmentType.EZ_CURL_BAR, SuffixedExerciseNames.equipmentOf("EZ Bar"))
@@ -76,6 +79,15 @@ class SuffixedExerciseNamesTest {
     @Test
     fun `a variation keeps its whole name and claims no equipment`() {
         assertEquals(ImportedExercise(name = "Pull Up (Assisted)"), names.exercise("Pull Up (Assisted)"))
+    }
+
+    @Test
+    fun `only an assisted variation is assisted`() {
+        assertTrue(SuffixedExerciseNames.isAssisted("Pull Up (Assisted)"))
+        assertTrue(SuffixedExerciseNames.isAssisted(" chin up (ASSISTED) "))
+        assertFalse(SuffixedExerciseNames.isAssisted("Pull Up (Weighted)"))
+        assertFalse(SuffixedExerciseNames.isAssisted("Assisted Pistol Squats"))
+        assertFalse(SuffixedExerciseNames.isAssisted("Pull Up"))
     }
 
     @Test
