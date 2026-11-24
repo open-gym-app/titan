@@ -91,6 +91,37 @@ class SuffixedExerciseNamesTest {
     }
 
     @Test
+    fun `equipment at the front of a name is read only when asked for, and only where a name follows`() {
+        assertEquals(EquipmentType.BARBELL, SuffixedExerciseNames.leadingEquipmentOf("Barbell Bench Press"))
+        assertEquals(EquipmentType.MACHINE, SuffixedExerciseNames.leadingEquipmentOf("Smith Machine Squat"))
+        assertEquals(EquipmentType.EZ_CURL_BAR, SuffixedExerciseNames.leadingEquipmentOf("EZ-Bar Curl"))
+        assertNull(SuffixedExerciseNames.leadingEquipmentOf("Barbell"))
+        assertNull(SuffixedExerciseNames.leadingEquipmentOf("Bench Dip"))
+        assertNull(SuffixedExerciseNames.leadingEquipmentOf("Barbells Galore"))
+        // Not read at the front: the catalogue files such names under other equipment.
+        assertNull(SuffixedExerciseNames.leadingEquipmentOf("Band Assisted Pull-Up"))
+        assertNull(SuffixedExerciseNames.leadingEquipmentOf("Bodyweight Walking Lunge"))
+        assertNull(SuffixedExerciseNames.leadingEquipmentOf("Smith Incline Shoulder Raise"))
+
+        val leading = SuffixedExerciseNames(mapOf("Cable Seated Row" to "Seated Cable Rows"), leadingEquipment = true)
+        assertEquals(
+            ImportedExercise(
+                name = "Cable Seated Row",
+                catalogueName = "Seated Cable Rows",
+                equipment = EquipmentType.CABLE,
+            ),
+            leading.exercise("Cable Seated Row"),
+        )
+        // The name is kept whole, and a parenthesis that names equipment wins.
+        assertEquals(
+            ImportedExercise(name = "Dumbbell Squat", equipment = EquipmentType.DUMBBELL),
+            leading.exercise("Dumbbell Squat"),
+        )
+        assertEquals(EquipmentType.CABLE, leading.exercise("Machine Row (Cable)").equipment)
+        assertEquals(ImportedExercise(name = "Dumbbell Squat"), names.exercise("Dumbbell Squat"))
+    }
+
+    @Test
     fun `a plain name is mapped by the table or left to the matcher`() {
         assertEquals(ImportedExercise(name = "Pull Up", catalogueName = "Pullups"), names.exercise("Pull Up"))
         assertEquals(ImportedExercise(name = "Bulgarian Split Squat"), names.exercise("Bulgarian Split Squat"))
