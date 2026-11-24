@@ -28,6 +28,8 @@ class WorkoutSetMapper @Inject constructor() {
             distance = entity.distance,
             heartRateAvg = entity.heartRateAvg,
             heartRateMax = entity.heartRateMax,
+            elevationGain = entity.elevationGain,
+            steps = entity.steps,
             restAfter = entity.restAfter,
             // Out of range reads as "no RPE recorded", the value the column already
             // uses for a set the user never rated. Passing it through would throw from
@@ -53,6 +55,8 @@ class WorkoutSetMapper @Inject constructor() {
             distance = set.distance,
             heartRateAvg = set.heartRateAvg,
             heartRateMax = set.heartRateMax,
+            elevationGain = set.elevationGain,
+            steps = set.steps,
             restAfter = set.restAfter,
             rpe = set.rpe,
             setType = set.setType.name,

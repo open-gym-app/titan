@@ -105,6 +105,8 @@ private fun WorkoutSet.corrected(
         distance = draft.distance,
         heartRateAvg = draft.heartRateAvg,
         heartRateMax = draft.heartRateMax,
+        elevationGain = draft.elevationGain,
+        steps = draft.steps,
         restAfter = draft.restAfter,
         rpe = draft.rpe,
         setType = draft.setType,

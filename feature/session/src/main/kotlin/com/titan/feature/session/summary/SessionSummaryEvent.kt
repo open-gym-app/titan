@@ -28,6 +28,17 @@ sealed interface SessionSummaryEvent {
     /** Write the note. A blank note clears the column rather than storing whitespace. */
     data object NoteSaved : SessionSummaryEvent
 
+    /** A star was tapped: [rating] becomes the rating, or clears it if it already was. */
+    data class RatingChosen(val rating: Int) : SessionSummaryEvent
+
+    data object CaloriesEditRequested : SessionSummaryEvent
+
+    data class CaloriesChanged(val text: String) : SessionSummaryEvent
+
+    data object CaloriesEditCancelled : SessionSummaryEvent
+
+    data object CaloriesSaved : SessionSummaryEvent
+
     /**
      * "Save as template". Raises the dialog, seeded with the session's name; writes nothing.
      *

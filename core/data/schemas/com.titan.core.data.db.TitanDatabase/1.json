@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "b1f05948bb7bc3d6fb1a13402e518a0b",
+    "identityHash": "a79890014b514eb7e88b853834bdc6b8",
     "entities": [
       {
         "tableName": "exercise",
@@ -584,7 +584,7 @@
       },
       {
         "tableName": "workout_session",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `template_id` INTEGER, `name` TEXT, `completed_at` INTEGER, `is_in_progress` INTEGER NOT NULL DEFAULT 1, `last_active_at` INTEGER NOT NULL, `notes` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, FOREIGN KEY(`template_id`) REFERENCES `workout_template`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `template_id` INTEGER, `name` TEXT, `completed_at` INTEGER, `is_in_progress` INTEGER NOT NULL DEFAULT 1, `last_active_at` INTEGER NOT NULL, `notes` TEXT, `calories` INTEGER, `rating` INTEGER, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, FOREIGN KEY(`template_id`) REFERENCES `workout_template`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
         "fields": [
           {
             "fieldPath": "id",
@@ -624,6 +624,16 @@
             "fieldPath": "notes",
             "columnName": "notes",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "calories",
+            "columnName": "calories",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "rating",
+            "columnName": "rating",
+            "affinity": "INTEGER"
           },
           {
             "fieldPath": "createdAt",
@@ -835,7 +845,7 @@
       },
       {
         "tableName": "workout_set",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `session_exercise_id` INTEGER NOT NULL, `set_number` INTEGER NOT NULL, `reps` INTEGER, `weight` INTEGER, `duration` INTEGER, `distance` INTEGER, `heart_rate_avg` INTEGER, `heart_rate_max` INTEGER, `rest_after` INTEGER, `rpe` INTEGER, `set_type` TEXT NOT NULL DEFAULT 'NORMAL', `completed_at` INTEGER NOT NULL, `is_completed` INTEGER NOT NULL DEFAULT 0, `notes` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, FOREIGN KEY(`session_exercise_id`) REFERENCES `session_exercise`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `session_exercise_id` INTEGER NOT NULL, `set_number` INTEGER NOT NULL, `reps` INTEGER, `weight` INTEGER, `duration` INTEGER, `distance` INTEGER, `heart_rate_avg` INTEGER, `heart_rate_max` INTEGER, `elevation_gain` INTEGER, `steps` INTEGER, `rest_after` INTEGER, `rpe` INTEGER, `set_type` TEXT NOT NULL DEFAULT 'NORMAL', `completed_at` INTEGER NOT NULL, `is_completed` INTEGER NOT NULL DEFAULT 0, `notes` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, FOREIGN KEY(`session_exercise_id`) REFERENCES `session_exercise`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -883,6 +893,16 @@
           {
             "fieldPath": "heartRateMax",
             "columnName": "heart_rate_max",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "elevationGain",
+            "columnName": "elevation_gain",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "steps",
+            "columnName": "steps",
             "affinity": "INTEGER"
           },
           {
@@ -1457,7 +1477,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b1f05948bb7bc3d6fb1a13402e518a0b')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'a79890014b514eb7e88b853834bdc6b8')"
     ]
   }
 }

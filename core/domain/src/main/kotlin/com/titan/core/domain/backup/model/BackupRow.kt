@@ -149,6 +149,8 @@ data class WorkoutSessionRow(
     @SerialName("is_in_progress") val isInProgress: Boolean = true,
     @SerialName("last_active_at") val lastActiveAt: Long,
     @SerialName("notes") val notes: String? = null,
+    @SerialName("calories") val calories: Int? = null,
+    @SerialName("rating") val rating: Int? = null,
     @SerialName("created_at") val createdAt: Long,
     @SerialName("updated_at") val updatedAt: Long,
 ) : BackupRow
@@ -182,6 +184,8 @@ data class WorkoutSetRow(
     @SerialName("distance") val distance: Long? = null,
     @SerialName("heart_rate_avg") val heartRateAvg: Int? = null,
     @SerialName("heart_rate_max") val heartRateMax: Int? = null,
+    @SerialName("elevation_gain") val elevationGain: Long? = null,
+    @SerialName("steps") val steps: Int? = null,
     @SerialName("rest_after") val restAfter: Long? = null,
     @SerialName("rpe") val rpe: Int? = null,
     @SerialName("set_type") val setType: String = "NORMAL",

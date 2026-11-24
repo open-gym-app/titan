@@ -6,6 +6,13 @@ package com.titan.core.domain.model
  *   afterwards. Null - not `""` - for a session started empty, which has genuinely
  *   not been named yet; the UI falls back to a date-derived title in that case, and
  *   collapsing the two states into a default would make "unnamed" unrecoverable.
+ * @property calories what the workout burned, in kilocalories. Estimated when the session is
+ *   finished, if the user has not given a figure by then — see
+ *   [com.titan.core.domain.stats.CalorieEstimate] — and replaced by whatever the user or their
+ *   watch reports on the recap. Null for a session with nothing to estimate from.
+ * @property rating how the workout went as a whole, from 1 (rough) to 5 (great). A figure for
+ *   the session rather than for any set, which is what RPE already is; null until the user gives
+ *   one. Both are bounded by `SessionEffortValidator`, not by the schema.
  */
 data class WorkoutSession(
     val id: Long = 0,
@@ -15,6 +22,8 @@ data class WorkoutSession(
     val isInProgress: Boolean = true,
     val lastActiveAt: Long,
     val notes: String? = null,
+    val calories: Int? = null,
+    val rating: Int? = null,
     val createdAt: Long,
     val updatedAt: Long,
 ) {

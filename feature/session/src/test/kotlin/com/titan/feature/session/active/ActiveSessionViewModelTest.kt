@@ -805,6 +805,89 @@ class ActiveSessionViewModelTest {
             assertEquals(95, store.updated.single().rpe)
         }
 
+    // ─── Elevation and steps ────────────────────────────────────────────────────────────
+
+    private fun runStore(
+        set: WorkoutSet = timedSet(id = 1L, setNumber = 1, duration = 1_800L).copy(distance = 500_000L),
+    ) = pushDayStore(sets = listOf(set))
+
+    @Test
+    fun `the sheet opens on what the set stores and saves the climb and steps it is given`() =
+        runTest {
+            val store = runStore()
+            val viewModel = viewModel(store = store, catalogue = timedCatalogue(ExerciseType.ENDURANCE))
+
+            viewModel.onEvent(ActiveSessionEvent.CardioDetailsRequested(BENCH_ROW, setId = 1L))
+            assertEquals("", viewModel.uiState.value.cardioDetails?.elevation)
+
+            viewModel.onEvent(ActiveSessionEvent.CardioElevationChanged("120"))
+            viewModel.onEvent(ActiveSessionEvent.CardioStepsChanged("8400"))
+            viewModel.onEvent(ActiveSessionEvent.CardioDetailsSaved)
+
+            val written = store.updated.single()
+            assertEquals(12_000L, written.elevationGain)
+            assertEquals(8_400, written.steps)
+            // The rest of the set goes through untouched: the sheet edits two figures, not the run.
+            assertEquals(500_000L, written.distance)
+            assertEquals(1_800L, written.duration)
+            assertNull(viewModel.uiState.value.cardioDetails)
+        }
+
+    @Test
+    fun `a step count that is not a whole number keeps the sheet up and writes nothing`() =
+        runTest {
+            val store = runStore()
+            val viewModel = viewModel(store = store, catalogue = timedCatalogue(ExerciseType.ENDURANCE))
+
+            viewModel.onEvent(ActiveSessionEvent.CardioDetailsRequested(BENCH_ROW, setId = 1L))
+            viewModel.onEvent(ActiveSessionEvent.CardioStepsChanged("8.4k"))
+            viewModel.onEvent(ActiveSessionEvent.CardioDetailsSaved)
+
+            assertTrue(store.updated.isEmpty())
+            assertEquals(SetEntryError.StepsNotANumber, viewModel.uiState.value.cardioDetails?.error)
+        }
+
+    @Test
+    fun `dismissing the sheet keeps nothing it typed`() =
+        runTest {
+            val store = runStore(timedSet(id = 1L, setNumber = 1, duration = 1_800L).copy(elevationGain = 5_000L))
+            val viewModel = viewModel(store = store, catalogue = timedCatalogue(ExerciseType.ENDURANCE))
+
+            viewModel.onEvent(ActiveSessionEvent.CardioDetailsRequested(BENCH_ROW, setId = 1L))
+            assertEquals("50", viewModel.uiState.value.cardioDetails?.elevation)
+            viewModel.onEvent(ActiveSessionEvent.CardioElevationChanged("900"))
+            viewModel.onEvent(ActiveSessionEvent.CardioDetailsDismissed)
+
+            assertTrue(store.updated.isEmpty())
+            assertNull(viewModel.uiState.value.cardioDetails)
+            assertEquals("50", viewModel.uiState.value.rowOf(BENCH_ROW).sets.single().entry.elevation)
+        }
+
+    @Test
+    fun `a climb between two whole metres survives the sheet being opened and dismissed`() =
+        runTest {
+            // 120.09 m: what 394 ft typed on imperial stores, read back on metric.
+            val store = runStore(timedSet(id = 1L, setNumber = 1, duration = 1_800L).copy(elevationGain = 12_009L))
+            val viewModel = viewModel(store = store, catalogue = timedCatalogue(ExerciseType.ENDURANCE))
+
+            viewModel.onEvent(ActiveSessionEvent.CardioDetailsRequested(BENCH_ROW, setId = 1L))
+            assertEquals("120", viewModel.uiState.value.cardioDetails?.elevation)
+            viewModel.onEvent(ActiveSessionEvent.CardioDetailsDismissed)
+
+            assertTrue(store.updated.isEmpty())
+        }
+
+    @Test
+    fun `a recorded climb is on the row it belongs to, for the line under it`() =
+        runTest {
+            val store = runStore(timedSet(id = 1L, setNumber = 1, duration = 1_800L).copy(steps = 8_400))
+            val viewModel = viewModel(store = store, catalogue = timedCatalogue(ExerciseType.ENDURANCE))
+
+            val entry = viewModel.uiState.value.rowOf(BENCH_ROW).sets.single().entry
+            assertTrue(entry.hasCardioDetails)
+            assertEquals("8400", entry.steps)
+        }
+
     @Test
     fun `a set type picked off the menu is written on the spot`() =
         runTest {

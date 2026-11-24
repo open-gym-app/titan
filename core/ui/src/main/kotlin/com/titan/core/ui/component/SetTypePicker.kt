@@ -14,10 +14,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -82,6 +85,7 @@ fun SetTypePicker(
     modifier: Modifier = Modifier,
     isActive: Boolean = false,
     enabled: Boolean = true,
+    extraAction: SetMenuAction? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -151,9 +155,37 @@ fun SetTypePicker(
                     },
                 )
             }
+            // Below a rule, because it is not a type: the menu is the set's own, and this is the
+            // one more thing that set can be asked — see [SetMenuAction].
+            if (extraAction != null) {
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = { Text(text = extraAction.label, style = MaterialTheme.typography.bodyLarge) },
+                    onClick = {
+                        expanded = false
+                        extraAction.onClick()
+                    },
+                    leadingIcon = { Icon(imageVector = extraAction.icon, contentDescription = null) },
+                )
+            }
         }
     }
 }
+
+/**
+ * One more thing a set's menu offers beyond its type.
+ *
+ * The leading cell's menu is the set's own, and it is where a row puts what it can be asked
+ * without a column of its own: the climb and the steps of an endurance set are the first, and
+ * they are why this exists. A field on every row for two figures most sets never carry would
+ * widen a table that already fits six columns into 360dp, so they live a tap away instead.
+ */
+@Immutable
+data class SetMenuAction(
+    val label: String,
+    val icon: ImageVector,
+    val onClick: () -> Unit,
+)
 
 /**
  * How tall the tappable cell is.

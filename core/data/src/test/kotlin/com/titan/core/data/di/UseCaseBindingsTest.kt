@@ -2,8 +2,10 @@ package com.titan.core.data.di
 
 import com.titan.core.domain.usecase.ApplyTemplateUseCase
 import com.titan.core.domain.usecase.ExportUseCase
+import com.titan.core.domain.usecase.FinishSessionUseCase
 import com.titan.core.domain.usecase.GetTemplateSummariesUseCase
 import com.titan.core.domain.usecase.ImportUseCase
+import com.titan.core.domain.usecase.RecordSessionEffortUseCase
 import com.titan.core.domain.usecase.SetAutoBackupEnabledUseCase
 import com.titan.core.domain.usecase.StartPlannedSessionUseCase
 import com.titan.core.domain.usecase.StartSessionUseCase
@@ -47,6 +49,10 @@ class UseCaseBindingsTest {
     @Inject
     lateinit var startPlannedSession: Provider<StartPlannedSessionUseCase>
 
+    /** Reaches the body measurement history and the catalogue, to estimate the calories. */
+    @Inject
+    lateinit var finishSession: Provider<FinishSessionUseCase>
+
     @Inject
     lateinit var applyTemplate: Provider<ApplyTemplateUseCase>
 
@@ -61,6 +67,9 @@ class UseCaseBindingsTest {
     lateinit var importBackup: Provider<ImportUseCase>
 
     @Inject
+    lateinit var recordEffort: Provider<RecordSessionEffortUseCase>
+
+    @Inject
     lateinit var setAutoBackupEnabled: Provider<SetAutoBackupEnabledUseCase>
 
     @Before
@@ -72,12 +81,18 @@ class UseCaseBindingsTest {
     fun `the session lifecycle use cases resolve`() {
         assertNotNull(startSession.get())
         assertNotNull(startPlannedSession.get())
+        assertNotNull(finishSession.get())
     }
 
     @Test
     fun `the template read use cases resolve`() {
         assertNotNull(applyTemplate.get())
         assertNotNull(templateSummaries.get())
+    }
+
+    @Test
+    fun `recording a session's effort resolves`() {
+        assertNotNull(recordEffort.get())
     }
 
     /**

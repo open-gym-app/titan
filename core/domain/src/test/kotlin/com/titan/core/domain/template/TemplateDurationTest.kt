@@ -363,6 +363,98 @@ class TemplateDurationTest {
         assertEquals(work * 2 + defaultRest, estimate(listOf(orphan)))
     }
 
+    // ─── Reps ────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a set of ten reps costs exactly the allowance`() {
+        // The tempo was chosen so: reading reps must not move a template planned in tens.
+        assertEquals(work, TemplateDuration.SECONDS_PER_REP * 10)
+    }
+
+    @Test
+    fun `a strength set takes as long as its reps`() {
+        val ramp = exercise(sets = 0, rest = 60)
+            .copy(sets = listOf(PlannedSet(reps = 3), PlannedSet(reps = 20)))
+
+        assertEquals(TemplateDuration.SECONDS_PER_REP * (3 + 20) + 60.seconds, estimate(listOf(ramp)))
+    }
+
+    @Test
+    fun `a strength set with no reps keeps the allowance, beside one that has them`() {
+        val mixed = exercise(sets = 0, rest = 60)
+            .copy(sets = listOf(PlannedSet(reps = 5), PlannedSet()))
+
+        assertEquals(TemplateDuration.SECONDS_PER_REP * 5 + work + 60.seconds, estimate(listOf(mixed)))
+    }
+
+    @Test
+    fun `a timed set's reps are not priced, because no field shows them`() {
+        // A bench slot swapped for a run keeps its reps, in a field the endurance row does not
+        // draw — the mirror of the strength set's hidden time.
+        val swapped = exercise(sets = 0, rest = 60, type = ExerciseType.ENDURANCE)
+            .copy(sets = List(2) { PlannedSet(reps = 50) })
+
+        assertEquals(work * 2 + 60.seconds, estimate(listOf(swapped)))
+    }
+
+    @Test
+    fun `reps are priced for an exercise the catalogue no longer has`() {
+        val orphan = exercise(sets = 0).copy(sets = listOf(PlannedSet(reps = 4)))
+        catalogue.remove(orphan.exerciseId)
+
+        assertEquals(TemplateDuration.SECONDS_PER_REP * 4, estimate(listOf(orphan)))
+    }
+
+    @Test
+    fun `negative - a rep count SetValidator refuses is priced at the allowance`() {
+        val imported = exercise(sets = 0, rest = 60)
+            .copy(sets = listOf(PlannedSet(reps = 0), PlannedSet(reps = Int.MAX_VALUE)))
+
+        assertEquals(work * 2 + 60.seconds, estimate(listOf(imported)))
+    }
+
+    // ─── The breakdown ───────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the breakdown sums to the estimate, with the last rest taken off the exercise that had it`() {
+        val bench = exercise(sets = 3, rest = 120)
+        val run = exercise(sets = 0, rest = 60, type = ExerciseType.ENDURANCE)
+            .copy(sets = listOf(PlannedSet(duration = 600)))
+        val exercises = listOf(bench, run)
+
+        val breakdown = TemplateDuration.breakdown(exercises, defaultRest, catalogue)
+
+        assertEquals(
+            listOf(
+                TemplateDuration.ExerciseTime(bench.exerciseId, ExerciseType.STRENGTH, work * 3, 120.seconds * 3),
+                // Its one rest is the workout's last, which nobody takes.
+                TemplateDuration.ExerciseTime(run.exerciseId, ExerciseType.ENDURANCE, 600.seconds, Duration.ZERO),
+            ),
+            breakdown,
+        )
+        assertEquals(estimate(exercises), breakdown.fold(Duration.ZERO) { sum, slice -> sum + slice.work + slice.rest })
+    }
+
+    @Test
+    fun `a superset member that is not last rests nothing in the breakdown`() {
+        val exercises = listOf(exercise(sets = 2, rest = 90, group = 1), exercise(sets = 2, rest = 60, group = 1))
+
+        val rests = TemplateDuration.breakdown(exercises, defaultRest, catalogue).map { it.rest }
+
+        assertEquals(listOf(Duration.ZERO, 60.seconds), rests)
+    }
+
+    @Test
+    fun `an exercise that plans no sets has no slice`() {
+        val breakdown = TemplateDuration.breakdown(
+            listOf(exercise(sets = 0), exercise(sets = 1)),
+            defaultRest,
+            catalogue,
+        )
+
+        assertEquals(listOf(2L), breakdown.map { it.exerciseId })
+    }
+
     // ─── Values only a restored backup can hold (#256) ───────────────────────────────────
 
     /**
