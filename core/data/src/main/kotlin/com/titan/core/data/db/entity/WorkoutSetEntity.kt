@@ -23,9 +23,12 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.CASCADE,
         ),
     ],
+    // No index on is_completed. Nearly every set is completed, so an index on it narrows nothing
+    // for the `is_completed = 1` every aggregate filters on; but SQLite, with no table statistics,
+    // takes it over session_exercise_id and walks every completed set on the device to answer a
+    // query about a few of them. See PERSISTENCE.md, "Hot paths and their indexes".
     indices = [
         Index("session_exercise_id"),
-        Index("is_completed"),
         // The analytics aggregates (weekly volume, volume by muscle group) scan
         // a date range over the whole table, so completed_at needs its own
         // index — without it every trend query is a full scan of all history.

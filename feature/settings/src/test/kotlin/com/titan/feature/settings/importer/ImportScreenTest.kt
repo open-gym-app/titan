@@ -270,6 +270,7 @@ class ImportScreenTest {
             HistoryImportError.NotRecognised to "This file is not a Strong export",
             HistoryImportError.Malformed(REASON) to "Export it from Strong again",
             HistoryImportError.TooLarge(33_554_432) to "too large to import",
+            HistoryImportError.TooManySets(500_000) to "more sets than Titan can import",
             HistoryImportError.Unreadable(REASON) to "Pick it again",
             HistoryImportError.NothingToImport to "holds nothing Titan can import",
             HistoryImportError.StorageFailure(REASON) to "storage is full",

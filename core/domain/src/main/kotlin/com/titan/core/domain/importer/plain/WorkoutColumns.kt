@@ -9,6 +9,7 @@ import com.titan.core.domain.importer.ImportedSet
 import com.titan.core.domain.importer.ImportedWorkout
 import com.titan.core.domain.importer.ImportedWorkoutExercise
 import com.titan.core.domain.importer.ParseResult
+import com.titan.core.domain.importer.RecordReading
 import com.titan.core.domain.importer.SUFFIXED_CATALOGUE_NAMES
 import com.titan.core.domain.importer.SourceDistanceUnit
 import com.titan.core.domain.importer.SourceDurationUnit
@@ -62,21 +63,12 @@ internal class WorkoutColumns private constructor(
 
     private val cells = PlainCells(header)
 
-    override fun read(records: List<List<String>>): ParseResult {
-        val order = SourceValues.dayMonthOrder(records.map { cells[it, WORKOUT_DATE] })
-        val reading = WorkoutReading()
-        val usable = records.count { reading.read(it, order) }
-        return if (usable == 0 && records.isNotEmpty()) {
-            ParseResult.Malformed(
-                "none of the file's ${records.size} rows has a workout_date and an exercise that can be read",
-            )
-        } else {
-            ParseResult.Parsed(reading.history())
-        }
-    }
+    override fun date(record: List<String>): String? = cells[record, WORKOUT_DATE]
+
+    override fun reading(order: DayMonthOrder?): RecordReading = WorkoutReading(order)
 
     /** One pass over the file's rows, building the workouts as it goes. */
-    private inner class WorkoutReading {
+    private inner class WorkoutReading(private val order: DayMonthOrder?) : RecordReading {
 
         private val names = SuffixedExerciseNames(SUFFIXED_CATALOGUE_NAMES, leadingEquipment = true)
         private val exercises = LinkedHashMap<ExerciseKey, ExerciseDraft>()
@@ -85,14 +77,18 @@ internal class WorkoutColumns private constructor(
         /** The equipment each exercise name says, by name as written: resolving a name is not per-row work. */
         private val namedEquipment = HashMap<String, EquipmentType?>()
 
-        /** Reads [record] into the history; whether it had a start and an exercise to read. */
-        fun read(
-            record: List<String>,
-            order: DayMonthOrder?,
-        ): Boolean {
+        private var rows = 0
+        private var usable = 0
+
+        override var setCount = 0
+            private set
+
+        override fun read(record: List<String>) {
+            rows++
             val startedAt = startOf(cells[record, WORKOUT_DATE], cells[record, WORKOUT_TIME], context.zone, order)
-                ?: return false
-            val name = cells[record, EXERCISE] ?: return false
+                ?: return
+            val name = cells[record, EXERCISE] ?: return
+            usable++
 
             // Equipment the name already says is no other exercise: `Bench Press (Barbell)` with
             // `barbell` beside it on one row and nothing on the next is one exercise, not two.
@@ -106,9 +102,20 @@ internal class WorkoutColumns private constructor(
             describe(workout, record)
             val line = workout.line(key, cells[record, SUPERSET]?.let(::supersetKey))
             SourceValues.note(cells[record, EXERCISE_NOTES])?.let(line.notes::add)
-            set(record, exercise.assisted)?.let(line.sets::add)
-            return true
+            set(record, exercise.assisted)?.let { set ->
+                line.sets += set
+                setCount++
+            }
         }
+
+        override fun result(): ParseResult =
+            if (usable == 0 && rows > 0) {
+                ParseResult.Malformed(
+                    "none of the file's $rows rows has a workout_date and an exercise that can be read",
+                )
+            } else {
+                ParseResult.Parsed(history())
+            }
 
         private fun equipmentNamed(name: String): EquipmentType? =
             if (name in namedEquipment) {
@@ -117,7 +124,7 @@ internal class WorkoutColumns private constructor(
                 names.exercise(name).equipment.also { namedEquipment[name] = it }
             }
 
-        fun history(): ImportedHistory {
+        private fun history(): ImportedHistory {
             val resolved = exercises.mapValues { (_, draft) -> draft.toExercise(names) }
             return ImportedHistory(
                 exercises = resolved.values.toList(),

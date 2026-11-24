@@ -44,7 +44,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 /**
  * The import engine over a real database, with the completion pipeline it shares with a finished
  * workout — composed as `HistoryImportUseCaseModule` and `GamificationUseCaseModule` compose it,
- * for the suites that run a real import: `HistoryImportCascadeTest` and `HistoryImportWorkerTest`.
+ * for the suites that run a real import: `HistoryImportCascadeTest`, `HistoryImportWorkerTest` and
+ * `LargeHistoryBenchmarkTest`.
  *
  * Photos are the store's own concern, and `ProgressPhotoRepositoryImplTest` drives the real one
  * over real images; here an in-memory one keeps the suites about the history. Loot never drops,

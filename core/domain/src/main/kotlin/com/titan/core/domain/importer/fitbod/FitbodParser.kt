@@ -124,7 +124,7 @@ class FitbodParser : HistoryParser {
             when {
                 layout == null -> ParseResult.NotRecognised
                 problem != null -> ParseResult.Malformed(problem)
-                else -> FitbodReading(layout).readAll(reader)
+                else -> FitbodReading(layout).readAll(reader, context)
             }
         }
 
@@ -262,6 +262,9 @@ private class FitbodReading(private val layout: FitbodLayout) : RecordReading {
     private val workouts = LinkedHashMap<Long, WorkoutDraft>()
     private var rows = 0
 
+    override var setCount = 0
+        private set
+
     override fun read(record: List<String>) {
         rows++
         val date = layout[record, DATE]
@@ -276,6 +279,7 @@ private class FitbodReading(private val layout: FitbodLayout) : RecordReading {
                 .also(workout.blocks::add)
         block.note(layout[record, NOTE])
         block.sets += set(record, block.isAssisted)
+        setCount++
     }
 
     override fun result(): ParseResult =

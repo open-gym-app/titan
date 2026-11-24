@@ -65,6 +65,7 @@ class HistoryImportWorkTest {
             HistoryImportError.NotRecognised,
             HistoryImportError.Malformed("row 4"),
             HistoryImportError.TooLarge(limitBytes = 33_554_432),
+            HistoryImportError.TooManySets(limitSets = 500_000),
             HistoryImportError.Unreadable("revoked"),
             HistoryImportError.NothingToImport,
             HistoryImportError.StorageFailure("disk full"),

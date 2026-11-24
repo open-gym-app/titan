@@ -96,7 +96,7 @@ class StrongParser : HistoryParser {
         source.open().use { stream ->
             val reader = CsvReader.open(stream)
             val layout = reader.readHeader()?.let { StrongLayout.of(it, context) }
-            layout?.let(::StrongReading)?.readAll(reader) ?: ParseResult.NotRecognised
+            layout?.let(::StrongReading)?.readAll(reader, context) ?: ParseResult.NotRecognised
         }
 }
 
@@ -168,6 +168,9 @@ private class StrongReading(private val layout: StrongLayout) : RecordReading {
     private val workouts = LinkedHashMap<WorkoutKey, WorkoutDraft>()
     private var rows = 0
 
+    override var setCount = 0
+        private set
+
     override fun read(record: List<String>) {
         rows++
         val date = layout[record, DATE] ?: return
@@ -192,6 +195,7 @@ private class StrongReading(private val layout: StrongLayout) : RecordReading {
             else -> {
                 block.note(layout[record, NOTES])
                 block.sets += set(record, marker?.let(SET_TYPES::get) ?: SetType.NORMAL, block.isAssisted)
+                setCount++
             }
         }
     }

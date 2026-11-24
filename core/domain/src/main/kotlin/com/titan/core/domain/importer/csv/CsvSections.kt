@@ -26,8 +26,10 @@ import java.util.Locale
  * - **A row** belongs to the last header of its section. A row before any header of its section,
  *   or outside every section, has no columns to be read by and is left out.
  *
- * The whole file is held, as every source's history is before it is planned, and bounded the
- * same way: by the engine's byte cap on the file, and by [CsvReader]'s limits on any one record.
+ * The whole file is held, because a format filed this way is a database whose tables refer to
+ * each other, and a row cannot be read until the rows it refers to have been. It is bounded by the
+ * engine's byte cap on the file and by [CsvReader]'s limits on any one record, and each row is
+ * held as a [PackedRecord] rather than as the list of strings it was read as.
  */
 class CsvSections private constructor(
     /** Every section, in file order. Two sections of the same name are both kept. */
@@ -105,7 +107,7 @@ class CsvSections private constructor(
         }
 
         fun row(record: List<String>) {
-            if (header != null) rows += record
+            if (header != null) rows += PackedRecord(record)
         }
 
         fun toSection(): CsvSection {
@@ -137,3 +139,35 @@ class CsvTable(
     val header: CsvHeader,
     val rows: List<List<String>>,
 )
+
+/**
+ * A record's fields held as one string and the offsets where each ends, for a record that has to
+ * be kept until the whole file has been read.
+ *
+ * A record as [CsvReader] answers it is a list of strings, and each string costs its own object
+ * and array on top of its characters. For the short fields an export is made of, that is several
+ * times the bytes the row was read from, which is what decides whether a whole file can be held.
+ * Packed, a row costs its characters, one string and one offset per field. A field is cut out of
+ * the string again each time it is read, which a parser does a handful of times per row.
+ */
+internal class PackedRecord(fields: List<String>) :
+    AbstractList<String>(),
+    RandomAccess {
+
+    private val text: String = fields.joinToString(separator = "")
+
+    private val ends: IntArray = IntArray(fields.size).also { ends ->
+        var end = 0
+        fields.forEachIndexed { index, field ->
+            end += field.length
+            ends[index] = end
+        }
+    }
+
+    override val size: Int get() = ends.size
+
+    override fun get(index: Int): String {
+        if (index !in ends.indices) throw IndexOutOfBoundsException("index $index, size $size")
+        return text.substring(if (index == 0) 0 else ends[index - 1], ends[index])
+    }
+}

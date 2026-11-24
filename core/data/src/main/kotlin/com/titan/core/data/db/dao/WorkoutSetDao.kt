@@ -384,6 +384,11 @@ interface WorkoutSetDao {
      * no `GROUP BY`: one row back instead of one per week, and no summing in Kotlin of an
      * answer SQLite can state.
      *
+     * It starts from the sessions in range and reaches their sets through the foreign-key
+     * indexes, in under a millisecond. The quest board runs it once per replayed workout during
+     * an import, so a plan that started from the sets instead would make the import grow with
+     * the history; `LargeHistoryBenchmarkTest` holds it.
+     *
      * A period with no lifting in it moved zero rather than an absent amount, and `TOTAL` says
      * so on its own: over no rows it is `0.0`, where `SUM` would be `NULL`. `getTrainingMillis`
      * answers zero for an empty period for the same reason.

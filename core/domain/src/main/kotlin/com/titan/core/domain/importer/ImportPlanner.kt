@@ -108,15 +108,8 @@ object ImportPlanner {
      * makes it [ExerciseType.ENDURANCE], none makes it [ExerciseType.ISOMETRIC]. No evidence at
      * all reads as [ExerciseType.STRENGTH], the catalogue's own default.
      */
-    internal fun inferType(shapes: List<SetShape>): ExerciseType {
-        val counted = shapes.count { it.reps.isPositive() }
-        val timed = shapes.count { !it.reps.isPositive() && it.duration.isPositive() }
-        return when {
-            counted >= timed -> ExerciseType.STRENGTH
-            shapes.any { it.distance.isPositive() } -> ExerciseType.ENDURANCE
-            else -> ExerciseType.ISOMETRIC
-        }
-    }
+    internal fun inferType(shapes: List<SetShape>): ExerciseType =
+        ShapeTally().apply { shapes.forEach { add(it.reps, it.duration, it.distance) } }.type()
 
     /** The dimensions a set carries, whatever it is a set of. */
     internal data class SetShape(
@@ -124,6 +117,40 @@ object ImportPlanner {
         val duration: Long?,
         val distance: Long?,
     )
+
+    /**
+     * [inferType]'s evidence, counted as the sets go by rather than kept: the planner sees every
+     * set of the history, and a shape held for each would be a copy of the history's size. A
+     * parser that has to know the type before the planner does (JEFIT's routines) counts with
+     * this too, so the two cannot judge one exercise differently.
+     */
+    internal class ShapeTally {
+        private var counted = 0
+        private var timed = 0
+        private var distance = false
+
+        fun add(
+            reps: Int?,
+            duration: Long?,
+            distance: Long?,
+        ) {
+            when {
+                reps.isPositive() -> counted++
+                duration.isPositive() -> timed++
+            }
+            this.distance = this.distance || distance.isPositive()
+        }
+
+        /** Whether more of the sets are timed than counted: [type] is not [ExerciseType.STRENGTH]. */
+        val isTimed: Boolean get() = timed > counted
+
+        fun type(): ExerciseType =
+            when {
+                counted >= timed -> ExerciseType.STRENGTH
+                distance -> ExerciseType.ENDURANCE
+                else -> ExerciseType.ISOMETRIC
+            }
+    }
 
     private class Planning(
         private val history: ImportedHistory,
@@ -162,21 +189,21 @@ object ImportPlanner {
         // ------------------------------------------------------------------ exercises
 
         private fun inferTypes(): Map<ImportedExercise, ExerciseType> {
-            val shapes = HashMap<ImportedExercise, MutableList<SetShape>>()
+            val shapes = HashMap<ImportedExercise, ShapeTally>()
             history.workouts.forEach { workout ->
                 workout.exercises.forEach { line ->
-                    shapes.getOrPut(line.exercise, ::mutableListOf) +=
-                        line.sets.map { SetShape(it.reps, it.duration, it.distance) }
+                    val tally = shapes.getOrPut(line.exercise, ::ShapeTally)
+                    line.sets.forEach { tally.add(it.reps, it.duration, it.distance) }
                 }
             }
             history.templates.forEach { template ->
                 template.exercises.forEach { line ->
-                    shapes.getOrPut(line.exercise, ::mutableListOf) +=
-                        line.sets.map { SetShape(it.reps, it.duration, it.distance) }
+                    val tally = shapes.getOrPut(line.exercise, ::ShapeTally)
+                    line.sets.forEach { tally.add(it.reps, it.duration, it.distance) }
                 }
             }
-            history.exercises.forEach { shapes.getOrPut(it, ::mutableListOf) }
-            return shapes.mapValues { (exercise, sets) -> exercise.type ?: inferType(sets) }
+            history.exercises.forEach { shapes.getOrPut(it, ::ShapeTally) }
+            return shapes.mapValues { (exercise, tally) -> exercise.type ?: tally.type() }
         }
 
         /** Every exercise the history names is a key of [types], which already prefers its own. */
@@ -267,90 +294,86 @@ object ImportPlanner {
             val lines = workout.exercises.mapNotNull(::planLine)
             if (lines.isEmpty()) return null
 
-            val setCount = lines.sumOf { it.sets.size }
+            val setCount = lines.sumOf(LinePlan::setCount)
             val seconds = workout.durationSeconds?.takeIf { it in 1..MAX_WORKOUT_SECONDS }
                 ?: (setCount * ESTIMATED_SECONDS_PER_SET)
             val finishedAt = minOf(workout.startedAt + seconds * MILLIS_PER_SECOND, now)
-            val span = finishedAt - workout.startedAt
+            val stamp = SetStamp(workout.startedAt, span = finishedAt - workout.startedAt, setCount)
+            val grouping = Supersets.tear(lines.map(LinePlan::supersetGroup))
 
-            var performed = 0
-            val stamped = lines.map { line ->
-                line.copy(
-                    sets = line.sets.map { set ->
-                        performed++
-                        val at = workout.startedAt + span * performed / setCount
-                        set.copy(completedAt = at, createdAt = at, updatedAt = at)
-                    },
-                )
-            }
-            val grouping = Supersets.tear(stamped.map(PlannedWorkoutExercise::supersetGroup))
-
+            var before = 0
             return PlannedWorkout(
                 startedAt = workout.startedAt,
                 finishedAt = finishedAt,
                 name = WorkoutSession.normalizeName(workout.name),
                 notes = cleanNotes(workout.notes),
-                exercises = stamped.mapIndexed { index, line -> line.copy(supersetGroup = grouping[index]) },
+                exercises = lines.mapIndexed { index, line ->
+                    PlannedWorkoutExercise(
+                        exercise = line.ref,
+                        notes = line.notes,
+                        supersetGroup = grouping[index],
+                        sets = PlannedSets(line.source, line.kept, line.type, stamp, before),
+                    ).also { before += line.setCount }
+                },
                 calories = workout.calories?.takeIf { it in CALORIES },
                 rating = workout.rating?.takeIf { it in RATINGS },
             )
         }
 
         /**
-         * One exercise of a workout with its valid sets numbered from 1, or null when it has
-         * none. Timestamps are left for [planWorkout], which is what knows the whole workout.
+         * Which of one exercise's sets survive, or null when none does. The sets themselves are
+         * left where the parser put them; see [PlannedSets].
          */
-        private fun planLine(line: ImportedWorkoutExercise): PlannedWorkoutExercise? {
+        private fun planLine(line: ImportedWorkoutExercise): LinePlan? {
             val ref = resolve(line.exercise)
             if (ref == null) {
                 skips = skips.copy(invalidSets = skips.invalidSets + line.sets.size)
                 return null
             }
             val type = typeOf(line.exercise)
-            val sets = line.sets
-                .map { it.toWorkoutSet(type) }
-                .filter { set ->
-                    SetValidator.validate(set, type).isValid.also { valid ->
-                        if (!valid) skips = skips.copy(invalidSets = skips.invalidSets + 1)
-                    }
-                }
-                .mapIndexed { index, set -> set.copy(setNumber = index + 1) }
-            if (sets.isEmpty()) return null
+            val valid = BooleanArray(line.sets.size) { index ->
+                SetValidator.validate(line.sets[index].toWorkoutSet(type), type).isValid
+            }
+            val validCount = valid.count { it }
+            if (validCount < valid.size) skips = skips.copy(invalidSets = skips.invalidSets + valid.size - validCount)
+            if (validCount == 0) return null
 
-            return PlannedWorkoutExercise(
-                exercise = ref,
+            return LinePlan(
+                ref = ref,
                 notes = cleanNotes(line.notes),
                 supersetGroup = line.supersetGroup,
-                sets = sets,
+                source = line.sets,
+                kept = if (validCount == valid.size) null else keptIndices(valid, validCount),
+                type = type,
             )
         }
 
-        /** The set as a row to validate, with the repairs the class doc lists applied. */
-        private fun ImportedSet.toWorkoutSet(type: ExerciseType): WorkoutSet =
-            WorkoutSet(
-                sessionExerciseId = 0,
-                setNumber = 0,
-                reps = reps.takeIfPositive(),
-                weight = weight?.takeIf { it > 0L || (it == 0L && type == ExerciseType.STRENGTH) },
-                duration = duration.takeIfPositive(),
-                distance = distance.takeIfPositive(),
-                heartRateAvg = heartRateAvg?.takeIf { it in HEART_RATES },
-                heartRateMax = heartRateMax?.takeIf { it in HEART_RATES },
-                elevationGain = elevationGain
-                    ?.takeIf { type == ExerciseType.ENDURANCE }
-                    ?.takeIf { it in SetValidator.ELEVATION_GAIN_MIN_CM..SetValidator.ELEVATION_GAIN_MAX_CM },
-                steps = steps
-                    ?.takeIf { type == ExerciseType.ENDURANCE }
-                    ?.takeIf { it in SetValidator.STEPS_MIN..SetValidator.STEPS_MAX },
-                restAfter = restAfter?.takeIf { it in RESTS },
-                rpe = rpe?.takeIf { it in WorkoutSet.RPE_MIN..WorkoutSet.RPE_MAX },
-                setType = setType,
-                completedAt = 0,
-                isCompleted = true,
-                notes = cleanNotes(notes),
-                createdAt = 0,
-                updatedAt = 0,
-            )
+        /**
+         * The indices of [valid] that are true, [count] of them, written straight into the array
+         * rather than boxed into a list first: the planner does this for every line with a refused
+         * set, and the point of [PlannedSets] is not to allocate per set.
+         */
+        private fun keptIndices(
+            valid: BooleanArray,
+            count: Int,
+        ): IntArray {
+            val kept = IntArray(count)
+            var next = 0
+            valid.forEachIndexed { index, isValid -> if (isValid) kept[next++] = index }
+            return kept
+        }
+
+        /** One exercise of a workout as [planLine] judged it, before the workout numbers its sets. */
+        private class LinePlan(
+            val ref: ExerciseRef,
+            val notes: String?,
+            val supersetGroup: Int?,
+            val source: List<ImportedSet>,
+            val kept: IntArray?,
+            val type: ExerciseType,
+        ) {
+            val setCount: Int get() = kept?.size ?: source.size
+        }
 
         // ------------------------------------------------------------------ templates
 
@@ -471,6 +494,41 @@ object ImportPlanner {
         }
     }
 
+    /**
+     * [this] set as the row it is written as: the repairs the class doc lists applied, numbered
+     * [setNumber] and finished [at]. Pure, so [PlannedSets] can build the same row every time it is
+     * read.
+     */
+    internal fun ImportedSet.toWorkoutSet(
+        type: ExerciseType,
+        setNumber: Int = 0,
+        at: Long = 0,
+    ): WorkoutSet =
+        WorkoutSet(
+            sessionExerciseId = 0,
+            setNumber = setNumber,
+            reps = reps.takeIfPositive(),
+            weight = weight?.takeIf { it > 0L || (it == 0L && type == ExerciseType.STRENGTH) },
+            duration = duration.takeIfPositive(),
+            distance = distance.takeIfPositive(),
+            heartRateAvg = heartRateAvg?.takeIf { it in HEART_RATES },
+            heartRateMax = heartRateMax?.takeIf { it in HEART_RATES },
+            elevationGain = elevationGain
+                ?.takeIf { type == ExerciseType.ENDURANCE }
+                ?.takeIf { it in SetValidator.ELEVATION_GAIN_MIN_CM..SetValidator.ELEVATION_GAIN_MAX_CM },
+            steps = steps
+                ?.takeIf { type == ExerciseType.ENDURANCE }
+                ?.takeIf { it in SetValidator.STEPS_MIN..SetValidator.STEPS_MAX },
+            restAfter = restAfter?.takeIf { it in RESTS },
+            rpe = rpe?.takeIf { it in WorkoutSet.RPE_MIN..WorkoutSet.RPE_MAX },
+            setType = setType,
+            completedAt = at,
+            isCompleted = true,
+            notes = cleanNotes(notes),
+            createdAt = at,
+            updatedAt = at,
+        )
+
     private val CONTROL_OR_SPACE = Regex("[\\p{Cntrl}\\s]+")
 
     /** A name as stored: control characters and runs of whitespace collapsed to one space, trimmed. */
@@ -486,4 +544,46 @@ object ImportPlanner {
     private fun Int?.takeIfPositive(): Int? = this?.takeIf { it > 0 }
 
     private fun Long?.takeIfPositive(): Long? = this?.takeIf { it > 0L }
+}
+
+/**
+ * When a workout's sets finished: spread evenly from [startedAt] across [span] milliseconds, in the
+ * order the [setCount] of them were performed, the last at the finish. See the planner's class doc.
+ */
+internal class SetStamp(
+    private val startedAt: Long,
+    private val span: Long,
+    private val setCount: Int,
+) {
+    /** When the [performed]th set of the workout, counting from 1, finished. */
+    fun at(performed: Int): Long = startedAt + span * performed / setCount
+}
+
+/**
+ * One planned exercise's sets, built from the parsed sets each time one is read rather than held.
+ *
+ * The parsed history is held until the import has written it, so a plan that copied every set
+ * into a row of its own would hold the history twice, and the copy costs more than the original.
+ * This keeps only which of [source] survived validation, [kept] (null when all of them did), and
+ * how to number and date them. A set read twice is built twice, equal both times.
+ *
+ * @property before how many sets of the workout come before these, which is where their
+ *   timestamps start.
+ */
+internal class PlannedSets(
+    private val source: List<ImportedSet>,
+    private val kept: IntArray?,
+    private val type: ExerciseType,
+    private val stamp: SetStamp,
+    private val before: Int,
+) : AbstractList<WorkoutSet>(),
+    RandomAccess {
+
+    override val size: Int get() = kept?.size ?: source.size
+
+    override fun get(index: Int): WorkoutSet {
+        if (index !in 0 until size) throw IndexOutOfBoundsException("index $index, size $size")
+        val set = source[kept?.get(index) ?: index]
+        return with(ImportPlanner) { set.toWorkoutSet(type, setNumber = index + 1, at = stamp.at(before + index + 1)) }
+    }
 }
