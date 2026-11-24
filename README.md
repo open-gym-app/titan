@@ -87,6 +87,8 @@ Reference documentation lives in [`docs/`](docs/):
 - [PERSISTENCE.md](docs/PERSISTENCE.md): the database schema, its migration strategy and the storage assumptions built on it.
 - [ACCESSIBILITY.md](docs/ACCESSIBILITY.md): what the app promises TalkBack, large fonts and a thumb, how every build checks it, and the record of the last pass on a device.
 - [TRANSLATION.md](docs/TRANSLATION.md): the languages the app ships in, the check that keeps every translation in step with the English, and the glossary each one is held to.
+- [export-schema.md](docs/export-schema.md): the JSON document a backup writes and a restore reads, and what a restore refuses.
+- [import-csv.md](docs/import-csv.md): the plain CSV format a history from any other app or spreadsheet can be converted into and imported, with example files.
 
 ## Contributing
 

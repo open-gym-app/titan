@@ -4,6 +4,7 @@ import com.titan.core.domain.importer.DayMonthOrder
 import com.titan.core.domain.importer.ImportContext
 import com.titan.core.domain.importer.ImportedSet
 import com.titan.core.domain.importer.ParseResult
+import com.titan.core.domain.importer.SourceDurationUnit
 import com.titan.core.domain.importer.SourceValues
 import com.titan.core.domain.importer.SourceWeightUnit
 import com.titan.core.domain.importer.csv.CsvHeader
@@ -11,7 +12,6 @@ import java.time.Duration
 import java.time.ZoneId
 import java.util.Locale
 import kotlin.math.abs
-import kotlin.math.roundToLong
 
 /**
  * The layout StrongLifts exports today: one row per exercise of a workout, its sets in `Set N
@@ -27,7 +27,7 @@ internal class ExerciseRows private constructor(
     private val bodyWeightColumn: String?,
     private val bodyWeightUnit: SourceWeightUnit,
     private val durationColumn: String?,
-    private val secondsPerDurationUnit: Double?,
+    private val durationUnit: SourceDurationUnit?,
     private val startColumn: String?,
     private val endColumn: String?,
     private val repsSummaryColumn: String?,
@@ -81,8 +81,8 @@ internal class ExerciseRows private constructor(
      * Either alone when the other is missing.
      */
     private fun durationSeconds(record: List<String>): Long? {
-        val recorded = secondsPerDurationUnit?.let { scale ->
-            SourceValues.decimal(cell(record, durationColumn))?.let { (it * scale).roundToLong() }
+        val recorded = durationUnit?.let { unit ->
+            SourceValues.decimal(cell(record, durationColumn))?.let(unit::toSeconds)
         }
         val start = SourceValues.timeOfDay(cell(record, startColumn))
         val end = SourceValues.timeOfDay(cell(record, endColumn))
@@ -135,13 +135,14 @@ internal class ExerciseRows private constructor(
             val bodyWeight = header.qualified(BODY_WEIGHT)
             val bodyWeightUnit = bodyWeight?.qualifier?.let(SourceWeightUnit::parse)
             val duration = header.qualified(DURATION)
-            val durationScale = duration?.qualifier
-                ?.let { DURATION_UNITS[it.lowercase(Locale.ROOT)] }
-                ?: SECONDS_PER_HOUR.takeIf { duration?.qualifier == null }
+            // StrongLifts writes `Duration (hours)`; a column with no unit is in the hours it always was.
+            val durationUnit = duration?.qualifier
+                ?.let(SourceDurationUnit::parse)
+                ?: SourceDurationUnit.HOUR.takeIf { duration?.qualifier == null }
 
             val unreadable = weights.values.firstOrNull { (_, unit) -> unit == null }?.first
                 ?: bodyWeight?.name?.takeIf { bodyWeight.qualifier != null && bodyWeightUnit == null }
-                ?: duration?.name?.takeIf { durationScale == null }
+                ?: duration?.name?.takeIf { durationUnit == null }
 
             return ExerciseRows(
                 header = header,
@@ -152,7 +153,7 @@ internal class ExerciseRows private constructor(
                 bodyWeightColumn = bodyWeight?.name,
                 bodyWeightUnit = bodyWeightUnit ?: SourceWeightUnit.of(context.unitSystem),
                 durationColumn = duration?.name,
-                secondsPerDurationUnit = durationScale,
+                durationUnit = durationUnit,
                 startColumn = header.qualified(START_TIME)?.name,
                 endColumn = header.qualified(END_TIME)?.name,
                 repsSummaryColumn = summary(header, REPS_SUMMARY),
@@ -176,21 +177,8 @@ internal class ExerciseRows private constructor(
         /** `Set 1 (Reps)`, `Set 1 (KG)`, ` Set 1 (LB)`: the set's number and what its column holds. */
         private val SET_COLUMN = Regex("Set\\s*(\\d{1,4})\\s*\\(([^()]*)\\)", RegexOption.IGNORE_CASE)
 
-        private const val SECONDS_PER_HOUR = 3_600.0
         private const val SECONDS_PER_MINUTE = 60L
         private const val SECONDS_PER_DAY = 86_400L
-
-        /** What a duration column's header may name, lowercased, to the seconds in one: StrongLifts writes `hours`. */
-        private val DURATION_UNITS = mapOf(
-            "hours" to SECONDS_PER_HOUR,
-            "hour" to SECONDS_PER_HOUR,
-            "h" to SECONDS_PER_HOUR,
-            "hrs" to SECONDS_PER_HOUR,
-            "minutes" to SECONDS_PER_MINUTE.toDouble(),
-            "min" to SECONDS_PER_MINUTE.toDouble(),
-            "seconds" to 1.0,
-            "s" to 1.0,
-        )
 
         private const val DATE = "Date"
         private const val EXERCISE = "Exercise"

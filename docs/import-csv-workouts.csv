@@ -1,0 +1,21 @@
+workout_date,workout_time,workout_name,workout_duration,workout_notes,exercise,equipment,superset,set_type,reps,weight,weight_unit,duration,distance,distance_unit,rpe,rest,notes
+2026-11-02,18:30,Push,65,Felt strong,Bench Press (Barbell),,,warmup,10,40,kg,,,,,90,
+2026-11-02,18:30,Push,65,Felt strong,Bench Press (Barbell),,,,5,80,kg,,,,7.5,180,
+2026-11-02,18:30,Push,65,Felt strong,Bench Press (Barbell),,,,5,80,kg,,,,8,180,
+2026-11-02,18:30,Push,65,Felt strong,Bench Press (Barbell),,,failure,4,80,kg,,,,10,180,Last rep paused
+2026-11-02,18:30,Push,65,Felt strong,Incline Dumbbell Press,,A,,10,26,kg,,,,,,
+2026-11-02,18:30,Push,65,Felt strong,Side Lateral Raise,,A,,15,10,kg,,,,,90,
+2026-11-02,18:30,Push,65,Felt strong,Incline Dumbbell Press,,A,,10,26,kg,,,,,,
+2026-11-02,18:30,Push,65,Felt strong,Side Lateral Raise,,A,,15,10,kg,,,,,90,
+2026-11-02,18:30,Push,65,Felt strong,Triceps Pushdown,cable,,,12,25,kg,,,,,,
+2026-11-02,18:30,Push,65,Felt strong,Triceps Pushdown,cable,,drop,8,15,kg,,,,,,
+2026-11-04,07:15,Morning run,,,"Running, Treadmill",,,,,,,30:00,5,km,,,Easy pace
+2026-11-06,,Legs,1:10:00,,Barbell Squat,,,,5,225,lb,,,,,180,
+2026-11-06,,Legs,1:10:00,,Barbell Squat,,,,5,225,lb,,,,,180,
+2026-11-06,,Legs,1:10:00,,Barbell Squat,,,,5,225,lb,,,,,180,
+2026-11-06,,Legs,1:10:00,,Romanian Deadlift,,,,8,185,lb,,,,,,
+2026-11-06,,Legs,1:10:00,,Romanian Deadlift,,,,8,185,lb,,,,,,
+2026-11-06,,Legs,1:10:00,,Plank,,,,,,,60,,,,,
+2026-11-06,,Legs,1:10:00,,Plank,,,,,,,60,,,,,
+2026-11-06,,Legs,1:10:00,,Pullups,,,,8,,,,,,,,
+2026-11-06,,Legs,1:10:00,,Pullups,,,,8,,,,,,,,

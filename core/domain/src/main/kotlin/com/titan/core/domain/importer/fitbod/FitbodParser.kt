@@ -11,6 +11,7 @@ import com.titan.core.domain.importer.ImportedWorkoutExercise
 import com.titan.core.domain.importer.ParseResult
 import com.titan.core.domain.importer.RecordReading
 import com.titan.core.domain.importer.SourceDistanceUnit
+import com.titan.core.domain.importer.SourceDurationUnit
 import com.titan.core.domain.importer.SourceValues
 import com.titan.core.domain.importer.SourceWeightUnit
 import com.titan.core.domain.importer.SuffixedExerciseNames
@@ -20,7 +21,6 @@ import com.titan.core.domain.importer.csv.QualifiedColumn
 import com.titan.core.domain.importer.readAll
 import com.titan.core.domain.model.SetType
 import java.time.ZoneId
-import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
@@ -183,6 +183,7 @@ private class FitbodLayout(
     val distanceColumn: String?,
     private val weightUnit: SourceWeightUnit?,
     val distanceUnit: SourceDistanceUnit?,
+    val durationUnit: SourceDurationUnit,
     /** Why no figure in one of the columns can be read, its header naming no unit Titan knows; null when none. */
     val problem: String?,
 ) {
@@ -218,11 +219,14 @@ private class FitbodLayout(
             val distanceUnit = distance?.qualifier
                 ?.let(SourceDistanceUnit::parse)
                 ?: SourceDistanceUnit.of(context.unitSystem).takeIf { distance?.qualifier == null }
-            val secondsColumn = duration?.qualifier?.lowercase(Locale.ROOT)?.let { it in SECONDS } ?: true
+            // Fitbod writes `Duration(s)`; a column with no unit is in seconds, as every export's is.
+            val durationUnit = duration?.qualifier
+                ?.let(SourceDurationUnit::parse)
+                ?: SourceDurationUnit.SECOND.takeIf { duration?.qualifier == null }
             val problem = listOfNotNull(
                 weight.takeIf { weightUnit == null },
                 distance.takeIf { distanceUnit == null },
-                duration.takeUnless { secondsColumn },
+                duration.takeIf { durationUnit == null },
             ).firstOrNull()?.let { "the column \"${it.name}\" is not in a unit Titan reads" }
 
             return FitbodLayout(
@@ -234,6 +238,7 @@ private class FitbodLayout(
                 distanceColumn = distance?.name,
                 weightUnit = weightUnit,
                 distanceUnit = distanceUnit,
+                durationUnit = durationUnit ?: SourceDurationUnit.SECOND,
                 problem = problem,
             )
         }
@@ -297,10 +302,10 @@ private class FitbodReading(private val layout: FitbodLayout) : RecordReading {
         val distanceText = layout[record, layout.distanceColumn]
         val weight = SourceValues.decimal(weightText)
         val reps = SourceValues.decimal(repsText)
-        val duration = SourceValues.elapsedSeconds(durationText)
+        val duration = layout.durationUnit.seconds(durationText)
         val distance = SourceValues.decimal(distanceText)
-        val unreadable = unread(weightText, weight) || unread(repsText, reps) ||
-            unread(durationText, duration) || unread(distanceText, distance)
+        val unreadable = SourceValues.isUnread(weightText, weight) || SourceValues.isUnread(repsText, reps) ||
+            SourceValues.isUnread(durationText, duration) || SourceValues.isUnread(distanceText, distance)
         if (unreadable) return ImportedSet(setType = type)
 
         val performed = ImportedSet(
@@ -327,12 +332,6 @@ private class FitbodReading(private val layout: FitbodLayout) : RecordReading {
     ): Boolean =
         SourceValues.decimal(multiplier) == 0.0 && (set.reps ?: 0) > 0 && (set.duration ?: 0L) == 0L &&
             (set.distance ?: 0L) == 0L
-
-    /** Whether a cell held [text] that did not read as a [value]. */
-    private fun unread(
-        text: String?,
-        value: Any?,
-    ): Boolean = text != null && value == null
 }
 
 private class WorkoutDraft(val startedAt: Long) {
@@ -374,6 +373,3 @@ private const val MULTIPLIER = "multiplier"
 
 /** What `isWarmup` says for a warm-up, in any case. */
 private const val TRUE = "true"
-
-/** The labels a duration column's header may give its unit, lowercased: Fitbod writes `s` and `seconds`. */
-private val SECONDS = setOf("s", "sec", "secs", "second", "seconds")

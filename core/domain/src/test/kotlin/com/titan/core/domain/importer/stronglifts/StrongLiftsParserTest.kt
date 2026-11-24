@@ -148,6 +148,13 @@ class StrongLiftsParserTest {
     }
 
     @Test
+    fun `no plain CSV file is a StrongLifts export`() {
+        ImporterFixtures.plainCsvSamples.forEach { (sample, source) ->
+            assertEquals(sample, ParseResult.NotRecognised, ImporterFixtures.read(parser, source))
+        }
+    }
+
+    @Test
     fun `an export with no workouts in it is an empty history, not a broken file`() {
         assertEquals(ImportedHistory(), parsedText(header))
         assertEquals(ImportedHistory(), parsedText("$oldHeader\n\n"))

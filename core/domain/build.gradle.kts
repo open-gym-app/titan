@@ -50,12 +50,18 @@ private val generatedHeavyPackages = listOf(
 // reruns them rather than leaving a stale pass up to date.
 private val seedCatalogue = file("../data/src/main/assets/seed/exercises.sql")
 
+// The plain CSV import format's example files, which `docs/import-csv.md` offers users to start
+// from. The parser's tests import them as published, by their path from this module's directory
+// like the seed, so an edit to either reruns the tests that hold the documentation to the parser.
+private val importCsvExamples = files("../../docs/import-csv-workouts.csv", "../../docs/import-csv-measurements.csv")
+
 tasks.test {
     // So a plain `./gradlew test` leaves a readable report behind, rather than only the
     // raw exec data and only for whoever thought to ask for the report task by name.
     finalizedBy(tasks.jacocoTestReport)
 
     inputs.file(seedCatalogue).withPathSensitivity(PathSensitivity.NONE)
+    inputs.files(importCsvExamples).withPathSensitivity(PathSensitivity.NAME_ONLY)
 }
 
 // Kotlin compiles an interface's default arguments twice: into the interface, where Kotlin

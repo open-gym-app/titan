@@ -1,8 +1,8 @@
 package com.titan.core.domain.importer.jefit
 
-import com.titan.core.domain.importer.ExerciseMatcher
 import com.titan.core.domain.importer.ImportedTemplate
 import com.titan.core.domain.importer.ImportedTemplateExercise
+import com.titan.core.domain.importer.SourceDurationUnit
 import com.titan.core.domain.importer.SourceValues
 import com.titan.core.domain.model.PlannedSet
 import kotlin.math.roundToInt
@@ -112,12 +112,9 @@ internal class JefitRoutines(tables: JefitTables) {
     private fun plannedSeconds(line: JefitRow): Long? {
         val enabled = line[JefitColumn.INTERVAL_ENABLED]?.let { it != DISABLED } ?: true
         val time = line.whole(JefitColumn.INTERVAL_TIME)?.takeIf { enabled && it > 0 } ?: return null
-        val unit = line[JefitColumn.INTERVAL_UNIT]?.let(ExerciseMatcher::normalised)
-        return when (unit) {
-            null, in SECONDS -> time
-            in MINUTES -> time.takeIf { it <= Long.MAX_VALUE / SECONDS_PER_MINUTE }?.times(SECONDS_PER_MINUTE)
-            else -> null
-        }
+        val unit = line[JefitColumn.INTERVAL_UNIT] ?: return time
+        // A time too long to count in seconds saturates rather than wrapping; it is no time at all.
+        return SourceDurationUnit.parse(unit)?.toSeconds(time.toDouble())?.takeIf { it < Long.MAX_VALUE }
     }
 
     private companion object {
@@ -130,9 +127,5 @@ internal class JefitRoutines(tables: JefitTables) {
 
         const val NO_SUPERSET = "0"
         const val DISABLED = "0"
-        const val SECONDS_PER_MINUTE = 60L
-
-        val SECONDS = setOf("sec", "secs", "s", "second", "seconds")
-        val MINUTES = setOf("min", "mins", "m", "minute", "minutes")
     }
 }
