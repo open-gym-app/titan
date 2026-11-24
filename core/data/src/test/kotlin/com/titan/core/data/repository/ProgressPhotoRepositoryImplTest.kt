@@ -75,7 +75,7 @@ class ProgressPhotoRepositoryImplTest {
     @Test
     fun `a photo is stored as a file and a row, and read back with its path`() =
         runBlocking {
-            val id = repository.add(jpeg(400, 600).source(), takenAt = TAKEN)
+            val id = repository.add(jpeg(400, 600).source(), takenAt = TAKEN, preferImageTime = true)
 
             val photo = repository.getAll().first().single()
             assertEquals(id, photo.id)
@@ -89,7 +89,7 @@ class ProgressPhotoRepositoryImplTest {
     @Test
     fun `a photo larger than a phone can use is scaled down to its longer edge`() =
         runBlocking {
-            repository.add(jpeg(5000, 3000).source(), takenAt = TAKEN)
+            repository.add(jpeg(5000, 3000).source(), takenAt = TAKEN, preferImageTime = true)
 
             val bitmap = stored(repository.getAll().first().single().path)
             assertEquals(PhotoEncoder.MAX_EDGE, bitmap.width)
@@ -100,7 +100,13 @@ class ProgressPhotoRepositoryImplTest {
     fun `bytes that are not an image are refused, and nothing is stored`() =
         runBlocking {
             assertThrows(IOException::class.java) {
-                runBlocking { repository.add("not a photo".toByteArray().source(), takenAt = TAKEN) }
+                runBlocking {
+                    repository.add(
+                        "not a photo".toByteArray().source(),
+                        takenAt = TAKEN,
+                        preferImageTime = true,
+                    )
+                }
             }
 
             assertTrue(repository.getAll().first().isEmpty())
@@ -110,7 +116,7 @@ class ProgressPhotoRepositoryImplTest {
     @Test
     fun `deleting a photo takes its file with it`() =
         runBlocking {
-            val id = repository.add(jpeg(100, 100).source(), takenAt = TAKEN)
+            val id = repository.add(jpeg(100, 100).source(), takenAt = TAKEN, preferImageTime = true)
             val path = repository.getAll().first().single().path
 
             repository.delete(id)
@@ -122,9 +128,9 @@ class ProgressPhotoRepositoryImplTest {
     @Test
     fun `photos come newest first`() =
         runBlocking {
-            repository.add(jpeg(10, 10).source(), takenAt = 1_000)
-            repository.add(jpeg(10, 10).source(), takenAt = 3_000)
-            repository.add(jpeg(10, 10).source(), takenAt = 2_000)
+            repository.add(jpeg(10, 10).source(), takenAt = 1_000, preferImageTime = true)
+            repository.add(jpeg(10, 10).source(), takenAt = 3_000, preferImageTime = true)
+            repository.add(jpeg(10, 10).source(), takenAt = 2_000, preferImageTime = true)
 
             assertEquals(listOf(3_000L, 2_000L, 1_000L), repository.getAll().first().map { it.takenAt })
         }
@@ -140,7 +146,7 @@ class ProgressPhotoRepositoryImplTest {
                 saveAttributes()
             }
 
-            repository.add(PhotoSource { original.inputStream() }, takenAt = TAKEN)
+            repository.add(PhotoSource { original.inputStream() }, takenAt = TAKEN, preferImageTime = true)
 
             val kept = ExifInterface(repository.getAll().first().single().path)
             assertNull(kept.getAttribute(ExifInterface.TAG_GPS_LATITUDE))
@@ -163,9 +169,25 @@ class ProgressPhotoRepositoryImplTest {
     }
 
     @Test
+    fun `a photo whose image time is not preferred keeps the caller's, even when the camera dated it`() =
+        runBlocking {
+            val original = File(context.cacheDir, "dated.jpg").apply { writeBytes(jpeg(50, 50)) }
+            ExifInterface(original.absolutePath).apply {
+                setAttribute(ExifInterface.TAG_DATETIME_ORIGINAL, "2025:03:02 07:30:00")
+                saveAttributes()
+            }
+
+            repository.add(PhotoSource { original.inputStream() }, takenAt = TAKEN, preferImageTime = false)
+
+            assertEquals(TAKEN, repository.getAll().first().single().takenAt)
+            original.delete()
+            Unit
+        }
+
+    @Test
     fun `a photo that does not say when it was taken is dated by the caller`() =
         runBlocking {
-            repository.add(jpeg(50, 50).source(), takenAt = TAKEN)
+            repository.add(jpeg(50, 50).source(), takenAt = TAKEN, preferImageTime = true)
 
             assertEquals(TAKEN, repository.getAll().first().single().takenAt)
         }

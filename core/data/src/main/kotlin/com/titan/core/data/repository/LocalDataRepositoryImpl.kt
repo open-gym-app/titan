@@ -89,7 +89,8 @@ import kotlin.time.Duration.Companion.seconds
  *
  * The whole wipe runs under [BackupLock], so it neither lands in the middle of an export —
  * manual or the weekly one, which would write a file that is half the history and half the
- * wipe — nor between a restore's rows and its settings. It also holds [SessionLifecycleLock]
+ * wipe — nor between a restore's rows and its settings, nor under an import from another app
+ * that is still checking what the device holds. It also holds [SessionLifecycleLock]
  * from the session reset to the end of the wipe, so a session started from a notification in
  * that window cannot be inserted into tables that are about to be cleared, or survive them in
  * the session state.

@@ -57,7 +57,7 @@ class FakeSessionStore(sessions: List<WorkoutSession>? = emptyList()) : SessionR
 
     override fun getTotals(): Flow<Map<Long, SessionTotals>> = totals
 
-    override suspend fun countFinished(): Int = unsupported()
+    override suspend fun countFinishedBy(atMillis: Long): Int = unsupported()
 
     /** Records what a session logged, as the grouped query would report it. */
     fun setTotals(

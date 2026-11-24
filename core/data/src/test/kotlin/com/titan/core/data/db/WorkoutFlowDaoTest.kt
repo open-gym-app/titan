@@ -66,7 +66,7 @@ class WorkoutFlowDaoTest : RoomTestBase() {
         }
 
     @Test
-    fun `countFinished counts only sessions that were closed out`() =
+    fun `countFinishedBy counts only sessions that were closed out`() =
         runBlocking {
             val dao = db.workoutSessionDao()
             dao.insert(session(isInProgress = false, completedAt = 100))
@@ -77,13 +77,25 @@ class WorkoutFlowDaoTest : RoomTestBase() {
             // analytics queries also refuse, so the two cannot disagree about what counts.
             dao.insert(session(isInProgress = false, completedAt = null))
 
-            assertEquals(2, dao.countFinished())
+            assertEquals(2, dao.countFinishedBy(Long.MAX_VALUE))
         }
 
     @Test
-    fun `countFinished is zero on a fresh install`() =
+    fun `countFinishedBy leaves out what finished after the moment, and keeps what finished at it`() =
         runBlocking {
-            assertEquals(0, db.workoutSessionDao().countFinished())
+            val dao = db.workoutSessionDao()
+            dao.insert(session(isInProgress = false, completedAt = 100))
+            dao.insert(session(isInProgress = false, completedAt = 200))
+            dao.insert(session(isInProgress = false, completedAt = 300))
+
+            assertEquals(0, dao.countFinishedBy(99))
+            assertEquals(2, dao.countFinishedBy(200))
+        }
+
+    @Test
+    fun `countFinishedBy is zero on a fresh install`() =
+        runBlocking {
+            assertEquals(0, db.workoutSessionDao().countFinishedBy(Long.MAX_VALUE))
         }
 
     @Test

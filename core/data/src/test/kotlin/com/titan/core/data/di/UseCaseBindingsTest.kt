@@ -4,6 +4,7 @@ import com.titan.core.domain.usecase.ApplyTemplateUseCase
 import com.titan.core.domain.usecase.ExportUseCase
 import com.titan.core.domain.usecase.FinishSessionUseCase
 import com.titan.core.domain.usecase.GetTemplateSummariesUseCase
+import com.titan.core.domain.usecase.ImportHistoryUseCase
 import com.titan.core.domain.usecase.ImportUseCase
 import com.titan.core.domain.usecase.RecordSessionEffortUseCase
 import com.titan.core.domain.usecase.SetAutoBackupEnabledUseCase
@@ -70,6 +71,9 @@ class UseCaseBindingsTest {
     lateinit var recordEffort: Provider<RecordSessionEffortUseCase>
 
     @Inject
+    lateinit var importHistory: Provider<ImportHistoryUseCase>
+
+    @Inject
     lateinit var setAutoBackupEnabled: Provider<SetAutoBackupEnabledUseCase>
 
     @Before
@@ -105,6 +109,11 @@ class UseCaseBindingsTest {
     fun `the backup use cases resolve`() {
         assertNotNull(exportBackup.get())
         assertNotNull(importBackup.get())
+    }
+
+    @Test
+    fun `the import from another app resolves`() {
+        assertNotNull(importHistory.get())
     }
 
     /**

@@ -52,11 +52,11 @@ import java.io.IOException
  *    because import replaces, so the file is the whole database and every reference in it must
  *    resolve inside it. This is what makes [ImportError.ConstraintViolation] mean "and nothing
  *    happened".
- * 3. **Take the two locks.** [BackupLock] first, so no export, weekly backup or delete-all runs
- *    between here and the settings; then [SessionLifecycleLock], so no session starts, finishes
- *    or resumes between the session state being reset and the rows it named being replaced.
- *    Parsing and validating happen before either, so a large file does not hold up a backup
- *    while it is being read.
+ * 3. **Take the two locks.** [BackupLock] first, so no export, weekly backup, delete-all or
+ *    import from another app runs between here and the settings; then [SessionLifecycleLock], so
+ *    no session starts, finishes or resumes between the session state being reset and the rows
+ *    it named being replaced. Parsing and validating happen before either, so a large file does
+ *    not hold up a backup while it is being read.
  * 4. **Forget the live session and the two drafts.** All three name row ids from before the
  *    wipe — the workout in progress, and the template somebody was halfway through writing. The
  *    session state goes first because screens are collecting it, then the draft files, exactly
