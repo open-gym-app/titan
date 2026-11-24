@@ -91,6 +91,17 @@ class SuffixedExerciseNamesTest {
     }
 
     @Test
+    fun `a name that says assisted anywhere names assistance, and a word that merely contains it does not`() {
+        assertTrue(SuffixedExerciseNames.namesAssistance("Pull Up (Assisted)"))
+        assertTrue(SuffixedExerciseNames.namesAssistance("Assisted Chin Up"))
+        assertTrue(SuffixedExerciseNames.namesAssistance("Machine Assisted Pull-Up"))
+        assertTrue(SuffixedExerciseNames.namesAssistance("assisted-dip"))
+        assertFalse(SuffixedExerciseNames.namesAssistance("Unassisted Chin Up"))
+        assertFalse(SuffixedExerciseNames.namesAssistance("Pull Up (Weighted)"))
+        assertFalse(SuffixedExerciseNames.namesAssistance("Chin Up"))
+    }
+
+    @Test
     fun `equipment at the front of a name is read only when asked for, and only where a name follows`() {
         assertEquals(EquipmentType.BARBELL, SuffixedExerciseNames.leadingEquipmentOf("Barbell Bench Press"))
         assertEquals(EquipmentType.MACHINE, SuffixedExerciseNames.leadingEquipmentOf("Smith Machine Squat"))

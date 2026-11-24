@@ -106,6 +106,19 @@ class SourceValuesTest {
     }
 
     @Test
+    fun `an offset after a space and without its colon, as Fitbod writes it, is read at it too`() {
+        assertEquals(millis("2024-03-02T18:04:11Z"), SourceValues.localTimestamp("2024-03-02 18:04:11 +0000", newYork))
+        assertEquals(millis("2024-03-02T12:34:11Z"), SourceValues.localTimestamp("2024-03-02 18:04:11 +0530", newYork))
+        assertEquals(millis("2024-03-02T23:04:11Z"), SourceValues.localTimestamp("2024-03-02 18:04:11 -0500", newYork))
+        assertEquals(millis("2024-03-02T17:04:00Z"), SourceValues.localTimestamp("2024-03-02 18:04+0100", newYork))
+        assertEquals(millis("2024-03-02T17:04:11Z"), SourceValues.localTimestamp("2024-03-02 18:04:11 +01:00", newYork))
+        // Two offsets that disagree, or one that is no offset, are not a time.
+        listOf("2024-03-02 18:04:11 +0100Z", "2024-03-02 18:04:11 +2500", "2024-03-02 18:04:11 +01").forEach { text ->
+            assertNull(text, SourceValues.localTimestamp(text, newYork))
+        }
+    }
+
+    @Test
     fun `a time a clock change skipped moves forward, and one it repeated is the earlier`() {
         // 02:30 never happened in New York on 10 March 2024; 01:30 happened twice on 3 November.
         assertEquals(millis("2024-03-10T07:30:00Z"), SourceValues.localTimestamp("2024-03-10 02:30:00", newYork))
