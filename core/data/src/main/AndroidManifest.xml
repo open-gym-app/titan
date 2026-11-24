@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!--
       Declared here rather than in `:app` because this is the module that posts: `AndroidNotifier`
@@ -44,7 +45,26 @@
     -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!--
+      The import from another app (#252) runs as a foreground worker, so it is not stopped ten
+      minutes into a large history and not cancelled when the user leaves the screen.
+      WorkManager's own manifest asks for `FOREGROUND_SERVICE`; from Android 14 a foreground
+      service also needs its type and the permission for that type. `dataSync` is the type for
+      reading a file into the app's storage, which is what an import is.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
     <application>
+
+        <!--
+          WorkManager's foreground service, given the type `HistoryImportWorker` promotes itself
+          with. `tools:node="merge"` edits the library's declaration rather than adding another.
+        -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
 
         <!--
           The rest alarm going off, and "Skip rest" being pressed on the notification.

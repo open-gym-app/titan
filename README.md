@@ -46,6 +46,7 @@ All data lives on your device. **No account required**, and no ads.
 - **Levels, quests and achievements**: XP for every workout, weekly and monthly quests, achievements and the odd collectible, all earned by training.
 - **Reminders**: a notification on the days and at the time you plan to train.
 - **Backup & restore**: export everything to a file, or restore a device from one. Nothing leaves the phone unless you send it somewhere yourself.
+- **Import from another app**: bring a whole history from Strong, Hevy, FitNotes, JEFIT, Fitbod or StrongLifts, or from any spreadsheet in [Titan's CSV format](docs/import-csv.md). It is added to what is on the phone, never replaces it, and its records, XP and achievements are worked out from the sets.
 - **Themes, units and locales**: light or dark, metric or imperial, and the app is available in English, French, Spanish and Portuguese.
 - **Accessibility**: built and checked against TalkBack, large fonts and one-handed use; see [ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
 

@@ -243,6 +243,48 @@ class OnboardingViewModelTest {
         }
 
     @Test
+    fun `the last step's import button completes the flow and leaves into the import`() =
+        runTest {
+            val viewModel = viewModel()
+            collectState(viewModel)
+            repeat(OnboardingStep.COUNT - 1) { viewModel.onEvent(OnboardingEvent.Continued) }
+            assertEquals(OnboardingStep.READY, viewModel.uiState.value.step)
+
+            viewModel.onEvent(OnboardingEvent.ImportRequested)
+
+            // Recorded first, exactly as the footer's button records it: the import is somewhere
+            // to go in the app, and onboarding is over either way.
+            assertTrue(preferences.current.onboardingCompleted)
+            assertTrue(viewModel.uiState.value.isFinished)
+            assertTrue(viewModel.uiState.value.finishesIntoImport)
+        }
+
+    @Test
+    fun `the footer's button still leaves into Home`() =
+        runTest {
+            val viewModel = viewModel()
+            collectState(viewModel)
+            repeat(OnboardingStep.COUNT) { viewModel.onEvent(OnboardingEvent.Continued) }
+
+            assertTrue(viewModel.uiState.value.isFinished)
+            assertFalse(viewModel.uiState.value.finishesIntoImport)
+        }
+
+    @Test
+    fun `an import asked for before the last step finishes nothing`() =
+        runTest {
+            val viewModel = viewModel()
+            collectState(viewModel)
+
+            viewModel.onEvent(OnboardingEvent.ImportRequested)
+
+            // Only the last step draws the button; anything else would skip questions unasked.
+            assertEquals(OnboardingStep.WELCOME, viewModel.uiState.value.step)
+            assertFalse(viewModel.uiState.value.isFinished)
+            assertFalse(preferences.current.onboardingCompleted)
+        }
+
+    @Test
     fun `completion that cannot be recorded does not finish the flow`() =
         runTest {
             val viewModel = viewModel()

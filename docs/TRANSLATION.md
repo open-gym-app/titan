@@ -112,6 +112,11 @@ refuses them in a locale file:
 - The drawn glyphs of the empty states and the record star (`*_glyph`): typographic marks the
   design uses in place of icons.
 - The dashes that stand in for a reading that was never taken (`—`, `–`).
+- The names of the apps a history is imported from (`import_source_*` in `:feature:settings`):
+  Strong, Hevy, FitNotes, JEFIT, Fitbod and StrongLifts are their makers' names in every language.
+  "Plain CSV" is Titan's own and is translated. The import guides also keep each app's menu labels
+  (*Export Strong Data*, *Spreadsheet Export*) in the English those apps' screens show, so the
+  words in the guide are the words on the button.
 
 The GitHub link lives in Kotlin (`SettingsScreen.kt`), so there is no URL to protect. The
 joins — `%1$s · %2$s`, `", "` — are translatable on purpose: a space, a comma and a middle dot

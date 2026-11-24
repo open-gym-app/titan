@@ -14,6 +14,9 @@
     <string name="notification_channel_progression">Sequências e recompensas</string>
     <string name="notification_channel_progression_description">Novos níveis, missões concluídas e itens.</string>
 
+    <string name="notification_channel_history_import">Importação de outro app</string>
+    <string name="notification_channel_history_import_description">Mostra o andamento de uma importação enquanto ela roda e avisa quando termina.</string>
+
     <!-- The rest countdown, as it reads from a lock screen. -->
     <string name="rest_notification_resting">Descansando</string>
     <string name="rest_notification_paused">Descanso pausado</string>
@@ -105,5 +108,21 @@
     <string name="default_template_bike">Bicicleta</string>
     <string name="default_template_row">Remo</string>
     <string name="default_template_stretch">Alongamento e mobilidade</string>
+
+    <!-- The import from another app. -->
+    <string name="history_import_notification_title">Importando seu histórico de treinos</string>
+    <string name="history_import_notification_reading">Lendo o arquivo…</string>
+    <string name="history_import_notification_writing">Salvando treinos: %1$s de %2$s</string>
+    <string name="history_import_notification_photos">Salvando fotos: %1$s de %2$s</string>
+    <string name="history_import_notification_cancel">Cancelar</string>
+    <string name="history_import_notification_stop_photos">Parar fotos</string>
+    <string name="history_import_notification_done">Importação concluída</string>
+    <plurals name="history_import_notification_done_workouts">
+        <item quantity="one">%1$s treino adicionado ao seu histórico.</item>
+        <item quantity="many">%1$s treinos adicionados ao seu histórico.</item>
+        <item quantity="other">%1$s treinos adicionados ao seu histórico.</item>
+    </plurals>
+    <string name="history_import_notification_failed">A importação não terminou</string>
+    <string name="history_import_notification_failed_body">Nada foi importado. Abra o Titan para ver o motivo e tentar de novo.</string>
 
 </resources>

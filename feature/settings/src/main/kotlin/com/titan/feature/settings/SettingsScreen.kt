@@ -100,6 +100,7 @@ fun SettingsRoute(
     appVersion: String,
     onBack: () -> Unit,
     onOpenBackup: () -> Unit,
+    onOpenImport: () -> Unit,
     onOpenReminders: () -> Unit,
     onOpenLicences: () -> Unit,
     modifier: Modifier = Modifier,
@@ -126,6 +127,7 @@ fun SettingsRoute(
         onEvent = viewModel::onEvent,
         onBack = onBack,
         onOpenBackup = onOpenBackup,
+        onOpenImport = onOpenImport,
         // Not hoisted to `:app`: opening a URL is not navigation, it leaves the app entirely,
         // and `LocalUriHandler` is already the platform seam a test can replace.
         onOpenLink = uriHandler::openUri,
@@ -155,6 +157,7 @@ fun SettingsScreen(
     onEvent: (SettingsEvent) -> Unit,
     onBack: () -> Unit,
     onOpenBackup: () -> Unit,
+    onOpenImport: () -> Unit,
     onOpenLink: (String) -> Unit,
     onOpenNotificationSettings: () -> Unit,
     onOpenReminders: () -> Unit,
@@ -198,7 +201,7 @@ fun SettingsScreen(
         ) {
             AppearanceGroup(state.preferences, onEvent)
             WorkoutGroup(state.preferences, state.missingDefaultTemplates, onEvent)
-            DataGroup(onEvent = onEvent, onOpenBackup = onOpenBackup)
+            DataGroup(onEvent = onEvent, onOpenBackup = onOpenBackup, onOpenImport = onOpenImport)
             NotificationsGroup(
                 preferences = state.preferences,
                 permission = state.notificationPermission,
@@ -339,6 +342,7 @@ private fun WorkoutGroup(
 private fun DataGroup(
     onEvent: (SettingsEvent) -> Unit,
     onOpenBackup: () -> Unit,
+    onOpenImport: () -> Unit,
 ) {
     PreferenceGroup(title = stringResource(R.string.settings_group_data)) {
         // Was two disabled rows — "Backup & restore" and "Export JSON" — until #38. They are
@@ -348,6 +352,14 @@ private fun DataGroup(
             label = stringResource(R.string.settings_backup),
             supporting = stringResource(R.string.settings_backup_detail),
             onClick = onOpenBackup,
+        )
+        HairlineDivider()
+        // Directly under the backup, because it is the backup's opposite and the detail says
+        // so: an import adds another app's history to this one, where a restore replaces it.
+        PreferenceRow(
+            label = stringResource(R.string.settings_import),
+            supporting = stringResource(R.string.settings_import_detail),
+            onClick = onOpenImport,
         )
         HairlineDivider()
         PreferenceSoonRow(label = stringResource(R.string.settings_health_connect))
@@ -672,6 +684,7 @@ fun SettingsScreenPreview() {
             onEvent = {},
             onBack = {},
             onOpenBackup = {},
+            onOpenImport = {},
             onOpenLink = {},
             onOpenNotificationSettings = {},
             onOpenReminders = {},
@@ -703,6 +716,7 @@ fun SettingsScreenLargeFontPreview() {
             onEvent = {},
             onBack = {},
             onOpenBackup = {},
+            onOpenImport = {},
             onOpenLink = {},
             onOpenNotificationSettings = {},
             onOpenReminders = {},
@@ -732,6 +746,7 @@ fun SettingsScreenDarkPreview() {
             onEvent = {},
             onBack = {},
             onOpenBackup = {},
+            onOpenImport = {},
             onOpenLink = {},
             onOpenNotificationSettings = {},
             onOpenReminders = {},
@@ -760,6 +775,7 @@ fun SettingsScreenDeleteDialogPreview() {
             onEvent = {},
             onBack = {},
             onOpenBackup = {},
+            onOpenImport = {},
             onOpenLink = {},
             onOpenNotificationSettings = {},
             onOpenReminders = {},
@@ -785,6 +801,7 @@ fun SettingsScreenNotificationsBlockedPreview() {
             onEvent = {},
             onBack = {},
             onOpenBackup = {},
+            onOpenImport = {},
             onOpenLink = {},
             onOpenNotificationSettings = {},
             onOpenReminders = {},
@@ -803,6 +820,7 @@ fun SettingsScreenThemeDialogPreview() {
             onEvent = {},
             onBack = {},
             onOpenBackup = {},
+            onOpenImport = {},
             onOpenLink = {},
             onOpenNotificationSettings = {},
             onOpenReminders = {},
@@ -824,6 +842,7 @@ fun SettingsScreenRestoreTemplatesDialogPreview() {
             onEvent = {},
             onBack = {},
             onOpenBackup = {},
+            onOpenImport = {},
             onOpenLink = {},
             onOpenNotificationSettings = {},
             onOpenReminders = {},

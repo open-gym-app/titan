@@ -86,8 +86,11 @@
               built, and this is the filter that resolves them. Matched on the scheme and host
               rather than on each path, so a new screen under an existing host is one
               `navDeepLink` in the feature that owns it and no manifest change here. A new
-              *host* is one line, which is what the second `data` element is: the session flow
-              and the progression screens are the two the app links into so far.
+              *host* is one line, which is what each `data` element after the scheme is: the
+              session flow, the progression screens and the import from another app (under
+              settings) are what the app links into so far. One attribute per element, because
+              the platform matches a filter's schemes and hosts as two lists either way, and a
+              pair on one element reads as a pairing it is not.
 
               A private scheme rather than an https App Link: these links are posted by this app
               to itself, on notifications, and an App Link would mean owning a domain and
@@ -97,8 +100,10 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="titan" android:host="session" />
-                <data android:scheme="titan" android:host="progression" />
+                <data android:scheme="titan" />
+                <data android:host="session" />
+                <data android:host="progression" />
+                <data android:host="settings" />
             </intent-filter>
         </activity>
 

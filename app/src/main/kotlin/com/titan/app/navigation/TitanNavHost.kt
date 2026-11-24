@@ -56,6 +56,7 @@ import com.titan.feature.session.navigation.SessionSummaryDestination
 import com.titan.feature.session.navigation.sessionGraph
 import com.titan.feature.session.navigation.sessionSummaryGraph
 import com.titan.feature.settings.navigation.BackupDestination
+import com.titan.feature.settings.navigation.ImportDestination
 import com.titan.feature.settings.navigation.OpenSourceLicencesDestination
 import com.titan.feature.settings.navigation.ReminderDestination
 import com.titan.feature.settings.navigation.settingsGraph
@@ -192,6 +193,15 @@ fun TitanNavHost(
                 navController.navigate(TabsGraphDestination) {
                     popUpTo<OnboardingDestination> { inclusive = true }
                 }
+            },
+            // The last step's "Import my history": the same move to Home, then the import pushed
+            // over it, so back from the import lands in the app rather than in a flow that is
+            // over. The import lives in `:feature:settings`, which onboarding may not name.
+            onFinishedIntoImport = {
+                navController.navigate(TabsGraphDestination) {
+                    popUpTo<OnboardingDestination> { inclusive = true }
+                }
+                navController.navigate(ImportDestination) { launchSingleTop = true }
             },
         )
 
@@ -480,6 +490,17 @@ fun TitanNavHost(
             // else — two taps on the row before recomposition are two pushes of one screen.
             onOpenBackup = {
                 navController.navigate(BackupDestination) { launchSingleTop = true }
+            },
+            // The import from another app, beside the backup row and pushed the same way. The last
+            // onboarding step reaches the same destination through `onFinishedIntoImport` above.
+            onOpenImport = {
+                navController.navigate(ImportDestination) { launchSingleTop = true }
+            },
+            // Out of settings into the Library tab, where an import's new custom exercises are
+            // reviewed. The tab's own helper, so the bar shows where the user now is and the tab
+            // keeps whatever back stack it had.
+            onOpenExerciseLibrary = {
+                appState.navigateToTopLevelDestination(TopLevelDestination.LIBRARY)
             },
             // A push over settings, which is itself outside the tabs, and single-top for the
             // same reason as the row above it.
