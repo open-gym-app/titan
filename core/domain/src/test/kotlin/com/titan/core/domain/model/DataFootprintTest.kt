@@ -42,5 +42,15 @@ class DataFootprintTest {
         assertThrows(IllegalArgumentException::class.java) { DataFootprint(personalRecords = -1) }
         assertThrows(IllegalArgumentException::class.java) { DataFootprint(customExercises = -1) }
         assertThrows(IllegalArgumentException::class.java) { DataFootprint(bodyMeasurements = -1) }
+        assertThrows(IllegalArgumentException::class.java) { DataFootprint(progressPhotos = -1) }
+    }
+
+    @Test
+    fun `photos are something to delete but not something a restore puts at stake`() {
+        val photosOnly = DataFootprint(progressPhotos = 3)
+
+        assertTrue(photosOnly.isEmpty)
+        assertFalse(photosOnly.nothingToDelete)
+        assertTrue(DataFootprint().nothingToDelete)
     }
 }

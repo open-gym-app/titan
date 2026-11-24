@@ -16,6 +16,7 @@ import com.titan.core.data.db.DefaultTemplates
 import com.titan.core.data.db.TitanDatabase
 import com.titan.core.data.db.bodyMeasurement
 import com.titan.core.data.db.entity.ExerciseEntity
+import com.titan.core.data.db.entity.ProgressPhotoEntity
 import com.titan.core.data.db.exercise
 import com.titan.core.data.db.personalRecord
 import com.titan.core.data.db.session
@@ -31,6 +32,7 @@ import com.titan.core.data.notification.AndroidIdleSessionMonitor
 import com.titan.core.data.notification.AndroidNotifier
 import com.titan.core.data.notification.AppForegroundState
 import com.titan.core.data.notification.RestTimerBroadcasts
+import com.titan.core.data.photo.ProgressPhotoFiles
 import com.titan.core.domain.backup.AutoBackupSchedule
 import com.titan.core.domain.backup.BackupLock
 import com.titan.core.domain.backup.ExportFormat
@@ -67,6 +69,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -180,6 +183,7 @@ class LocalDataRepositoryImplTest {
         db.close()
         storeScope.cancel()
         backupFiles.directory.deleteRecursively()
+        ProgressPhotoFiles.directory(context).deleteRecursively()
     }
 
     // --- footprint --------------------------------------------------------
@@ -518,6 +522,22 @@ class LocalDataRepositoryImplTest {
      * manager can open. The scratch files go too: a killed run leaves one the size of the
      * history.
      */
+    @Test
+    fun `deleteAll deletes every progress photo, its row and its file`() =
+        runBlocking {
+            val directory = ProgressPhotoFiles.directory(context).apply { mkdirs() }
+            val photo = File(directory, "a.jpg").apply { writeText("jpeg") }
+            val scratch = File(directory, "b.jpg.tmp").apply { writeText("half") }
+            db.progressPhotoDao().insert(ProgressPhotoEntity(fileName = "a.jpg", takenAt = 1, createdAt = 1))
+            assertEquals(1, repository.observeFootprint().first().progressPhotos)
+
+            repository.deleteAll()
+
+            assertFalse(photo.exists())
+            assertFalse(scratch.exists())
+            assertEquals(0, repository.observeFootprint().first().progressPhotos)
+        }
+
     @Test
     fun `deleteAll deletes every backup file, finished or not`() =
         runBlocking {

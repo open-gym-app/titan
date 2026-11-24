@@ -42,6 +42,7 @@ import com.titan.feature.progression.navigation.AchievementsDestination
 import com.titan.feature.progression.navigation.BodyMeasurementsDestination
 import com.titan.feature.progression.navigation.ExerciseProgressionDestination
 import com.titan.feature.progression.navigation.PersonalRecordsDestination
+import com.titan.feature.progression.navigation.ProgressPhotosDestination
 import com.titan.feature.progression.navigation.QuestLogDestination
 import com.titan.feature.progression.navigation.progressionDetailGraph
 import com.titan.feature.progression.navigation.progressionGraph
@@ -460,6 +461,11 @@ fun TitanNavHost(
             // user came from and the back press should put them back on it.
             onOpenAchievements = {
                 navController.navigate(AchievementsDestination) { launchSingleTop = true }
+            },
+            // A push onto the body screen, for the achievements' reason: back returns to the
+            // measurements the photos sit beside.
+            onOpenProgressPhotos = {
+                navController.navigate(ProgressPhotosDestination) { launchSingleTop = true }
             },
         )
 

@@ -50,6 +50,16 @@ class ExportSchemaTest : RoomTestBase() {
         )
     }
 
+    /**
+     * The exclusion list is held to account too: it may only name tables the schema has and the
+     * format leaves out, so an entry cannot outlive its table or quietly hide one that is exported.
+     */
+    @Test
+    fun `every table left out of the format is a real table, left out on purpose`() {
+        assertTrue(declaredTables().containsAll(NOT_EXPORTED))
+        assertTrue(BackupTable.entries.none { it.tableName in NOT_EXPORTED })
+    }
+
     @Test
     fun `the format lists exactly the tables the schema declares`() {
         assertEquals(schemaTables().toSortedSet(), BackupTable.entries.map { it.tableName }.toSortedSet())
@@ -142,11 +152,14 @@ class ExportSchemaTest : RoomTestBase() {
         return text.toString()
     }
 
-    /** Every table the committed schema declares. */
-    private fun schemaTables(): List<String> =
+    /** Every table the committed schema declares, exported or not. */
+    private fun declaredTables(): List<String> =
         schema().getValue("database").jsonObject
             .getValue("entities").jsonArray
             .map { it.jsonObject.getValue("tableName").jsonPrimitive.content }
+
+    /** Every table the committed schema declares that the format carries. */
+    private fun schemaTables(): List<String> = declaredTables().filterNot { it in NOT_EXPORTED }
 
     /** Table to its column names, in the order the schema records them. */
     private fun schemaColumns(): Map<String, List<String>> =
@@ -158,6 +171,7 @@ class ExportSchemaTest : RoomTestBase() {
                     .map { it.jsonObject.getValue("columnName").jsonPrimitive.content }
                 table to columns
             }
+            .filterKeys { it !in NOT_EXPORTED }
 
     /**
      * The committed schema for the current version, read from the test assets
@@ -172,5 +186,12 @@ class ExportSchemaTest : RoomTestBase() {
 
         /** The document's non-table keys, in the order `ExportDocument` declares them. */
         val ENVELOPE_KEYS = listOf("schema_version", "exported_at", "app_version", "preferences")
+
+        /**
+         * Tables the format leaves out, deliberately. `progress_photo` names images that never
+         * leave the phone — not in an export, not in Android's own backup — so its rows would be
+         * names of files the file does not carry. See `ProgressPhoto`.
+         */
+        val NOT_EXPORTED = setOf("progress_photo")
     }
 }

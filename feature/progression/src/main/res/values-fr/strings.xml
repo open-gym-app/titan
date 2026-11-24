@@ -185,6 +185,29 @@
     <string name="body_fat_label">Masse grasse</string>
     <string name="body_lean_mass_label">Masse maigre</string>
 
+    <!-- ── Progress photos (#304) ───────────────────────────────────────────────── -->
+
+    <string name="body_photos_heading">Photos</string>
+    <string name="body_photos_label">Photos de progression</string>
+    <string name="body_photos_detail">Conservées sur ce téléphone uniquement — jamais dans une sauvegarde ni dans le cloud</string>
+    <string name="photos_title">Photos de progression</string>
+    <string name="photos_add">Ajouter une photo de progression</string>
+    <string name="photos_take">Prendre une photo</string>
+    <string name="photos_pick">Choisir dans la galerie</string>
+    <string name="photos_empty_title">Aucune photo de progression</string>
+    <string name="photos_empty_body">Prenez-en une de temps en temps pour voir votre évolution. Elles restent sur ce téléphone : jamais dans une sauvegarde, jamais dans le cloud.</string>
+    <string name="photos_photo_description">Photo de progression, %1$s</string>
+    <string name="photos_compare">Comparer</string>
+    <string name="photos_compare_hint">Choisissez une photo à comparer avec celle du %1$s</string>
+    <string name="photos_cancel">Annuler</string>
+    <string name="photos_delete">Supprimer</string>
+    <string name="photos_delete_title">Supprimer cette photo ?</string>
+    <string name="photos_delete_body">La photo du %1$s est supprimée de ce téléphone. Il n’en existe aucune copie ailleurs.</string>
+    <string name="photos_delete_confirm">Supprimer</string>
+    <string name="photos_close">Fermer</string>
+    <string name="photos_add_failed">Impossible d’ajouter cette photo.</string>
+    <string name="photos_delete_failed">Impossible de supprimer cette photo.</string>
+
     <!-- ── Health Connect, disabled until #54 ───────────────────────────────────── -->
 
     <string name="body_health_connect_heading">Santé Connect</string>

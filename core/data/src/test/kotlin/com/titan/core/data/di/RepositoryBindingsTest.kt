@@ -8,6 +8,7 @@ import com.titan.core.data.repository.GamificationRepositoryImpl
 import com.titan.core.data.repository.InProgressSessionRepositoryImpl
 import com.titan.core.data.repository.LocalDataRepositoryImpl
 import com.titan.core.data.repository.PersonalRecordRepositoryImpl
+import com.titan.core.data.repository.ProgressPhotoRepositoryImpl
 import com.titan.core.data.repository.SessionRepositoryImpl
 import com.titan.core.data.repository.SessionStateRepositoryImpl
 import com.titan.core.data.repository.TemplateDraftRepositoryImpl
@@ -21,6 +22,7 @@ import com.titan.core.domain.repository.GamificationRepository
 import com.titan.core.domain.repository.InProgressSessionRepository
 import com.titan.core.domain.repository.LocalDataRepository
 import com.titan.core.domain.repository.PersonalRecordRepository
+import com.titan.core.domain.repository.ProgressPhotoRepository
 import com.titan.core.domain.repository.SessionRepository
 import com.titan.core.domain.repository.SessionStateRepository
 import com.titan.core.domain.repository.TemplateDraftRepository
@@ -102,6 +104,9 @@ class RepositoryBindingsTest {
     @Inject
     lateinit var autoBackupRepository: Provider<AutoBackupRepository>
 
+    @Inject
+    lateinit var progressPhotoRepository: Provider<ProgressPhotoRepository>
+
     // Not a repository, but bound the same way and resolvable for the same reason: nothing
     // reaches it until a toggle is flipped, so a missing binding would first be seen on a
     // device. Resolving it touches no WorkManager — see `WorkManagerAutoBackupScheduler`.
@@ -127,6 +132,7 @@ class RepositoryBindingsTest {
         assertTrue(gamificationRepository.get() is GamificationRepositoryImpl)
         assertTrue(backupRepository.get() is BackupRepositoryImpl)
         assertTrue(autoBackupRepository.get() is AutoBackupRepositoryImpl)
+        assertTrue(progressPhotoRepository.get() is ProgressPhotoRepositoryImpl)
         assertTrue(autoBackupScheduler.get() is WorkManagerAutoBackupScheduler)
     }
 

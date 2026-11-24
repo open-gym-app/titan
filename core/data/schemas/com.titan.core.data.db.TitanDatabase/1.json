@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "a79890014b514eb7e88b853834bdc6b8",
+    "identityHash": "6ec3fed2aa217701571c026f4376e6ed",
     "entities": [
       {
         "tableName": "exercise",
@@ -1473,11 +1473,67 @@
             "createSql": "CREATE INDEX IF NOT EXISTS `index_collected_item_acquired_at` ON `${TABLE_NAME}` (`acquired_at`)"
           }
         ]
+      },
+      {
+        "tableName": "progress_photo",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `file_name` TEXT NOT NULL, `taken_at` INTEGER NOT NULL, `created_at` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fileName",
+            "columnName": "file_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "takenAt",
+            "columnName": "taken_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_progress_photo_taken_at",
+            "unique": false,
+            "columnNames": [
+              "taken_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_progress_photo_taken_at` ON `${TABLE_NAME}` (`taken_at`)"
+          },
+          {
+            "name": "index_progress_photo_file_name",
+            "unique": true,
+            "columnNames": [
+              "file_name"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_progress_photo_file_name` ON `${TABLE_NAME}` (`file_name`)"
+          }
+        ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'a79890014b514eb7e88b853834bdc6b8')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6ec3fed2aa217701571c026f4376e6ed')"
     ]
   }
 }

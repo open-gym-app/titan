@@ -46,6 +46,13 @@ data class DataFootprint(
     val bodyMeasurements: Int = 0,
 
     /**
+     * Progress photos. Counted for "Delete all data", which removes them, and deliberately left
+     * out of [isEmpty]: a restore — the other caller — does not touch them, so they are not
+     * something a restore puts at stake. See [nothingToDelete].
+     */
+    val progressPhotos: Int = 0,
+
+    /**
      * When the oldest session on the device was started, epoch milliseconds UTC, or **null**
      * when nothing has been logged.
      *
@@ -79,20 +86,24 @@ data class DataFootprint(
         require(sessions >= 0 && sets >= 0 && templates >= 0) {
             "a footprint cannot be negative, was $this"
         }
-        require(personalRecords >= 0 && customExercises >= 0 && bodyMeasurements >= 0) {
+        require(personalRecords >= 0 && customExercises >= 0 && bodyMeasurements >= 0 && progressPhotos >= 0) {
             "a footprint cannot be negative, was $this"
         }
         require(databaseBytes >= 0) { "a database cannot occupy negative space, was $databaseBytes" }
     }
 
     /**
-     * Whether there is anything of the user's to lose.
+     * Whether there is any history of the user's to lose — everything counted here but the
+     * progress photos, which a restore leaves alone. It is the restore confirmation's question;
+     * "Delete all data" asks [nothingToDelete], which counts the photos too.
      *
-     * The delete-all row reads as available whatever this says — an empty database is not a
-     * reason to hide the control that empties it — but the dialog's wording can soften when
-     * there is nothing at stake.
+     * Neither hides a control: an empty database is not a reason to hide what empties it, but a
+     * dialog's wording can soften when there is nothing at stake.
      */
     val isEmpty: Boolean
         get() = sessions == 0 && sets == 0 && templates == 0 &&
             personalRecords == 0 && customExercises == 0 && bodyMeasurements == 0
+
+    /** Whether "Delete all data" would erase nothing of the user's: no history and no photos. */
+    val nothingToDelete: Boolean get() = isEmpty && progressPhotos == 0
 }
