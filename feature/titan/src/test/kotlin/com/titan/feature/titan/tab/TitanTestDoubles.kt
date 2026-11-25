@@ -41,7 +41,11 @@ class FakePets : PetRepository {
 
     override suspend fun count(): Int = pets.value.size
 
-    override suspend fun setActive(id: Long): Boolean = true
+    override suspend fun setActive(id: Long): Boolean {
+        if (pets.value.none { it.id == id }) return false
+        pets.value = pets.value.map { it.copy(isActive = it.id == id) }
+        return true
+    }
 
     override suspend fun rename(
         id: Long,

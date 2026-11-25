@@ -58,4 +58,8 @@
         <item quantity="many">Restam %1$d</item>
         <item quantity="other">Restam %1$d</item>
     </plurals>
+    <string name="titan_roster">Titãs</string>
+    <string name="titan_roster_level">Nív. %1$d</string>
+    <string name="titan_roster_active">%1$s, nível %2$d, titã ativo.</string>
+    <string name="titan_roster_switch">%1$s, nível %2$d. Tornar ativo.</string>
 </resources>

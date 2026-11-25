@@ -1,6 +1,9 @@
 package com.titan.feature.titan.tab
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -31,8 +35,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -118,6 +128,7 @@ private fun TitanHome(
             renameLabel = stringResource(R.string.titan_rename, name),
             onRename = { onEvent(TitanTabEvent.StartRename) },
         )
+        if (state.roster.size > 1 || state.eggs.isNotEmpty()) Roster(state, onEvent)
         StageCard(state, name)
         Vitals(state)
         Supplies(state, name, onEvent, onOpenInventory)
@@ -453,6 +464,86 @@ private fun RenameDialog(
     )
 }
 
+/**
+ * Every titan the user owns, side by side, the active one marked; tapping another makes it the
+ * active one, the one the tab, the dock and finished workouts follow. Under them, the eggs still
+ * to hatch.
+ */
+@Composable
+private fun Roster(
+    state: TitanTabUiState.Titan,
+    onEvent: (TitanTabEvent) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md)) {
+        SectionHeading(stringResource(R.string.titan_roster))
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md),
+        ) {
+            state.roster.forEach { entry ->
+                RosterTile(entry, onClick = { onEvent(TitanTabEvent.SwitchTitan(entry.petId)) })
+            }
+        }
+        state.eggs.forEach { egg ->
+            EggRow(egg, enabled = !state.hatching, onHatch = { onEvent(TitanTabEvent.Hatch(egg.id)) })
+        }
+    }
+}
+
+@Composable
+private fun RosterTile(
+    entry: RosterEntry,
+    onClick: () -> Unit,
+) {
+    val name = entry.name ?: petSpeciesLabel(entry.speciesId)
+    val level = stringResource(R.string.titan_roster_level, entry.level)
+    val spoken = if (entry.active) {
+        stringResource(R.string.titan_roster_active, name, entry.level)
+    } else {
+        stringResource(R.string.titan_roster_switch, name, entry.level)
+    }
+    val colors = MaterialTheme.colorScheme
+    Column(
+        modifier = Modifier
+            .width(ROSTER_TILE)
+            .clip(MaterialTheme.shapes.medium)
+            .background(colors.surfaceContainer)
+            .border(
+                width = if (entry.active) 2.dp else 1.dp,
+                color = if (entry.active) colors.primary else colors.outlineVariant,
+                shape = MaterialTheme.shapes.medium,
+            )
+            .clearAndSetSemantics {
+                contentDescription = spoken
+                selected = entry.active
+                role = Role.Tab
+            }
+            .clickable(enabled = !entry.active, onClick = onClick)
+            .padding(TitanTheme.spacing.sm),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        TitanSprite(
+            TitanActivity.IDLE,
+            head = null,
+            face = null,
+            contentDescription = null,
+            still = true,
+            modifier = Modifier.size(64.dp, 40.dp),
+        )
+        Text(
+            name,
+            style = MaterialTheme.typography.labelMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            level.uppercase(),
+            style = TitanTheme.typography.eyebrow,
+            color = if (entry.active) colors.primary else colors.onSurfaceVariant,
+        )
+    }
+}
+
 @Composable
 private fun NoTitan(
     state: TitanTabUiState.NoTitan,
@@ -534,4 +625,5 @@ private fun TitanActivity.note(): Int =
 
 private const val STAGE_HEIGHT = 190
 private const val COLUMNS_SUPPLIES = 4
+private val ROSTER_TILE = 96.dp
 private const val COLUMNS_SLOTS = 3

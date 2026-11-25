@@ -56,11 +56,20 @@ fun TitanTabPreview() {
     }
 }
 
-@Preview(name = "Titan tab, dark, gear", widthDp = 390, heightDp = 1200)
+@Preview(name = "Titan tab, dark, gear, three titans", widthDp = 390, heightDp = 1600)
 @Composable
 fun TitanTabDarkPreview() {
     TitanTheme(theme = ThemePreference.DARK, reducedMotion = true) {
-        TitanTabScreen(previewTitan(SuppliesTab.GEAR), {}, {})
+        TitanTabScreen(
+            previewTitan(SuppliesTab.GEAR).copy(
+                roster = PREVIEW_ROSTER,
+                eggs = listOf(
+                    CollectedItem(PREVIEW_EGG, "pet_egg", "session_finished", Instant.parse("2026-11-12T18:00:00Z")),
+                ),
+            ),
+            {},
+            {},
+        )
     }
 }
 
@@ -85,6 +94,14 @@ fun TitanTabNoTitanPreview() {
         )
     }
 }
+
+/** Three titans, the first one active. */
+private val PREVIEW_ROSTER = listOf(
+    RosterEntry(petId = 1, speciesId = "iron_cub", name = "Brick", level = 14, active = true),
+    RosterEntry(petId = 2, speciesId = "iron_cub", name = null, level = 3, active = false),
+    RosterEntry(petId = 3, speciesId = "iron_cub", name = "Pebble", level = 7, active = false),
+)
+private const val PREVIEW_EGG = 9L
 
 /** The canvas's pantry, food by food. */
 private val PREVIEW_STOCK = listOf(1, 0, 3, 6, 4, 0, 2, 2)

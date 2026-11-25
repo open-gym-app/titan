@@ -7,6 +7,7 @@ import com.titan.core.domain.gamification.PetNickname
 import com.titan.core.domain.gamification.PetNicknameResult
 import com.titan.core.domain.gamification.TitanRules
 import com.titan.core.domain.gamification.level
+import com.titan.core.domain.model.CollectedItem
 import com.titan.core.domain.model.FeedEffect
 import com.titan.core.domain.model.FeedResult
 import com.titan.core.domain.model.Gear
@@ -88,6 +89,12 @@ class TitanTabViewModel @Inject constructor(
 
     fun onEvent(event: TitanTabEvent) {
         when (event) {
+            is TitanTabEvent.SwitchTitan -> viewModelScope.launch {
+                closeRename()
+                lastEffect.value = null
+                petRepository.setActive(event.petId)
+            }
+
             is TitanTabEvent.SelectTab -> savedStateHandle[TAB_KEY] = event.tab.name
 
             is TitanTabEvent.Feed -> act { petId ->
@@ -186,8 +193,19 @@ class TitanTabViewModel @Inject constructor(
                 rename = draft?.let { TitanTabUiState.RenameState(it, refusal) },
             )
         }
-        return combine(state, supplies, chrome) { titan, (pantry, unlocked, loadout), chrome ->
-            build(pet, titan, pantry, unlocked, loadout, chrome)
+        val stable = combine(
+            petRepository.observeAll(),
+            collectedItemRepository.observeUnhatchedEggs(),
+            hatching,
+        ) { pets, eggs, busy -> Stable(pets, eggs, busy) }
+        return combine(state, supplies, chrome, stable) { titan, (pantry, unlocked, loadout), chrome, stable ->
+            build(pet, titan, pantry, unlocked, loadout, chrome).copy(
+                roster = stable.pets.map {
+                    RosterEntry(it.id, it.speciesId, it.nickname, it.level, active = it.id == pet.id)
+                },
+                eggs = stable.eggs,
+                hatching = stable.busy,
+            )
         }
     }
 
@@ -243,6 +261,13 @@ class TitanTabViewModel @Inject constructor(
     private data class Owned(
         val dropped: Set<String>,
         val achievements: Set<String>,
+    )
+
+    /** Every titan owned, and the eggs not hatched yet. */
+    private data class Stable(
+        val pets: List<Pet>,
+        val eggs: List<CollectedItem>,
+        val busy: Boolean,
     )
 
     private data class Chrome(

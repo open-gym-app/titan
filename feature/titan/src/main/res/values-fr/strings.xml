@@ -58,4 +58,8 @@
         <item quantity="many">%1$d restants</item>
         <item quantity="other">%1$d restants</item>
     </plurals>
+    <string name="titan_roster">Titans</string>
+    <string name="titan_roster_level">Niv. %1$d</string>
+    <string name="titan_roster_active">%1$s, niveau %2$d, titan actif.</string>
+    <string name="titan_roster_switch">%1$s, niveau %2$d. Rendre actif.</string>
 </resources>

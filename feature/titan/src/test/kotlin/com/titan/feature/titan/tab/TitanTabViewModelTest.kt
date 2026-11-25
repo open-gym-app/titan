@@ -248,6 +248,27 @@ class TitanTabViewModelTest {
         }
     }
 
+    @Test
+    fun `the roster lists every titan and the eggs, and tapping one makes it the active titan`() =
+        runTest(dispatcher) {
+            pets.pets.value = listOf(brick(), brick().copy(id = 2, nickname = "Pebble", isActive = false))
+            eggs.eggs.value = listOf(CollectedItem(7, "pet_egg", "session_finished", Instant.ofEpochMilli(NOW)))
+            val vm = viewModel()
+
+            vm.uiState.test {
+                val first = awaitUntil<TitanTabUiState.Titan> { it.roster.size == 2 }
+                assertEquals(1L, first.petId)
+                assertEquals(listOf(true, false), first.roster.map { it.active })
+                assertEquals(listOf(7L), first.eggs.map { it.id })
+
+                vm.onEvent(TitanTabEvent.SwitchTitan(2))
+                val switched = awaitUntil<TitanTabUiState.Titan> { it.petId == 2L }
+                assertEquals("Pebble", switched.name)
+                assertEquals(listOf(false, true), switched.roster.map { it.active })
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
     private fun brick() =
         Pet(
             1,

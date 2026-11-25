@@ -37,6 +37,8 @@ sealed interface TitanTabUiState {
      * @property slots every slot gear can go in, with what is worn there and what the titan owns
      *   for it. Nothing locked is shown.
      * @property slot the slot the gear tab has open.
+     * @property roster every titan the user owns, the active one included, to switch between.
+     * @property eggs the eggs still waiting to hatch.
      * @property places the habitats the titan owns.
      * @property habitat the one its stage is drawn on.
      */
@@ -57,6 +59,9 @@ sealed interface TitanTabUiState {
         val slot: GearSlot,
         val places: List<TitanPlace>,
         val habitat: TitanPlace,
+        val roster: List<RosterEntry> = emptyList(),
+        val eggs: List<CollectedItem> = emptyList(),
+        val hatching: Boolean = false,
         val lastEffect: FeedEffect? = null,
         val rename: RenameState? = null,
     ) : TitanTabUiState
@@ -84,8 +89,23 @@ data class SlotEntry(
     val owned: List<GearEntry>,
 )
 
+/**
+ * A titan the user owns, as the switcher lists it.
+ *
+ * @property name the nickname, or null to show the species' name.
+ */
+data class RosterEntry(
+    val petId: Long,
+    val speciesId: String,
+    val name: String?,
+    val level: Int,
+    val active: Boolean,
+)
+
 /** What the Titan tab can be asked to do. */
 sealed interface TitanTabEvent {
+    data class SwitchTitan(val petId: Long) : TitanTabEvent
+
     data class SelectTab(val tab: SuppliesTab) : TitanTabEvent
     data class Feed(val foodId: String) : TitanTabEvent
     data class SelectSlot(val slot: GearSlot) : TitanTabEvent
