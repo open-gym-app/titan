@@ -4,20 +4,27 @@ What the release build exposes, what controls each exposure, and the evidence th
 holds. This file describes the app as it is; when a change moves a boundary, the section for it
 changes in the same pull request. Items still open are listed at the end, each with an issue.
 
-Checked at commit `b9842deda93ae51ef0df31bf624c02f5bcc923fb` (`main`) on 2026-11-14, on the
-output of `./gradlew :app:assembleRelease :app:bundleRelease`, the same tasks `release.yml` runs.
+*The release artifact* was checked at commit `b9842deda93ae51ef0df31bf624c02f5bcc923fb` (`main`)
+on 2026-11-14, on the output of `./gradlew :app:assembleRelease :app:bundleRelease`, the same
+tasks `release.yml` runs. *Manifest* to *File sharing* were checked at commit
+`85f476815974090e24fe6c8ee4713a36750d0e8f` (`main`) on 2026-11-25, on the merged manifest of
+`./gradlew :app:processReleaseMainManifest` and on the source. *Repository settings* and
+*Repository history* give their own dates.
 
 ## Threat model
 
 Titan is single-user and offline. It has no account, no server and no network permission. The
-data it holds (training history, body weight, body fat and measurements) never leaves the phone
-unless the user exports it. The parties that can act against it are:
+data it holds (training history with calories and any imported heart rate, body weight, body fat,
+measurements and progress photos) never leaves the phone unless the user exports it, and progress
+photos not even then. The parties that can act against it are:
 
 | Who | What they can send | Boundary |
 | --- | --- | --- |
 | Another app on the phone | Intents to exported components, `titan://` links | Exported components, deep links |
 | A web page the user taps | `titan://` links (the filter is `BROWSABLE`) | Deep links |
 | Whoever provides a backup file | A JSON document the restore reads | Restore |
+| Whoever provides a file to import | A CSV document the import parses | Import from another app |
+| A camera app, or whoever made a picked picture | An image the app decodes | Progress photos |
 | Another app with storage access | Reads of shared storage | On-device storage |
 | A library upgrade | A permission, a socket | Manifest merge, network config |
 | Anyone with write access to the repository | Workflows, tags | Release pipeline |
@@ -95,23 +102,24 @@ A crash from the pre-launch report is checked the same way during the closed tra
 
 ## Manifest
 
-Read from the decoded release manifest.
+Read from the merged release manifest.
 
 ### Permissions
 
 The list below is `release/compliance-checklist.md`'s, byte for byte, and matches the merged
-release manifest: eight `uses-permission` entries and AndroidX's signature permission.
+release manifest: nine `uses-permission` entries and AndroidX's signature permission.
 
 | Permission | Declared by | Justification |
 | --- | --- | --- |
-| `android.permission.POST_NOTIFICATIONS` | `:core:data` | Posts the workout reminder, rest-timer alert, unfinished-session note and progression notifications. Requested at runtime, the first time the user turns a notification on. |
+| `android.permission.POST_NOTIFICATIONS` | `:core:data` | Posts the workout reminder, rest-timer alert, unfinished-session note and progression notifications, and the progress and the end of an import from another app. Requested at runtime, the first time the user turns a notification on. |
 | `android.permission.SCHEDULE_EXACT_ALARM` (`maxSdkVersion="32"`) | `:core:data` | Exact alarm for the background rest timer, workout reminders and the unfinished-session note on Android 12 and below, where it is granted at install. |
 | `android.permission.USE_EXACT_ALARM` | `:core:data` | Exact alarm for the background rest timer, workout reminders and the unfinished-session note on Android 13+. Restricted by Play to alarm, calendar and **timer** apps; a user-started rest timer is a timer. Falls back to an inexact alarm if refused. |
 | `android.permission.RECEIVE_BOOT_COMPLETED` | `:core:data`, `androidx.work:work-runtime` | Reschedules reminder alarms after a reboot (`AlarmManager` keeps none) and lets WorkManager reschedule the weekly auto-backup. |
 | `android.permission.VIBRATE` | `:core:ui` | The buzz at the end of a rest (`RestExpiryAlert`). |
-| `android.permission.WAKE_LOCK` | `androidx.work:work-runtime` | WorkManager holds a wake lock while the weekly auto-backup runs. |
-| `android.permission.ACCESS_NETWORK_STATE` | `androidx.work:work-runtime` | WorkManager's network constraints. The app sets none, and the permission reads connectivity state only; it cannot open a socket. |
-| `android.permission.FOREGROUND_SERVICE` | `androidx.work:work-runtime` | Declared by WorkManager for long-running work. Unused: no work is promoted to the foreground. |
+| `android.permission.WAKE_LOCK` | `androidx.work:work-runtime` | WorkManager holds a wake lock while the weekly auto-backup or an import from another app runs. |
+| `android.permission.ACCESS_NETWORK_STATE` | `androidx.work:work-runtime` | WorkManager's network constraints. The app sets none, on the weekly auto-backup or on an import, and the permission reads connectivity state only; it cannot open a socket. |
+| `android.permission.FOREGROUND_SERVICE` | `:core:data`, `androidx.work:work-runtime` | Runs an import from another app as WorkManager's foreground service (`HistoryImportWorker`), so it is not stopped ten minutes in or cancelled when the user leaves the screen. No other work is promoted to the foreground. |
+| `android.permission.FOREGROUND_SERVICE_DATA_SYNC` | `:core:data` | The permission Android 14+ requires for that service's type, `dataSync`: the import reads a file the user picked into the app's database. Grants no network access. |
 | `app.titan.gym.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | `androidx.core:core` | Signature-level permission AndroidX uses to keep runtime-registered receivers private to the app. |
 
 ### No network
@@ -140,24 +148,26 @@ Every component of the merged release manifest with `exported="true"`:
 
 | Component | Reached by | Why it is exported, and what checks the input |
 | --- | --- | --- |
-| `com.titan.app.MainActivity` | Launcher; `VIEW` + `titan://session/…`, `titan://progression/…` | The launcher entry and the target of the app's own notification links. Every incoming intent is replaced before Navigation reads it (`forNavigation` in `MainActivity.kt`): only the action survives, plus the `titan://` link when the action is `VIEW`, so Navigation's `deepLinkIds`/`deepLinkExtras` and any other extras are dropped. See *Deep links*. |
+| `com.titan.app.MainActivity` | Launcher; `VIEW` + `titan://session/…`, `titan://progression/…`, `titan://settings/…` | The launcher entry and the target of the app's own notification links. Every incoming intent is replaced before Navigation reads it (`forNavigation` in `MainActivity.kt`): only the action survives, plus the `titan://` link when the action is `VIEW`, so Navigation's `deepLinkIds`/`deepLinkExtras` and any other extras are dropped. See *Deep links*. |
 | `com.titan.core.data.notification.BootReceiver` | `BOOT_COMPLETED`, `MY_PACKAGE_REPLACED`, `TIMEZONE_CHANGED`, `TIME_SET`, `SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED` | System broadcasts only reach an exported receiver. All five are protected broadcasts that only the system can send. The receiver checks the action against the same list and ignores anything else; its only effect is `ReminderScheduler.sync()`, which is idempotent. |
 | `androidx.work.impl.background.systemjob.SystemJobService` | `JobScheduler` | `permission="android.permission.BIND_JOB_SERVICE"`: only the system can bind. |
 | `androidx.work.impl.diagnostics.DiagnosticsReceiver` | `adb` | `permission="android.permission.DUMP"`: shell and system only. |
 | `androidx.profileinstaller.ProfileInstallReceiver` | `adb`, Play | `permission="android.permission.DUMP"`: shell and system only. |
 
 Every other component is `exported="false"`: the three notification receivers
-(`RestTimerReceiver`, `IdleSessionReceiver`, `ReminderReceiver`), the `FileProvider`, the
-`androidx.startup` provider and WorkManager's and Room's internal components. The notification
+(`RestTimerReceiver`, `IdleSessionReceiver`, `ReminderReceiver`), the `FileProvider`,
+`PhotoCaptureProvider` (authority `${applicationId}.photocapture`, see *File sharing*), the
+`androidx.startup` provider and WorkManager's and Room's internal components. One of those is
+`SystemForegroundService`, which `:core:data` types `dataSync` for the import. The notification
 receivers are reached only through this app's own `PendingIntent`s, and the rest-timer and idle
 receivers check that the session they name is the one still open (`SessionRef`: id and
 `created_at`) before acting.
 
 ### Deep links
 
-The filter admits two hosts, `session` and `progression`, and `DeepLinks` in `:core:domain`
-builds every link the app posts: `titan://session/new`, `titan://session/active/{id}` and
-`titan://progression/quests`.
+The filter admits three hosts, `session`, `progression` and `settings`, and `DeepLinks` in
+`:core:domain` builds every link the app posts: `titan://session/new`,
+`titan://session/active/{id}`, `titan://progression/quests` and `titan://settings/import`.
 
 - A link with another host does not resolve to the app. Delivered explicitly anyway, it opens
   nothing and the app stays where it was.
@@ -167,6 +177,9 @@ builds every link the app posts: `titan://session/new`, `titan://session/active/
 - `titan://session/active/{id}` acts only on the session it names. The workout screen's
   controls (resume, pause, finish, discard) refuse unless the open session is that id, and a page
   for a missing or finished session shows no END or DISCARD.
+- `titan://settings/import` opens the import screen and nothing more. It carries no argument: the
+  app to import from and the file are chosen on that screen, and the progress shown there is read
+  from the worker, not from the link.
 
 | Test | Pins |
 | --- | --- |
@@ -185,8 +198,10 @@ Paths for the release package `app.titan.gym`:
 | `in-progress-session.json` (and `.tmp`) | `files/` | The running workout's draft | Excluded | Cleared |
 | `template-draft.json` (and `.tmp`) | `files/` | A template being edited | Excluded | Cleared |
 | `backups/titan-*.json` | `files/` below Android 11; external files directory (`Android/data/app.titan.gym/files/`) from 11, or `files/` when there is no external volume | Manual exports and weekly automatic backups: the whole history in plain JSON | Excluded (`file` and `external` domains) | Deleted, in both roots |
+| `photos/*.jpg` (and `.jpg.tmp`) | `files/` | Progress photos, re-encoded without metadata | Excluded | Deleted |
+| `photo-capture/capture.jpg` | `cache/` | The picture the camera app has just taken, metadata included, until it is stored | Never backed up (platform rule) | Left; see *Progress photos* |
 | `datastore/auto-backup.preferences_pb` | `no_backup/` | When the weekly backup last ran | Never backed up (platform rule) | Run dates forgotten; the toggle is kept |
-| WorkManager's database | `no_backup/` | The weekly job | Never backed up | Left; the job stays scheduled if the toggle is on |
+| WorkManager's database | `no_backup/` | The weekly job. The last import's record: the app it came from, the picked document's URI, and its progress and report (counts, or the reason it failed) | Never backed up | Left; the job stays scheduled if the toggle is on, and the import's record goes when its result is dismissed, or about a day after it ended |
 
 Every location is app-private. Below Android 11 the external files directory can be read by apps
 holding storage permissions, which is why backups stay in `files/` there
@@ -199,6 +214,8 @@ per-app sandbox and the lock screen. SQLCipher or an encrypted backup format wou
 library and a key the app would have to keep somewhere, and on this threat model the key would
 sit behind the same sandbox as the data. What remains exposed: root access, and anyone using the
 unlocked phone, who can open the app or *Share* a backup.
+
+## Files the app reads
 
 ### Restore
 
@@ -213,16 +230,60 @@ restore:
 - runs under `BackupLock`, so it cannot interleave with an export, the weekly backup or "Delete
   all data".
 
+### Import from another app
+
+A file to import is untrusted input too. It is picked in the system's document picker
+(`ACTION_OPEN_DOCUMENT`), read by `HistoryImportWorker`, and the app never writes to it. The
+import:
+
+- takes a `content://` URI only (`ImportViewModel`; `ImportViewModelTest`), and no component or
+  link carries one in from outside: the picker's answer is the only source;
+- reads at most `MAX_SOURCE_BYTES` (32 MiB) and holds at most `MAX_IMPORT_SETS` (500,000 sets). A
+  parser stops at the first byte or set past the limit, and a CSV record is capped at 256 Ki
+  characters and 1,024 fields (`HistoryParserTest`, `ImportHistoryUseCaseTest`, `CsvReaderTest`);
+- turns anything a parser throws into a refused file, never a crash (`parseSafely`);
+- leaves out every set, workout, template and measurement the app's own validators refuse, and
+  clears a heart rate, a rest, calories or a rating outside their bounds (`ImportPlanner`);
+- writes the whole history in one transaction, so a failed or cancelled import leaves the device
+  as it was, under `BackupLock` and `SessionLifecycleLock`.
+
+**The read grant.** An import outlives its screen and can be offered again after the process has
+gone, so the app takes a persistable read grant on the picked document, and on that document
+only. It is released when the user dismisses the result, and when another import starts
+(`WorkManagerHistoryImportRunner.holdOnly`). It is read-only and held by the system, not in a
+file: "Delete all data" does not release it, uninstalling does.
+
+### Progress photos
+
+A picture is decoded by the platform's `BitmapFactory`, sampled down before it is held in memory,
+and stored as a new JPEG of at most 2,048 pixels a side (`PhotoEncoder`). Of its metadata the app
+reads the date and the orientation, and the new file carries none
+(`ProgressPhotoRepositoryImplTest`). Bytes that are not an image are refused and nothing is
+stored.
+
+- **From the camera.** The capture intent runs in the camera app, so the app needs no `CAMERA`
+  permission. The camera writes to `cache/photo-capture/capture.jpg`, which is deleted once the
+  photo is stored, refused or cancelled, and before the next capture. If the process is killed
+  in between and the result never arrives, the file stays until the next capture, until the
+  system clears the cache, or until the app is uninstalled.
+- **From the gallery.** Android's photo picker grants the one picture the user chose. The app
+  takes no persistable grant and asks for no storage permission.
+
 ## File sharing
 
 - Every share goes through `androidx.core.content.FileProvider` (`exported="false"`,
   `grantUriPermissions="true"`), authority `${applicationId}.fileprovider`. `file_paths.xml`
   scopes it to `backups/` under `files/` and under the external files directory, and to nothing
   else: not the drafts in `files/`, not the database. `BackupSharingTest` shares from both roots.
+- The camera is the only other app handed a file to write. `PhotoCaptureProvider`, a subclass of
+  `FileProvider` (`exported="false"`, `grantUriPermissions="true"`), authority
+  `${applicationId}.photocapture`, is scoped by `photo_capture_paths.xml` to `photo-capture/` in
+  the cache. The camera app gets the one URI its capture intent carries. No provider exposes
+  `files/photos/`, so a stored photo cannot be shared or read by another app.
 - No `Uri.fromFile(` and no `file://` URI is handed to another app anywhere in `src/main`. The
   one `file://` string in production code is `file:///android_asset/`, the scheme Coil reads the
   bundled exercise images with (`ExerciseImage.kt`). `Uri.fromFile` appears only in
-  `BackupViewModelTest`, as the input the restore must refuse.
+  `BackupViewModelTest`, as a save destination and as the input the restore must refuse.
 
 ## Platform requirements (targetSdk 36)
 
@@ -328,7 +389,7 @@ On a phone with the release build installed (`app.titan.gym`):
 
 ```sh
 adb shell dumpsys package app.titan.gym | grep -A20 "requested permissions"
-#   the eight permissions above and the signature permission, nothing else
+#   the nine permissions above and the signature permission, nothing else
 adb shell am start -W -a android.intent.action.VIEW -d "titan://nonsense/42" app.titan.gym
 #   does not resolve: the host is not in the filter
 adb shell am start -W -a android.intent.action.VIEW -d "titan://session/nonsense/42" app.titan.gym
@@ -336,7 +397,8 @@ adb shell am start -W -a android.intent.action.VIEW -d "titan://session/active/9
 #   both: the app opens where it was, no crash (`adb logcat -b crash -d` empty)
 adb shell am broadcast -n app.titan.gym/com.titan.core.data.notification.RestTimerReceiver
 adb shell content query --uri content://app.titan.gym.fileprovider/backups/x
-#   both refused: not exported
+adb shell content query --uri content://app.titan.gym.photocapture/photo-capture/capture.jpg
+#   all three refused: not exported
 ```
 
 Then, with a rest running: swipe the app away, relaunch, *Delete all data*, background the app.
