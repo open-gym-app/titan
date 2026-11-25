@@ -3,6 +3,8 @@ package com.titan.feature.settings
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.titan.core.domain.healthconnect.HealthConnect
+import com.titan.core.domain.healthconnect.HealthConnectAvailability
 import com.titan.core.domain.model.DefaultTemplateName
 import com.titan.core.domain.model.FitnessLevel
 import com.titan.core.domain.model.OneRepMaxFormula
@@ -16,6 +18,7 @@ import com.titan.core.domain.repository.UserPreferencesRepository
 import com.titan.core.domain.usecase.RequestNotificationPermissionUseCase
 import com.titan.core.domain.usecase.RestoreDefaultTemplatesUseCase
 import com.titan.core.ui.state.savedScreenState
+import com.titan.feature.settings.healthconnect.availabilityOrUnsupported
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -80,6 +83,7 @@ class SettingsViewModel @Inject constructor(
     private val notificationPermission: NotificationPermission,
     private val requestNotificationPermission: RequestNotificationPermissionUseCase,
     private val restoreDefaultTemplates: RestoreDefaultTemplatesUseCase,
+    private val healthConnect: HealthConnect,
 ) : ViewModel() {
 
     /**
@@ -93,7 +97,10 @@ class SettingsViewModel @Inject constructor(
     private val screenState = savedStateHandle.savedScreenState(viewModelScope) {
         // Read once at construction and again on every resume. There is no callback for this
         // changing, and it changes in a place the app cannot see.
-        ScreenState(notificationsAllowed = notificationPermission.areNotificationsAllowed())
+        ScreenState(
+            notificationsAllowed = notificationPermission.areNotificationsAllowed(),
+            healthConnectAvailable = healthConnect.isAvailable(),
+        )
     }
 
     val uiState: StateFlow<SettingsUiState> = combine(
@@ -118,6 +125,7 @@ class SettingsViewModel @Inject constructor(
                 alreadyRequested = preferences.notifications.permissionRequested,
             ),
             notificationPermissionRequest = screen.notificationPermissionRequest,
+            healthConnectAvailable = screen.healthConnectAvailable,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -132,20 +140,38 @@ class SettingsViewModel @Inject constructor(
     fun onEvent(event: SettingsEvent) {
         when (event) {
             is SettingsEvent.DialogRequested -> screenState.update { it.copy(dialog = event.dialog) }
+
             SettingsEvent.DialogDismissed -> dismissDialog()
+
             is SettingsEvent.ThemeSelected -> setTheme(event.theme)
+
             is SettingsEvent.UnitSystemSelected -> setUnitSystem(event.unitSystem)
+
             is SettingsEvent.RestDurationSelected -> setRestDuration(event.duration)
+
             is SettingsEvent.BarWeightSelected -> setBarWeight(event.milligrams)
+
             is SettingsEvent.TrainingGoalSelected -> setTrainingGoal(event)
+
             is SettingsEvent.FitnessLevelSelected -> setFitnessLevel(event.level)
+
             is SettingsEvent.OneRepMaxFormulaSelected -> setOneRepMaxFormula(event.formula)
+
             is SettingsEvent.WeeklyGoalSelected -> setWeeklyGoal(event.goal)
+
             is SettingsEvent.WarmupSuggestionsToggled -> setWarmupSuggestions(event.enabled)
+
             is SettingsEvent.AutoOpenRestTimerToggled -> setAutoOpenRestTimer(event.enabled)
+
             is SettingsEvent.Notification -> onNotificationEvent(event)
+
             SettingsEvent.RestoreDefaultTemplatesConfirmed -> restoreMissingTemplates()
+
             SettingsEvent.DeleteAllConfirmed -> deleteAll()
+
+            SettingsEvent.HealthConnectRechecked ->
+                screenState.update { it.copy(healthConnectAvailable = healthConnect.isAvailable()) }
+
             SettingsEvent.MessageShown -> screenState.update { it.copy(message = null) }
         }
     }
@@ -360,15 +386,15 @@ class SettingsViewModel @Inject constructor(
     /**
      * What the screen shows and what the stores do not know about.
      *
-     * Three of the five deliberately do not come back. The wipe cannot still be running when the
+     * Three of the six deliberately do not come back. The wipe cannot still be running when the
      * process that was running it is gone; the message is about something the user was told
      * before they put the phone down; and the permission prompt is a request to Android that
      * went with the activity that raised it — re-raising it unasked on the way back in is the
      * one thing this screen is careful never to do (see [RequestNotificationPermissionUseCase]).
      *
-     * [notificationsAllowed] is saved and immediately overwritten by the resume that follows a
-     * restore, which is what makes it correct: the initial value is only what the screen draws
-     * for the frame before Android is asked again.
+     * [notificationsAllowed] and [healthConnectAvailable] are saved and immediately overwritten
+     * by the resume that follows a restore, which is what makes them correct: the initial value
+     * is only what the screen draws for the frame before Android is asked again.
      */
     @Serializable
     private data class ScreenState(
@@ -380,9 +406,16 @@ class SettingsViewModel @Inject constructor(
         val notificationsAllowed: Boolean = false,
         @Transient
         val notificationPermissionRequest: Boolean = false,
+        val healthConnectAvailable: Boolean = false,
     )
 
     private companion object {
         val SUBSCRIPTION_TIMEOUT_MS = 5.seconds.inWholeMilliseconds
     }
 }
+
+/**
+ * Whether the Health Connect row is drawn: only where Health Connect can be used at all. A status
+ * check that throws hides the row rather than taking settings down with it.
+ */
+private fun HealthConnect.isAvailable(): Boolean = availabilityOrUnsupported() == HealthConnectAvailability.AVAILABLE

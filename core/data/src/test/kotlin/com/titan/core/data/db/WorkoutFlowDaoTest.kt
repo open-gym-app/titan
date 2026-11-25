@@ -81,6 +81,18 @@ class WorkoutFlowDaoTest : RoomTestBase() {
         }
 
     @Test
+    fun `countFinishedBy leaves out sessions imported from Health Connect`() =
+        runBlocking {
+            // The figure the session-count achievements are judged against, and an import earns
+            // nothing — counted here, it would be paid for at the next workout's cascade.
+            val dao = db.workoutSessionDao()
+            dao.insert(session(isInProgress = false, completedAt = 100))
+            dao.insert(session(isInProgress = false, completedAt = 200, healthConnectId = "run-1"))
+
+            assertEquals(1, dao.countFinishedBy(Long.MAX_VALUE))
+        }
+
+    @Test
     fun `countFinishedBy leaves out what finished after the moment, and keeps what finished at it`() =
         runBlocking {
             val dao = db.workoutSessionDao()

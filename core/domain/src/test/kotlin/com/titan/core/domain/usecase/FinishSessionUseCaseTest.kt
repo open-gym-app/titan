@@ -206,6 +206,66 @@ class FinishSessionUseCaseTest {
             assertTrue("expected the cancellation to propagate, got $thrown", thrown is CancellationException)
         }
 
+    private val healthConnectSync = RecordingHealthConnectSyncScheduler()
+
+    /** The finish with the Health Connect queue wired behind it. */
+    private val finishWithHealthConnect =
+        FinishSessionUseCase(sessions, state, drafts, clock, healthConnectSync = healthConnectSync)
+
+    @Test
+    fun `a finished session is queued for Health Connect`() =
+        runTest {
+            val sessionId = startWithSets()
+
+            finishWithHealthConnect().getOrThrow()
+
+            assertEquals(listOf(sessionId), healthConnectSync.requested)
+        }
+
+    @Test
+    fun `a refused finish queues nothing for Health Connect`() =
+        runTest {
+            startSession().getOrThrow()
+
+            finishWithHealthConnect()
+
+            assertTrue(healthConnectSync.requested.isEmpty())
+        }
+
+    @Test
+    fun `a queue that refuses the request leaves the workout finished`() =
+        runTest {
+            val sessionId = startWithSets()
+            healthConnectSync.failure = IllegalStateException("WorkManager is not initialised")
+
+            val finished = finishWithHealthConnect().getOrThrow()
+
+            assertEquals(sessionId, finished.summary.sessionId)
+            assertEquals(false, sessions.stored(sessionId)?.isInProgress)
+        }
+
+    @Test
+    fun `a cancellation during the announcement still leaves the workout queued for Health Connect`() =
+        runTest {
+            // The announcement rethrows a cancellation. The workout is saved by then, and a
+            // request queued behind the announcement would be lost with it.
+            val sessionId = startWithSets()
+            announcer.failure = CancellationException("the screen went away")
+            val finish = FinishSessionUseCase(
+                sessions,
+                state,
+                drafts,
+                clock,
+                completeSession = cascade,
+                announce = announcer,
+                healthConnectSync = healthConnectSync,
+            )
+
+            runCatching { finish() }
+
+            assertEquals(listOf(sessionId), healthConnectSync.requested)
+        }
+
     /** [ProgressionAnnouncer] as a list of what it was handed. */
     private class RecordingProgressionAnnouncer : ProgressionAnnouncer {
 

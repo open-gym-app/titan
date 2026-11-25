@@ -254,15 +254,8 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
                 db.workoutSetDao().getVolumeIn(0, WorkoutHistoryFixture.sessionEpochDay(30)).first()
             }
 
-            // The session recap's records and the session list's badges. The first is bounded by
-            // one session's sets; the second joins every record to its session, so like the
-            // headline it grows with `personal_record`.
-            assertUnder("getBySession", STRESS_BUDGET_MS) {
-                db.personalRecordDao().getBySession(history.sessionIds.last()).first()
-            }
-            assertUnder("observeSessionIdsWithRecords", STRESS_BUDGET_MS) {
-                db.personalRecordDao().observeSessionIdsWithRecords().first()
-            }
+            assertSessionRecordQueriesFast(history.sessionIds.last())
+            assertHealthConnectImportQueriesFast()
         }
 
     @Test
@@ -311,6 +304,36 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
             assertEquals(IMPORTED_WORKOUTS, complete.report.workoutsImported)
             assertTrue("the import took ${elapsedMs}ms against ${allowedMs}ms", elapsedMs < allowedMs)
         }
+
+    /**
+     * The session recap's records and the session list's badges. The first is bounded by one
+     * session's sets; the second joins every record to its session, so like the headline it
+     * grows with `personal_record`.
+     */
+    private suspend fun assertSessionRecordQueriesFast(sessionId: Long) {
+        assertUnder("getBySession", STRESS_BUDGET_MS) {
+            db.personalRecordDao().getBySession(sessionId).first()
+        }
+        assertUnder("observeSessionIdsWithRecords", STRESS_BUDGET_MS) {
+            db.personalRecordDao().observeSessionIdsWithRecords().first()
+        }
+    }
+
+    /**
+     * The Health Connect import's comparison set: a month of sessions by start, then the
+     * disciplines of what was done in them. Not a screen's read, but it runs while the user
+     * watches the import button, and the second query fans out over every session the first found.
+     */
+    private suspend fun assertHealthConnectImportQueriesFast() {
+        val month = WorkoutHistoryFixture.sessionCreatedAt(30)
+        val monthOfSessions = db.workoutSessionDao().getFinishedStartedBetween(0, month).map { it.id }
+        assertUnder("getFinishedStartedBetween over a one-month range", STRESS_BUDGET_MS) {
+            db.workoutSessionDao().getFinishedStartedBetween(0, month)
+        }
+        assertUnder("getPerformedDisciplines over a month of sessions", STRESS_BUDGET_MS) {
+            db.workoutSessionDao().getPerformedDisciplines(monthOfSessions)
+        }
+    }
 
     /**
      * One untimed query and one untimed page first. Without them the first

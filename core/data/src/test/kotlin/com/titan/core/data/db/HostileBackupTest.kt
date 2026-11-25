@@ -230,8 +230,9 @@ class HostileBackupTest : RoomTestBase() {
             // Epoch day −3 was a Monday, so a week opens on a day `d` with `(d + 3) mod 7 = 0`.
             assertTrue(weeks.all { Math.floorMod(it.weekStartEpochDay + 3, 7L) == 0L })
             assertTrue(volume.all { Math.floorMod(it.weekStartEpochDay + 3, 7L) == 0L })
-            // Only the fixture's own finished session is counted.
-            assertEquals(1, weeks.sumOf { it.sessionCount })
+            // Only the fixture's own finished sessions are counted: the one logged and the one
+            // imported from Health Connect, which is a day trained like any other.
+            assertEquals(2, weeks.sumOf { it.sessionCount })
         }
 
     // ─── exercise.default_rest = Long.MAX_VALUE: TemplateDuration subtracted ∞ from ∞ ──────────
@@ -444,6 +445,21 @@ class HostileBackupTest : RoomTestBase() {
             }
 
             assertRefused(progress, "workout_session holds 2 sessions in progress")
+            assertEquals(before, db.dumpEverything())
+        }
+
+    @Test
+    fun `a restore holding one Health Connect record twice is refused and changes nothing`() =
+        runBlocking {
+            db.seedEveryTable()
+            val before = db.dumpEverything()
+
+            val progress = restoreOver { document ->
+                val imported = document.workoutSession.single { it.healthConnectId != null }
+                document.copy(workoutSession = document.workoutSession + imported.copy(id = 9))
+            }
+
+            assertRefused(progress, "workout_session holds two rows with the same health_connect_id")
             assertEquals(before, db.dumpEverything())
         }
 

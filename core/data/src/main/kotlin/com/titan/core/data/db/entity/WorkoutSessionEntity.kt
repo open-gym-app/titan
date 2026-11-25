@@ -21,6 +21,10 @@ import androidx.room.PrimaryKey
         Index("created_at"),
         Index("last_active_at"),
         Index("template_id"),
+        // Unique, and what makes a second import of the same record a no-op even when two
+        // imports race: `INSERT OR IGNORE` keeps whichever lands first. NULL for every session
+        // logged here, and SQLite treats NULLs as distinct, so those never collide.
+        Index(value = ["health_connect_id"], unique = true),
     ],
 )
 data class WorkoutSessionEntity(
@@ -47,4 +51,13 @@ data class WorkoutSessionEntity(
     val createdAt: Long,
     @ColumnInfo(name = "updated_at")
     val updatedAt: Long,
+    /** See [com.titan.core.domain.model.WorkoutSession.healthConnectId]. */
+    @ColumnInfo(name = "health_connect_id")
+    val healthConnectId: String? = null,
+    /**
+     * A [com.titan.core.domain.model.WorkoutActivity] name, for an imported session only. See
+     * [com.titan.core.domain.model.WorkoutSession.healthConnectActivity].
+     */
+    @ColumnInfo(name = "health_connect_activity")
+    val healthConnectActivity: String? = null,
 )

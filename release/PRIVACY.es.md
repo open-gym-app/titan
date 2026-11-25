@@ -1,6 +1,6 @@
 # Política de privacidad de Titan
 
-*Vigente desde el 12 de noviembre de 2026. También disponible en [English](PRIVACY.md), [français](PRIVACY.fr.md) y [português (Brasil)](PRIVACY.pt-BR.md). En caso de discrepancia, prevalece la versión en inglés.*
+*Vigente desde el 19 de noviembre de 2026. También disponible en [English](PRIVACY.md), [français](PRIVACY.fr.md) y [português (Brasil)](PRIVACY.pt-BR.md). En caso de discrepancia, prevalece la versión en inglés.*
 
 Titan es un diario de entrenamiento para Android. Es gratuito, de código abierto y lo
 desarrollan voluntarios. Esta política cubre la app Titan (`app.titan.gym`) tal como se
@@ -46,10 +46,27 @@ en el teléfono, y Android los borra cuando desinstalas la app.
 
 El peso, la grasa corporal y las medidas corporales son datos de salud. Titan los usa para
 una sola cosa: mostrarte tus propios registros y su evolución. Nunca se transmiten, venden,
-comparten ni usan con fines publicitarios. Titan no lee ni escribe nada en Health Connect ni
-en ningún otro servicio de salud. Si una versión futura añade la sincronización con Health
-Connect, esta política se actualizará antes de publicarla, y la sincronización estará
-desactivada hasta que tú la actives.
+comparten ni usan con fines publicitarios.
+
+**Health Connect.** Titan puede intercambiar entrenamientos con Health Connect, el almacén de
+salud de Android que está en tu teléfono y que también usan otras apps de deporte. Está
+desactivado hasta que lo conectas en Ajustes › Datos y privacidad › Health Connect y lo
+permites en la ventana de Health Connect, y puedes desconectarlo en cualquier momento, ahí o en
+Health Connect. Una vez conectado:
+
+- Cuando terminas un entrenamiento, Titan lo escribe en Health Connect como una sesión de
+  ejercicio: su tipo, cuándo empezó y terminó, su nombre y sus notas. Tus series, pesos y
+  repeticiones no se escriben.
+- Cuando eliges **Importar los últimos 30 días**, Titan lee las sesiones de ejercicio que otras
+  apps guardaron en Health Connect en los últimos 30 días y las añade a tu historial.
+
+Titan solo lee y escribe sesiones de ejercicio. No lee ni escribe tu peso, tu grasa corporal,
+tu frecuencia cardiaca ni ningún otro dato de Health Connect. Health Connect está en tu
+teléfono, así que nada de esto sale de él. Los datos que Titan lee de Health Connect solo se
+usan para mostrarte tu propio historial, y nunca se transmiten, venden, comparten ni usan con
+fines publicitarios. Lo que Titan escribe en Health Connect pueden leerlo allí las otras apps a
+las que se lo hayas permitido, según sus propias condiciones; puedes verlo y borrarlo en Health
+Connect.
 
 ## Qué no hace la app
 
@@ -92,6 +109,7 @@ Android.
 | `POST_NOTIFICATIONS` | Para mostrar las notificaciones anteriores. Android 13 o superior te lo pregunta antes. |
 | `SCHEDULE_EXACT_ALARM` (Android 12 o inferior) / `USE_EXACT_ALARM` | Para terminar un descanso al segundo exacto y lanzar un recordatorio a la hora que elegiste. |
 | `RECEIVE_BOOT_COMPLETED` | Para volver a programar los recordatorios y la copia semanal después de reiniciar el teléfono. |
+| `health.READ_EXERCISE`, `health.WRITE_EXERCISE` | Para importar entrenamientos de Health Connect y escribir en él los que terminas, como se describe en § Datos de salud. Health Connect te lo pregunta antes, y ninguno se concede si no lo conectas. |
 | `VIBRATE` | Para vibrar al terminar un descanso. |
 | `WAKE_LOCK`, `FOREGROUND_SERVICE`, `ACCESS_NETWORK_STATE` | Los añade la biblioteca de planificación de tareas de Android (WorkManager), que ejecuta la copia semanal. Ninguno da acceso a la red. |
 | `app.titan.gym.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | Lo añade la biblioteca AndroidX core. Impide que otras apps envíen mensajes internos a la app. |

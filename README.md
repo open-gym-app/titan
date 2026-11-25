@@ -47,6 +47,7 @@ All data lives on your device. **No account required**, and no ads.
 - **Reminders**: a notification on the days and at the time you plan to train.
 - **Backup & restore**: export everything to a file, or restore a device from one. Nothing leaves the phone unless you send it somewhere yourself.
 - **Import from another app**: bring a whole history from Strong, Hevy, FitNotes, JEFIT, Fitbod or StrongLifts, or from any spreadsheet in [Titan's CSV format](docs/import-csv.md). It is added to what is on the phone, never replaces it, and its records, XP and achievements are worked out from the sets.
+- **Health Connect**: once you connect it, every finished workout is written to Android's Health Connect, and workouts other apps saved there in the last 30 days can be imported. Off until you turn it on, and on the phone either way.
 - **Themes, units and locales**: light or dark, metric or imperial, and the app is available in English, French, Spanish and Portuguese.
 - **Accessibility**: built and checked against TalkBack, large fonts and one-handed use; see [ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
 
@@ -56,7 +57,7 @@ The following are not in v1 and are not yet built. They show up disabled in Sett
 
 - **Marketplace**: sharing and downloading templates and challenges from other users.
 - **Gym map**: finding gyms and equipment nearby.
-- **Health Connect**: syncing body measurements with Android's Health Connect.
+- **Health Connect for body data**: syncing body weight and body fat with Android's Health Connect, as workouts already are (#350).
 
 ## Getting started
 

@@ -242,6 +242,17 @@ class ImportHistoryUseCaseTest {
         }
 
     @Test
+    fun `a session imported from Health Connect is not replayed, so it still earns nothing`() =
+        runBlocking {
+            // No sets, as Health Connect's sessions have none, and finished among the imported workouts.
+            val fromHealthConnect = sessions.insert(finished(day = 10).copy(healthConnectId = "run-1"))
+
+            import(ImportedHistory(workouts = listOf(workout(day = 5), workout(day = 20))))
+
+            assertTrue("the replay paid for the session", gamification.claimSessionXp(fromHealthConnect))
+        }
+
+    @Test
     fun `a workout's calories and rating are written on its session`() =
         runBlocking {
             import(ImportedHistory(workouts = listOf(workout(day = 1).copy(calories = 520, rating = 4))))

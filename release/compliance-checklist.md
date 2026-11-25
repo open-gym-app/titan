@@ -13,7 +13,7 @@ request, or the release does not go out (#45).
 | Public URL (Play listing) | <https://open-gym-app.github.io/privacy> |
 | Translated URLs | <https://open-gym-app.github.io/fr/privacy>, <https://open-gym-app.github.io/es/privacy>, <https://open-gym-app.github.io/pt-BR/privacy> |
 | Site source | `open-gym-app/open-gym-app.github.io`: `docs/src/pages/privacy.mdx` and `docs/i18n/<locale>/docusaurus-plugin-content-pages/privacy.mdx` |
-| Effective date | 12 November 2026 |
+| Effective date | 19 November 2026 |
 
 The site pages repeat this directory's text word for word (the app name is a variable there,
 so a rename touches one line). **A change to the policy is a change to both repositories**,
@@ -57,8 +57,9 @@ stay down and step the total with ±15s (#245)") with:
 
 - **Heart rate is not collected.** `workout_set` has `heart_rate_avg` and `heart_rate_max`
   columns, but no screen in this version writes them: the active session only carries them
-  through when a set is edited. A version that records heart rate (by hand, or from Health
-  Connect in #54) must add it to the privacy policy's list of health data and to the Health
+  through when a set is edited, and the Health Connect integration (#54) reads and writes exercise
+  sessions only, never heart rate. A version that records heart rate (by hand, or from Health
+  Connect) must add it to the privacy policy's list of health data and to the Health
   apps declaration before it ships.
 
 Re-run the two commands at the release commit and update the hash above. Any new permission or
@@ -75,6 +76,8 @@ Every `uses-permission` in the merged release manifest. **#48's security audit
 | `android.permission.SCHEDULE_EXACT_ALARM` (`maxSdkVersion="32"`) | `:core:data` | Exact alarm for the background rest timer, workout reminders and the unfinished-session note on Android 12 and below, where it is granted at install. |
 | `android.permission.USE_EXACT_ALARM` | `:core:data` | Exact alarm for the background rest timer, workout reminders and the unfinished-session note on Android 13+. Restricted by Play to alarm, calendar and **timer** apps; a user-started rest timer is a timer. Falls back to an inexact alarm if refused. |
 | `android.permission.RECEIVE_BOOT_COMPLETED` | `:core:data`, `androidx.work:work-runtime` | Reschedules reminder alarms after a reboot (`AlarmManager` keeps none) and lets WorkManager reschedule the weekly auto-backup. |
+| `android.permission.health.READ_EXERCISE` | `:core:data` | Health Connect (#54): reads exercise sessions other apps saved in the last 30 days, when the user imports them. Granted in Health Connect's own dialog, after an in-app rationale; never at install. |
+| `android.permission.health.WRITE_EXERCISE` | `:core:data` | Health Connect (#54): writes each finished workout as an exercise session (type, start and end, name, notes; no sets). Granted like the one above. |
 | `android.permission.VIBRATE` | `:core:ui` | The buzz at the end of a rest (`RestExpiryAlert`). |
 | `android.permission.WAKE_LOCK` | `androidx.work:work-runtime` | WorkManager holds a wake lock while the weekly auto-backup runs. |
 | `android.permission.ACCESS_NETWORK_STATE` | `androidx.work:work-runtime` | WorkManager's network constraints. The app sets none, and the permission reads connectivity state only; it cannot open a socket. |
@@ -95,7 +98,7 @@ Record the date each is submitted. An answer changes only with this file.
 | **News app** | No. | ☐ |
 | **Government app** | No. | ☐ |
 | **Financial features** | None. | ☐ |
-| **Health apps** | Yes: *Fitness › activity and fitness tracking* and *body measurements*. Health data (body weight, body fat, body measurements) is stored on device only, never transmitted, never used for ads. Not connected to Health Connect in this version (#54 will need a new declaration). Privacy policy names health data explicitly (§ Health data). | ☐ |
+| **Health apps** | Yes: *Fitness › activity and fitness tracking* and *body measurements*. Health data (body weight, body fat, body measurements) is stored on device only, never transmitted, never used for ads. Connected to Health Connect for **exercise sessions only** (`READ_EXERCISE`, `WRITE_EXERCISE`, #54): finished workouts are written, other apps' sessions from the last 30 days are imported on request, both on device. This needs Play's Health Connect permissions declaration as well, with the in-app rationale (`HealthConnectPrivacyActivity`) as the evidence of what each permission is for. Privacy policy names health data and the Health Connect sync explicitly (§ Health data). | ☐ |
 | **Exact alarm permission** (`USE_EXACT_ALARM`) | Core functionality: *Timer* — the rest timer between sets must go off on the second, with the screen off. Also used for user-scheduled workout reminders. | ☐ |
 | **Foreground service permissions** | Not applicable: no `foregroundServiceType` declared (see Evidence). | ☐ |
 | **Data safety** | See below. | ☐ |
@@ -153,6 +156,13 @@ on the device and never sent off it, which describes everything here. Health dat
 weight, body fat, measurements) and fitness data (workouts) are *processed on the device*
 and stored there. They are not *collected*, so they are not declared, and the form does not
 ask about them further.
+
+**Health Connect.** Exercise sessions written to Health Connect, and the ones read from it, move
+between two stores on the same phone, at the user's request, through a permission they granted
+in Health Connect's own dialog. Nothing is transmitted off the device, so the answer above is
+unchanged. Confirm that reading against Play's current Data safety guidance on Health Connect
+when the form is submitted: it is the one answer here that depends on Play's interpretation
+rather than on what the build does.
 
 **The export file.** Settings › Backup & restore › Export writes a JSON file of all data and
 hands it to the Android share sheet or a folder the user picks. That transfer is initiated

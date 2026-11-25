@@ -1,5 +1,6 @@
 package com.titan.core.data.di
 
+import com.titan.core.domain.healthconnect.HealthConnectSyncScheduler
 import com.titan.core.domain.notification.ProgressionAnnouncer
 import com.titan.core.domain.repository.BodyMeasurementRepository
 import com.titan.core.domain.repository.ExerciseRepository
@@ -135,6 +136,7 @@ object SessionUseCaseModule {
         exerciseRepository: ExerciseRepository,
         userPreferencesRepository: UserPreferencesRepository,
         bodyMeasurementRepository: BodyMeasurementRepository,
+        healthConnectSync: HealthConnectSyncScheduler,
         clock: Clock,
     ): FinishSessionUseCase =
         FinishSessionUseCase(
@@ -169,6 +171,11 @@ object SessionUseCaseModule {
                 userPreferencesRepository = userPreferencesRepository,
                 bodyMeasurementRepository = bodyMeasurementRepository,
             ),
+            // The finished workout, queued for Health Connect (#54). Non-optional for the reason
+            // the two above are: the finish that would otherwise be missing from Health Connect
+            // is the idle nudge's, which has no screen to do it from. Whether anything is
+            // written is the permission's business, asked when the queued work runs.
+            healthConnectSync = healthConnectSync,
         )
 
     @Provides
@@ -295,8 +302,10 @@ object SessionUseCaseModule {
 
     /** No state check either — a session logged last March is renamed the same way. */
     @Provides
-    fun provideRenameSessionUseCase(sessionRepository: SessionRepository): RenameSessionUseCase =
-        RenameSessionUseCase(sessionRepository)
+    fun provideRenameSessionUseCase(
+        sessionRepository: SessionRepository,
+        healthConnectSync: HealthConnectSyncScheduler,
+    ): RenameSessionUseCase = RenameSessionUseCase(sessionRepository, healthConnectSync)
 
     /** Calories and the rating, from the recap — no state check, for the rename's reason. */
     @Provides

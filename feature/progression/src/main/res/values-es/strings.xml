@@ -208,7 +208,7 @@
     <string name="photos_add_failed">No se pudo añadir esa foto.</string>
     <string name="photos_delete_failed">No se pudo eliminar esa foto.</string>
 
-    <!-- ── Health Connect, disabled until #54 ───────────────────────────────────── -->
+    <!-- ── Health Connect, disabled: body measurements do not sync (#350) ──────── -->
 
     <string name="body_health_connect_heading">Health Connect</string>
     <string name="body_health_connect_label">Sincronizar con Health Connect</string>

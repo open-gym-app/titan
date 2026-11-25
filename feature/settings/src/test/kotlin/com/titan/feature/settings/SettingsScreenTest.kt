@@ -68,6 +68,9 @@ class SettingsScreenTest {
     /** How many times the Open source licences row asked to navigate. */
     private var licencesOpened = 0
 
+    /** How many times the Health Connect row asked to navigate. */
+    private var healthConnectOpened = 0
+
     // --- reading the stored values ----------------------------------------
 
     @Test
@@ -326,7 +329,6 @@ class SettingsScreenTest {
         // `assertIsNotEnabled` reads the semantics tree, which is what TalkBack reads. A row
         // that was only dimmed would pass a screenshot test and fail a blind user.
         listOf(
-            "Health Connect",
             // "Marketplace deals" is the last row left in the notifications group that has
             // nothing behind it — it belongs to the Community and Marketplace milestone (#52). Every other row there is a live switch.
             "Marketplace deals",
@@ -340,8 +342,27 @@ class SettingsScreenTest {
     fun `tapping a disabled row does nothing at all`() {
         setContent()
 
-        composeTestRule.onNodeWithText("Health Connect").performScrollTo().performClick()
+        composeTestRule.onNodeWithText("Donate").performScrollTo().performClick()
 
+        assertEquals(emptyList<SettingsEvent>(), events)
+    }
+
+    // --- Health Connect ---------------------------------------------------
+
+    @Test
+    fun `the Health Connect row is hidden where Health Connect is not available`() {
+        setContent(healthConnectAvailable = false)
+
+        composeTestRule.onNodeWithText("Health Connect").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the Health Connect row navigates rather than reporting an event`() {
+        setContent(healthConnectAvailable = true)
+
+        composeTestRule.onNodeWithText("Health Connect").performScrollTo().assertIsEnabled().performClick()
+
+        assertEquals(1, healthConnectOpened)
         assertEquals(emptyList<SettingsEvent>(), events)
     }
 
@@ -765,6 +786,7 @@ class SettingsScreenTest {
         notificationPermission: NotificationPermissionState = NotificationPermissionState.GRANTED,
         missingDefaultTemplates: List<String> = emptyList(),
         message: SettingsMessage? = null,
+        healthConnectAvailable: Boolean = false,
     ) {
         composeTestRule.setContent {
             TitanTheme {
@@ -777,6 +799,7 @@ class SettingsScreenTest {
                         notificationPermission = notificationPermission,
                         missingDefaultTemplates = missingDefaultTemplates,
                         message = message,
+                        healthConnectAvailable = healthConnectAvailable,
                     ),
                     appVersion = appVersion,
                     onEvent = events::add,
@@ -787,6 +810,7 @@ class SettingsScreenTest {
                     onOpenNotificationSettings = { notificationSettingsOpened++ },
                     onOpenReminders = { remindersOpened++ },
                     onOpenLicences = { licencesOpened++ },
+                    onOpenHealthConnect = { healthConnectOpened++ },
                 )
             }
         }

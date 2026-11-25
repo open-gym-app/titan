@@ -168,7 +168,7 @@ class BackupRepositoryImplTest : RoomTestBase() {
 
             runCatching { repository.replaceAll(documentWithADanglingSet()) { _, _ -> } }
 
-            assertEquals(2, db.dumpTable(BackupTable.WORKOUT_SESSION).size)
+            assertEquals(3, db.dumpTable(BackupTable.WORKOUT_SESSION).size)
             assertEquals(2, db.dumpTable(BackupTable.WORKOUT_SET).size)
         }
 

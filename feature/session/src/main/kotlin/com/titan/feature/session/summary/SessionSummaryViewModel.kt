@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.titan.core.domain.healthconnect.HealthConnectSyncScheduler
 import com.titan.core.domain.model.Exercise
 import com.titan.core.domain.model.ExerciseMuscleGroupLink
 import com.titan.core.domain.model.MuscleGroup
@@ -88,6 +89,7 @@ class SessionSummaryViewModel @Inject constructor(
     private val renameSession: RenameSessionUseCase,
     private val recordEffort: RecordSessionEffortUseCase,
     progressionHandoff: SessionProgressionHandoff,
+    private val healthConnectSync: HealthConnectSyncScheduler,
 ) : ViewModel() {
 
     private val destination: SessionSummaryDestination = savedStateHandle.toRoute()
@@ -367,6 +369,10 @@ class SessionSummaryViewModel @Inject constructor(
      * [Throwable] rather than a type, for the same reason: a store that cannot be written
      * fails in more than one way and all of them are the same event to somebody looking at a
      * text field.
+     *
+     * The note is also the notes of the session's Health Connect record, so a saved note asks
+     * for the record to be written again — after the save, best-effort, and only for a session
+     * that is finished, as [RenameSessionUseCase] does for the title.
      */
     private fun saveNote() {
         val session = loaded.value?.session ?: return
@@ -378,6 +384,7 @@ class SessionSummaryViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 sessionRepository.update(session.copy(notes = text.trim().ifEmpty { null }))
+                if (session.completedAt != null) runCatching { healthConnectSync.requestSync(session.id) }
                 // Closed on success only. The re-read from Room is what draws the new note;
                 // nothing is copied into local state to be kept in step with it.
                 screenState.update { it.copy(noteDraft = null, isSavingNotes = false) }

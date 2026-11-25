@@ -11,6 +11,7 @@ import androidx.navigation.navDeepLink
 import com.titan.core.domain.navigation.DeepLinks
 import com.titan.feature.settings.SettingsRoute
 import com.titan.feature.settings.backup.BackupRoute
+import com.titan.feature.settings.healthconnect.HealthConnectRoute
 import com.titan.feature.settings.importer.ImportRoute
 import com.titan.feature.settings.licences.OpenSourceLicencesRoute
 import com.titan.feature.settings.reminder.ReminderRoute
@@ -70,11 +71,19 @@ data object ReminderDestination
 data object OpenSourceLicencesDestination
 
 /**
+ * Health Connect (#54), one push above settings, from the Data & privacy row of the same name.
+ *
+ * In this module for the reason [BackupDestination] is: its only entry point is a settings row.
+ */
+@Serializable
+data object HealthConnectDestination
+
+/**
  * @param appVersion the running build's version name, from `:app`. A feature module's own
  *   `BuildConfig` carries the library's version, which is not the number a user is being asked
  *   to quote in a bug report — nor the one an export should stamp into its envelope.
  * @param onBack leave the current screen. Hoisted like every other navigation action: the
- *   `NavController` belongs to `:app`. It serves all five destinations, since every one of
+ *   `NavController` belongs to `:app`. It serves all six destinations, since every one of
  *   them is one pop from where the user came from.
  * @param onOpenBackup open [BackupDestination]. Hoisted even though it stays inside this
  *   module, for the reason `progressionDetailGraph` hoists its own intra-slice push: the
@@ -86,6 +95,8 @@ data object OpenSourceLicencesDestination
  *   [onOpenBackup]: the controller is `:app`'s.
  * @param onOpenLicences open [OpenSourceLicencesDestination]. Hoisted for the same reason as
  *   [onOpenBackup]: the controller is `:app`'s.
+ * @param onOpenHealthConnect open [HealthConnectDestination]. Hoisted for the same reason as
+ *   [onOpenBackup]: the controller is `:app`'s.
  */
 fun NavGraphBuilder.settingsGraph(
     appVersion: String,
@@ -95,6 +106,7 @@ fun NavGraphBuilder.settingsGraph(
     onOpenExerciseLibrary: () -> Unit,
     onOpenReminders: () -> Unit,
     onOpenLicences: () -> Unit,
+    onOpenHealthConnect: () -> Unit,
 ) {
     composable<SettingsDestination> {
         SettingsRoute(
@@ -104,6 +116,7 @@ fun NavGraphBuilder.settingsGraph(
             onOpenImport = onOpenImport,
             onOpenReminders = onOpenReminders,
             onOpenLicences = onOpenLicences,
+            onOpenHealthConnect = onOpenHealthConnect,
         )
     }
     composable<BackupDestination> {
@@ -118,6 +131,9 @@ fun NavGraphBuilder.settingsGraph(
     }
     composable<ReminderDestination> {
         ReminderRoute(onBack = onBack)
+    }
+    composable<HealthConnectDestination> {
+        HealthConnectRoute(onBack = onBack)
     }
     composable<OpenSourceLicencesDestination> {
         OpenSourceLicencesRoute(onBack = onBack)
