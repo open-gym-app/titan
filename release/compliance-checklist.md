@@ -13,7 +13,7 @@ request, or the release does not go out (#45).
 | Public URL (Play listing) | <https://open-gym-app.github.io/privacy> |
 | Translated URLs | <https://open-gym-app.github.io/fr/privacy>, <https://open-gym-app.github.io/es/privacy>, <https://open-gym-app.github.io/pt-BR/privacy> |
 | Site source | `open-gym-app/open-gym-app.github.io`: `docs/src/pages/privacy.mdx` and `docs/i18n/<locale>/docusaurus-plugin-content-pages/privacy.mdx` |
-| Effective date | 12 November 2026 |
+| Effective date | 25 November 2026 |
 
 The site pages repeat this directory's text word for word (the app name is a variable there,
 so a rename touches one line). **A change to the policy is a change to both repositories**,
