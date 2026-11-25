@@ -44,6 +44,7 @@ fun TitanDockContent(
         header = stringResource(R.string.titan_header, name, state.level),
         status = status,
         activity = state.activity,
+        place = state.place,
         vitals = state.vitals,
         alert = state.alert,
         head = state.head,

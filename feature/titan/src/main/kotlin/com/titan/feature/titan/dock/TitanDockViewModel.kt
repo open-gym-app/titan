@@ -6,6 +6,7 @@ import com.titan.core.domain.gamification.TitanRules
 import com.titan.core.domain.gamification.level
 import com.titan.core.domain.model.Pet
 import com.titan.core.domain.model.TitanActivity
+import com.titan.core.domain.model.TitanPlace
 import com.titan.core.domain.model.TitanVital
 import com.titan.core.domain.model.TitanVitals
 import com.titan.core.domain.repository.LoadoutRepository
@@ -39,6 +40,7 @@ sealed interface TitanDockUiState {
         val name: String?,
         val level: Int,
         val activity: TitanActivity,
+        val place: TitanPlace,
         val vitals: TitanVitals,
         val alert: TitanVital?,
         val head: String?,
@@ -76,6 +78,7 @@ class TitanDockViewModel @Inject constructor(
                 name = pet.nickname,
                 level = pet.level,
                 activity = titan.activity,
+                place = TitanPlace.byKey(loadout[TitanPlace.LOADOUT_SLOT]) ?: TitanPlace.DEFAULT,
                 vitals = titan.vitals,
                 alert = TitanRules.alertFor(titan.vitals),
                 head = loadout["head"],

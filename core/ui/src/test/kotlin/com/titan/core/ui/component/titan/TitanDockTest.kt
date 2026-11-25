@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.titan.core.domain.model.TitanActivity
+import com.titan.core.domain.model.TitanPlace
 import com.titan.core.domain.model.TitanVital
 import com.titan.core.domain.model.TitanVitals
 import com.titan.core.ui.theme.TitanTheme
@@ -38,6 +39,7 @@ class TitanDockTest {
                     header = "Brick · Lvl 14",
                     status = "On a run",
                     activity = activity,
+                    place = TitanPlace.POOL,
                     vitals = TitanVitals(fuel = 22, spirit = 55),
                     alert = TitanVital.FUEL,
                     head = null,

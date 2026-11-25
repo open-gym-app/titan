@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,6 +48,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.titan.core.domain.model.ThemePreference
 import com.titan.core.domain.model.TitanActivity
+import com.titan.core.domain.model.TitanPlace
 import com.titan.core.domain.model.TitanVital
 import com.titan.core.domain.model.TitanVitals
 import com.titan.core.ui.theme.LocalReducedMotion
@@ -66,6 +68,7 @@ import kotlin.math.roundToInt
  *
  * @param header the `NAME · LVL n` line, as given (it is drawn uppercase).
  * @param status what the titan is doing, in words.
+ * @param place the habitat drawn behind the titan, as on the Titan tab.
  * @param alert the one vital to flag, if any.
  */
 @Composable
@@ -74,6 +77,7 @@ fun TitanDock(
     header: String,
     status: String,
     activity: TitanActivity,
+    place: TitanPlace,
     vitals: TitanVitals,
     alert: TitanVital?,
     head: String?,
@@ -99,7 +103,7 @@ fun TitanDock(
             .clickable(onClick = onClick),
     ) {
         Row(modifier = Modifier.fillMaxHeight()) {
-            DockStage(activity, head, face, Modifier.weight(1f).fillMaxHeight())
+            DockStage(activity, place, head, face, Modifier.weight(1f).fillMaxHeight())
             VerticalDivider(color = rule)
             Column(
                 modifier = Modifier
@@ -132,10 +136,11 @@ fun TitanDock(
     }
 }
 
-/** The stage: the ground, the titan, and the water when it swims. Clipped to the strip. */
+/** The stage: the habitat, the titan, and the water when it swims. Clipped to the strip. */
 @Composable
 private fun DockStage(
     activity: TitanActivity,
+    place: TitanPlace,
     head: String?,
     face: String?,
     modifier: Modifier,
@@ -147,9 +152,11 @@ private fun DockStage(
         val lap = LAP_MILLIS[activity]
         val roam = if (lap != null && !reducedMotion) roaming(lap) else remember { mutableFloatStateOf(STILL) }
 
-        HorizontalDivider(
-            color = sprite.ground,
-            modifier = Modifier.align(Alignment.TopStart).offset(y = GROUND_LINE),
+        TitanHabitat(
+            place = place,
+            // The sprite's own height, overflowing the strip the same way, so the habitat's floor
+            // is drawn at the sprite's scale and meets its feet.
+            modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().requiredHeight(SPRITE_HEIGHT),
         )
         TitanSprite(
             activity = activity,
@@ -239,7 +246,6 @@ private val DOCK_HEIGHT = TitanDockHeight
 private val COLUMN_WIDTH = 128.dp
 private val SPRITE_WIDTH = 128.dp
 private val SPRITE_HEIGHT = 80.dp
-private val GROUND_LINE = 61.dp
 private val WATER_TOP = 45.dp
 private val EDGE = 4.dp
 private val SNAP = 2.dp
@@ -292,6 +298,7 @@ private fun DockPreviews(theme: ThemePreference) {
                     header = "Brick · Lvl 14",
                     status = status,
                     activity = activity,
+                    place = PREVIEW_PLACES[activity] ?: TitanPlace.TRACK,
                     vitals = TitanVitals(
                         fuel = if (alert == TitanVital.FUEL) 22 else 64,
                         spirit = if (alert == TitanVital.SPIRIT) 18 else 55,
@@ -306,3 +313,11 @@ private fun DockPreviews(theme: ThemePreference) {
         }
     }
 }
+
+private val PREVIEW_PLACES = mapOf(
+    TitanActivity.SWIM to TitanPlace.POOL,
+    TitanActivity.TRAIN to TitanPlace.RACK,
+    TitanActivity.REST to TitanPlace.SAUNA,
+    TitanActivity.IDLE to TitanPlace.TRAIL,
+    TitanActivity.EAT to TitanPlace.RING,
+)
