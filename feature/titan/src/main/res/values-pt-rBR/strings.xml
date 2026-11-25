@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- See values/strings.xml. -->
-    <string name="titan_tab_title">Titã</string>
     <string name="titan_rename">Renomear %1$s</string>
     <string name="titan_rename_title">Renomear %1$s</string>
     <string name="titan_rename_field">Nome</string>

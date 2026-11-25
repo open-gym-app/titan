@@ -38,10 +38,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -120,16 +118,12 @@ private fun TitanHome(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = TitanTheme.spacing.screen)
+            .padding(top = TitanTheme.spacing.lg)
             .padding(bottom = TitanTheme.spacing.section),
         verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.section),
     ) {
-        Header(
-            title = stringResource(R.string.titan_tab_title),
-            renameLabel = stringResource(R.string.titan_rename, name),
-            onRename = { onEvent(TitanTabEvent.StartRename) },
-        )
         if (state.roster.size > 1 || state.eggs.isNotEmpty()) Roster(state, onEvent)
-        StageCard(state, name)
+        StageCard(state, name, onRename = { onEvent(TitanTabEvent.StartRename) })
         Vitals(state)
         Supplies(state, name, onEvent, onOpenInventory)
     }
@@ -137,33 +131,10 @@ private fun TitanHome(
 }
 
 @Composable
-private fun Header(
-    title: String,
-    renameLabel: String,
-    onRename: () -> Unit,
-    showRename: Boolean = true,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().height(56.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            title,
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.weight(1f).semantics { heading() },
-        )
-        if (showRename) {
-            IconButton(onClick = onRename) {
-                Icon(Icons.Outlined.Edit, contentDescription = renameLabel)
-            }
-        }
-    }
-}
-
-@Composable
 private fun StageCard(
     state: TitanTabUiState.Titan,
     name: String,
+    onRename: () -> Unit,
 ) {
     val status = stringResource(state.activity.status())
     val note = stringResource(state.activity.note())
@@ -172,13 +143,26 @@ private fun StageCard(
             modifier = Modifier.padding(TitanTheme.spacing.card),
             verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.lg),
         ) {
-            Row(modifier = Modifier.fillMaxWidth()) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     stringResource(R.string.titan_header, name, state.level).uppercase(),
                     style = TitanTheme.typography.eyebrow,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
+                // The name is what gets renamed, so the pencil sits beside it: the app bar above
+                // already titles the tab.
+                IconButton(onClick = onRename, modifier = Modifier.size(MIN_TOUCH_TARGET)) {
+                    Icon(
+                        Icons.Outlined.Edit,
+                        contentDescription = stringResource(R.string.titan_rename, name),
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Box(Modifier.weight(1f))
                 Text(
                     stringResource(R.string.titan_power, state.power).uppercase(),
                     style = TitanTheme.typography.eyebrow,
@@ -553,10 +537,10 @@ private fun NoTitan(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = TitanTheme.spacing.screen),
+            .padding(horizontal = TitanTheme.spacing.screen)
+            .padding(top = TitanTheme.spacing.lg),
         verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.section),
     ) {
-        Header(title = stringResource(R.string.titan_tab_title), renameLabel = "", onRename = {}, showRename = false)
         EmptyState(
             title = stringResource(R.string.titan_none_title),
             description = stringResource(R.string.titan_none_body),

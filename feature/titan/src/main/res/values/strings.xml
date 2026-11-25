@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- The Titan tab: the companion, what it does next, its vitals and its supplies. -->
-    <string name="titan_tab_title">Titan</string>
     <string name="titan_rename">Rename %1$s</string>
     <string name="titan_rename_title">Rename %1$s</string>
     <string name="titan_rename_field">Name</string>
