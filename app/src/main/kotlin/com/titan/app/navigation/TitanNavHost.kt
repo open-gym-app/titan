@@ -478,6 +478,11 @@ fun TitanNavHost(
             onOpenProgressPhotos = {
                 navController.navigate(ProgressPhotosDestination) { launchSingleTop = true }
             },
+            // The settings feature's screen, pushed over the body screen: back returns to the
+            // measurements, which is where the user came from.
+            onOpenHealthConnect = {
+                navController.navigate(HealthConnectDestination) { launchSingleTop = true }
+            },
         )
 
         settingsGraph(

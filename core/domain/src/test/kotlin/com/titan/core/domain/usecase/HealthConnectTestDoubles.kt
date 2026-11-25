@@ -3,6 +3,9 @@ package com.titan.core.domain.usecase
 import com.titan.core.domain.healthconnect.HealthConnect
 import com.titan.core.domain.healthconnect.HealthConnectAccess
 import com.titan.core.domain.healthconnect.HealthConnectAvailability
+import com.titan.core.domain.healthconnect.HealthConnectBodyMetric
+import com.titan.core.domain.healthconnect.HealthConnectBodyReading
+import com.titan.core.domain.healthconnect.HealthConnectBodyRecord
 import com.titan.core.domain.healthconnect.HealthConnectRecord
 import com.titan.core.domain.healthconnect.HealthConnectSession
 import com.titan.core.domain.healthconnect.HealthConnectSyncScheduler
@@ -28,7 +31,16 @@ class FakeHealthConnect(
     /** Every read window asked for, as `from until`. */
     val reads = mutableListOf<LongRange>()
 
-    /** Thrown from [writeSession] and [readSessions] instead of answering, when set. */
+    /** Body records other apps wrote, as [readBodyReadings] will return them. */
+    val bodyRecords = mutableListOf<HealthConnectBodyRecord>()
+
+    /** Every [writeBodyReading] call, in order. */
+    val bodyWrites = mutableListOf<BodyWrite>()
+
+    /** Every [deleteBodyReading] call, in order. */
+    val bodyDeletes = mutableListOf<BodyDelete>()
+
+    /** Thrown from every write and read instead of answering, when set. */
     var failure: Throwable? = null
 
     var revoked = false
@@ -37,6 +49,36 @@ class FakeHealthConnect(
     override fun availability(): HealthConnectAvailability = availability
 
     override val permissions: Set<String> = setOf(READ_PERMISSION, WRITE_PERMISSION)
+
+    override suspend fun writeBodyReading(
+        measurementId: Long,
+        version: Long,
+        reading: HealthConnectBodyReading,
+    ) {
+        failure?.let { throw it }
+        bodyWrites += BodyWrite(measurementId, version, reading)
+    }
+
+    override suspend fun deleteBodyReading(
+        measurementId: Long,
+        measuredAt: Long,
+        metric: HealthConnectBodyMetric,
+    ) {
+        failure?.let { throw it }
+        bodyDeletes += BodyDelete(measurementId, measuredAt, metric)
+    }
+
+    override suspend fun readBodyReadings(
+        metric: HealthConnectBodyMetric,
+        measuredFrom: Long,
+        measuredUntil: Long,
+    ): List<HealthConnectBodyRecord> {
+        failure?.let { throw it }
+        return bodyRecords.filter {
+            it.reading.metric == metric &&
+                it.reading.measuredAt in measuredFrom until measuredUntil
+        }
+    }
 
     override suspend fun grantedAccess(): Set<HealthConnectAccess> =
         if (availability == HealthConnectAvailability.AVAILABLE) granted else emptySet()
@@ -70,6 +112,18 @@ class FakeHealthConnect(
         val sessionId: Long,
         val version: Long,
         val session: HealthConnectSession,
+    )
+
+    data class BodyWrite(
+        val measurementId: Long,
+        val version: Long,
+        val reading: HealthConnectBodyReading,
+    )
+
+    data class BodyDelete(
+        val measurementId: Long,
+        val measuredAt: Long,
+        val metric: HealthConnectBodyMetric,
     )
 
     companion object {

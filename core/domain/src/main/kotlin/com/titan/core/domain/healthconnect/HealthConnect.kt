@@ -3,7 +3,8 @@ package com.titan.core.domain.healthconnect
 import com.titan.core.domain.model.WorkoutActivity
 
 /**
- * Android's Health Connect, as far as Titan uses it: exercise sessions, written and read.
+ * Android's Health Connect, as far as Titan uses it: exercise sessions, body weight and body fat,
+ * each written and read.
  *
  * An interface here and an implementation in `:core:data` for the reason every platform service
  * in the domain is one (compare [com.titan.core.domain.notification.NotificationPermission]):
@@ -13,9 +14,10 @@ import com.titan.core.domain.model.WorkoutActivity
  *
  * ### There is no "sync on" switch besides the permission
  *
- * Whether finished sessions are written is whether [HealthConnectAccess.WRITE] is granted, and
- * nothing else. A preference beside it would be a second answer to the same question, and the
- * two disagree the moment the user revokes access in Health Connect's own settings — which they
+ * Whether finished sessions are written is whether [HealthConnectAccess.WRITE_EXERCISE] is
+ * granted, and nothing else — and the same holds for a weight or a body fat and its own
+ * permission. A preference beside it would be a second answer to the same question, and the two
+ * disagree the moment the user revokes access in Health Connect's own settings — which they
  * can, at any time, without this app hearing about it. So every operation asks [grantedAccess]
  * at the moment it runs, and disconnecting is [revokeAccess] — or, where [canRevokeAccess] is
  * false, turning the permissions off in Health Connect.
@@ -34,7 +36,7 @@ interface HealthConnect {
      */
     val permissions: Set<String>
 
-    /** Which of the two this app holds right now. Empty when Health Connect is not available. */
+    /** Which of the six this app holds right now. Empty when Health Connect is not available. */
     suspend fun grantedAccess(): Set<HealthConnectAccess>
 
     /**
@@ -67,6 +69,47 @@ interface HealthConnect {
         startedFrom: Long,
         startedUntil: Long,
     ): List<HealthConnectRecord>
+
+    /**
+     * Writes, or rewrites, one figure of one Titan body measurement.
+     *
+     * Keyed by [measurementId] together with the reading's [HealthConnectBodyReading.measuredAt],
+     * for [writeSession]'s reason: an id can be given out again, and the time a measurement was
+     * taken is fixed for the life of its row — the form shows it and does not edit it. Health
+     * Connect keeps the write with the higher [version], so an edit, which carries a later one,
+     * replaces the record rather than adding a copy.
+     *
+     * @throws Exception whatever the provider throws, as [writeSession] does.
+     */
+    suspend fun writeBodyReading(
+        measurementId: Long,
+        version: Long,
+        reading: HealthConnectBodyReading,
+    )
+
+    /**
+     * Removes the record [writeBodyReading] wrote for this figure of this measurement, if there is
+     * one. Nothing else: Health Connect lets an app delete only what it wrote itself.
+     *
+     * @throws Exception whatever the provider throws, as [writeSession] does.
+     */
+    suspend fun deleteBodyReading(
+        measurementId: Long,
+        measuredAt: Long,
+        metric: HealthConnectBodyMetric,
+    )
+
+    /**
+     * Every [metric] record measured in `[measuredFrom, measuredUntil)`, from every app, this one
+     * included — as [readSessions], [HealthConnectBodyRecord.writtenByThisApp] tells them apart.
+     *
+     * @throws Exception whatever the provider throws, as [writeSession] does.
+     */
+    suspend fun readBodyReadings(
+        metric: HealthConnectBodyMetric,
+        measuredFrom: Long,
+        measuredUntil: Long,
+    ): List<HealthConnectBodyRecord>
 
     /**
      * Whether [revokeAccess] takes effect at once, and so whether this app can disconnect itself.
@@ -102,15 +145,89 @@ enum class HealthConnectAvailability {
     UNSUPPORTED,
 }
 
-/** The two halves of the permission set, as the domain reasons about them. */
+/**
+ * The permission set, one value per platform permission, as the domain reasons about them.
+ *
+ * One per permission rather than a read and a write for everything, because Health Connect's
+ * dialog lists each data type on its own switch: a user can share their workouts and keep their
+ * weight to themselves, and every operation has to ask about the one type it touches.
+ */
 enum class HealthConnectAccess {
 
     /** Read exercise sessions — what [com.titan.core.domain.usecase.ImportFromHealthConnectUseCase] needs. */
-    READ,
+    READ_EXERCISE,
 
     /** Write exercise sessions — what [com.titan.core.domain.usecase.SyncToHealthConnectUseCase] needs. */
-    WRITE,
+    WRITE_EXERCISE,
+
+    /** Read body weight — half of what [com.titan.core.domain.usecase.ImportBodyFromHealthConnectUseCase] can use. */
+    READ_WEIGHT,
+
+    /** Write body weight — half of what [com.titan.core.domain.usecase.SyncBodyToHealthConnectUseCase] can use. */
+    WRITE_WEIGHT,
+
+    /** Read body fat — the other half of what the body import can use. */
+    READ_BODY_FAT,
+
+    /** Write body fat — the other half of what the body sync can use. */
+    WRITE_BODY_FAT,
 }
+
+/**
+ * The two figures of a [com.titan.core.domain.model.BodyMeasurement] that Health Connect has a
+ * record type for: `WeightRecord` and `BodyFatRecord`. The circumferences have none, and stay on
+ * this phone.
+ */
+enum class HealthConnectBodyMetric {
+
+    /** Body weight, in milligrams, as [com.titan.core.domain.model.BodyMeasurement.weight]. */
+    WEIGHT,
+
+    /** Body fat, in tenths of a percent, as [com.titan.core.domain.model.BodyMeasurement.bodyFat]. */
+    BODY_FAT,
+    ;
+
+    /** The permission that reads this figure. */
+    val readAccess: HealthConnectAccess
+        get() = when (this) {
+            WEIGHT -> HealthConnectAccess.READ_WEIGHT
+            BODY_FAT -> HealthConnectAccess.READ_BODY_FAT
+        }
+
+    /** The permission that writes this figure. */
+    val writeAccess: HealthConnectAccess
+        get() = when (this) {
+            WEIGHT -> HealthConnectAccess.WRITE_WEIGHT
+            BODY_FAT -> HealthConnectAccess.WRITE_BODY_FAT
+        }
+}
+
+/**
+ * One figure at one instant, in the shape Health Connect holds it: a weight or a body fat, and
+ * when it was measured.
+ *
+ * @property measuredAt epoch milliseconds.
+ * @property value in the figure's canonical unit: milligrams for [HealthConnectBodyMetric.WEIGHT],
+ *   tenths of a percent for [HealthConnectBodyMetric.BODY_FAT].
+ */
+data class HealthConnectBodyReading(
+    val metric: HealthConnectBodyMetric,
+    val measuredAt: Long,
+    val value: Long,
+)
+
+/**
+ * A body reading read back from Health Connect.
+ *
+ * @property id Health Connect's own id for the record.
+ * @property writtenByThisApp whether Titan wrote it — a copy of a measurement already in the
+ *   local history, and never something to import.
+ */
+data class HealthConnectBodyRecord(
+    val id: String,
+    val reading: HealthConnectBodyReading,
+    val writtenByThisApp: Boolean,
+)
 
 /**
  * One exercise session, in the shape it has in Health Connect: a span, a type and two pieces of
@@ -145,3 +262,17 @@ data class HealthConnectRecord(
     val session: HealthConnectSession,
     val writtenByThisApp: Boolean,
 )
+
+/**
+ * [HealthConnect.availability], with a status check that throws read as "not on this phone".
+ *
+ * The check asks the package manager, which can throw; the use cases catch that into their
+ * `Result`, and a screen that crashed on it instead would be the one place it surfaced. Every
+ * screen that hides a row where Health Connect is missing asks through this.
+ */
+fun HealthConnect.availabilityOrUnsupported(): HealthConnectAvailability =
+    try {
+        availability()
+    } catch (_: RuntimeException) {
+        HealthConnectAvailability.UNSUPPORTED
+    }

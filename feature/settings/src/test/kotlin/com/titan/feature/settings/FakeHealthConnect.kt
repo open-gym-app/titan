@@ -3,6 +3,9 @@ package com.titan.feature.settings
 import com.titan.core.domain.healthconnect.HealthConnect
 import com.titan.core.domain.healthconnect.HealthConnectAccess
 import com.titan.core.domain.healthconnect.HealthConnectAvailability
+import com.titan.core.domain.healthconnect.HealthConnectBodyMetric
+import com.titan.core.domain.healthconnect.HealthConnectBodyReading
+import com.titan.core.domain.healthconnect.HealthConnectBodyRecord
 import com.titan.core.domain.healthconnect.HealthConnectRecord
 import com.titan.core.domain.healthconnect.HealthConnectSession
 
@@ -16,6 +19,8 @@ class FakeHealthConnect(
 ) : HealthConnect {
 
     val records = mutableListOf<HealthConnectRecord>()
+
+    val bodyRecords = mutableListOf<HealthConnectBodyRecord>()
 
     /** Thrown from every suspending call when set. */
     var failure: Throwable? = null
@@ -46,6 +51,34 @@ class FakeHealthConnect(
     ): List<HealthConnectRecord> {
         failure?.let { throw it }
         return records.filter { it.session.startedAt in startedFrom until startedUntil }
+    }
+
+    override suspend fun writeBodyReading(
+        measurementId: Long,
+        version: Long,
+        reading: HealthConnectBodyReading,
+    ) {
+        failure?.let { throw it }
+    }
+
+    override suspend fun deleteBodyReading(
+        measurementId: Long,
+        measuredAt: Long,
+        metric: HealthConnectBodyMetric,
+    ) {
+        failure?.let { throw it }
+    }
+
+    override suspend fun readBodyReadings(
+        metric: HealthConnectBodyMetric,
+        measuredFrom: Long,
+        measuredUntil: Long,
+    ): List<HealthConnectBodyRecord> {
+        failure?.let { throw it }
+        return bodyRecords.filter {
+            it.reading.metric == metric &&
+                it.reading.measuredAt in measuredFrom until measuredUntil
+        }
     }
 
     /** False plays Android 14 and up, where the app cannot take its own grant back at once. */

@@ -224,7 +224,13 @@ data class PersonalRecordRow(
     @SerialName("achieved_at") val achievedAt: Long,
 ) : BackupRow
 
-/** A row of `body_measurement`. Every measurement on it is nullable, `weight` included. */
+/**
+ * A row of `body_measurement`. Every measurement on it is nullable, `weight` included.
+ *
+ * [fromHealthConnect] defaults to false for the reason [WorkoutSessionRow]'s Health Connect
+ * columns are nullable: a file from before #350 has none, and reads back as a history logged
+ * entirely by hand, which is what it was.
+ */
 @Serializable
 data class BodyMeasurementRow(
     @SerialName("id") val id: Long,
@@ -242,6 +248,7 @@ data class BodyMeasurementRow(
     @SerialName("notes") val notes: String? = null,
     @SerialName("created_at") val createdAt: Long,
     @SerialName("updated_at") val updatedAt: Long,
+    @SerialName("from_health_connect") val fromHealthConnect: Boolean = false,
 ) : BackupRow
 
 /**

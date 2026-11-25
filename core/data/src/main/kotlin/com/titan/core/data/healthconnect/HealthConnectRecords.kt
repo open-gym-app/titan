@@ -1,16 +1,25 @@
 package com.titan.core.data.healthconnect
 
+import androidx.health.connect.client.records.BodyFatRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
+import androidx.health.connect.client.units.Mass
+import androidx.health.connect.client.units.Percentage
+import com.titan.core.domain.healthconnect.HealthConnectBodyMetric
+import com.titan.core.domain.healthconnect.HealthConnectBodyReading
+import com.titan.core.domain.healthconnect.HealthConnectBodyRecord
 import com.titan.core.domain.healthconnect.HealthConnectRecord
 import com.titan.core.domain.healthconnect.HealthConnectSession
 import com.titan.core.domain.model.WorkoutActivity
 import java.time.Instant
 import java.time.ZoneId
+import kotlin.math.roundToLong
 
 /*
- * The domain's [HealthConnectSession] to an `ExerciseSessionRecord` and back.
+ * The domain's [HealthConnectSession] to an `ExerciseSessionRecord` and back, and its
+ * [HealthConnectBodyReading] to a `WeightRecord` or a `BodyFatRecord` and back.
  *
  * Top-level functions with no client behind them, so the mapping is tested on the JVM and the
  * instrumented test only has to prove the provider stores what these build.
@@ -174,3 +183,106 @@ internal fun Int.toWorkoutActivity(): WorkoutActivity =
     }
 
 private const val CLIENT_RECORD_PREFIX = "titan-session-"
+
+/**
+ * The client record id one figure of a Titan body measurement is written under.
+ *
+ * The measurement's id and `created_at`, for [clientRecordIdFor]'s reason — an id can be handed
+ * out again, and a new entry under an old number must not replace the old entry's record — and
+ * `created_at` is as fixed as the id: the form shows an entry's date and does not edit it. The
+ * figure is in the prefix, so a weight and a body fat taken together are two ids, not one.
+ */
+internal fun bodyClientRecordIdFor(
+    metric: HealthConnectBodyMetric,
+    measurementId: Long,
+    measuredAt: Long,
+): String =
+    when (metric) {
+        HealthConnectBodyMetric.WEIGHT -> WEIGHT_RECORD_PREFIX
+        HealthConnectBodyMetric.BODY_FAT -> BODY_FAT_RECORD_PREFIX
+    } + "$measurementId-$measuredAt"
+
+/**
+ * The metadata of one figure Titan writes.
+ *
+ * `manualEntry`, unlike a session's `activelyRecorded`: a body measurement is a figure the user
+ * read off a scale or a tape and typed in, which is exactly what Health Connect means by it.
+ */
+private fun bodyMetadata(
+    metric: HealthConnectBodyMetric,
+    measurementId: Long,
+    measuredAt: Long,
+    version: Long,
+): Metadata =
+    Metadata.manualEntry(
+        clientRecordId = bodyClientRecordIdFor(metric, measurementId, measuredAt),
+        clientRecordVersion = version,
+        device = Device(type = Device.TYPE_PHONE),
+    )
+
+/** A weight reading as the `WeightRecord` Titan writes for it, recorded in [zone]. */
+internal fun HealthConnectBodyReading.toWeightRecord(
+    measurementId: Long,
+    version: Long,
+    zone: ZoneId,
+): WeightRecord {
+    require(metric == HealthConnectBodyMetric.WEIGHT) { "not a weight: $metric" }
+    val time = Instant.ofEpochMilli(measuredAt)
+    return WeightRecord(
+        time = time,
+        zoneOffset = zone.rules.getOffset(time),
+        // Milligrams, the stored unit, so nothing is lost on the way out.
+        weight = Mass.milligrams(value.toDouble()),
+        metadata = bodyMetadata(metric, measurementId, measuredAt, version),
+    )
+}
+
+/** A body-fat reading as the `BodyFatRecord` Titan writes for it, recorded in [zone]. */
+internal fun HealthConnectBodyReading.toBodyFatRecord(
+    measurementId: Long,
+    version: Long,
+    zone: ZoneId,
+): BodyFatRecord {
+    require(metric == HealthConnectBodyMetric.BODY_FAT) { "not a body fat: $metric" }
+    val time = Instant.ofEpochMilli(measuredAt)
+    return BodyFatRecord(
+        time = time,
+        zoneOffset = zone.rules.getOffset(time),
+        percentage = Percentage(value / TENTHS_PER_PERCENT),
+        metadata = bodyMetadata(metric, measurementId, measuredAt, version),
+    )
+}
+
+/**
+ * A `WeightRecord` read back, whoever wrote it, rounded to the milligram the history stores — a
+ * double from another app's kilograms is rarely a whole number of them.
+ */
+internal fun WeightRecord.toDomain(ownPackage: String): HealthConnectBodyRecord =
+    HealthConnectBodyRecord(
+        id = metadata.id,
+        reading = HealthConnectBodyReading(
+            metric = HealthConnectBodyMetric.WEIGHT,
+            measuredAt = time.toEpochMilli(),
+            value = weight.inMilligrams.roundToLong(),
+        ),
+        writtenByThisApp = metadata.dataOrigin.packageName == ownPackage,
+    )
+
+/** A `BodyFatRecord` read back, whoever wrote it, rounded to the tenth of a percent stored. */
+internal fun BodyFatRecord.toDomain(ownPackage: String): HealthConnectBodyRecord =
+    HealthConnectBodyRecord(
+        id = metadata.id,
+        reading = HealthConnectBodyReading(
+            metric = HealthConnectBodyMetric.BODY_FAT,
+            measuredAt = time.toEpochMilli(),
+            value = (percentage.value * TENTHS_PER_PERCENT).roundToLong(),
+        ),
+        writtenByThisApp = metadata.dataOrigin.packageName == ownPackage,
+    )
+
+private const val WEIGHT_RECORD_PREFIX = "titan-weight-"
+
+private const val BODY_FAT_RECORD_PREFIX = "titan-body-fat-"
+
+/** `body_fat` is stored in tenths of a percent; Health Connect's `Percentage` is in percent. */
+private const val TENTHS_PER_PERCENT = 10.0

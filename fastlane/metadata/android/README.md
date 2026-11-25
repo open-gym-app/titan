@@ -25,8 +25,8 @@ Portuguese; *séance*, *sesión* and *treino*; *modèle*, *plantilla* and *model
 screen name quoted in the copy (*Paramètres*, *Ajustes*, *Configurações*) is the title that
 screen has in that language.
 
-**Name what the build ships and nothing else.** Marketplace, gym map and the Health Connect
-body-measurement sync are listed as planned in the README and must not appear here until they ship. Every claim in the
+**Name what the build ships and nothing else.** Marketplace and gym map are listed as planned in
+the README and must not appear here until they ship. Every claim in the
 copy has a source in the app; check it again before changing a sentence:
 
 - "no internet permission": `tools:node="remove"` in `app/src/main/AndroidManifest.xml`,

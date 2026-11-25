@@ -79,8 +79,8 @@ class SyncToHealthConnectUseCase(
     }
 
     private suspend fun write(sessionId: Long): Result<HealthConnectSyncOutcome> {
-        if (HealthConnectAccess.WRITE !in healthConnect.grantedAccess()) {
-            return Result.failure(HealthConnectError.NotPermitted(HealthConnectAccess.WRITE))
+        if (HealthConnectAccess.WRITE_EXERCISE !in healthConnect.grantedAccess()) {
+            return Result.failure(HealthConnectError.NotPermitted(HealthConnectAccess.WRITE_EXERCISE))
         }
 
         val finished = sessions.getFinished(sessionId)

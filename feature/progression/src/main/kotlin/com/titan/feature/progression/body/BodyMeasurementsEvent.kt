@@ -7,7 +7,7 @@ import com.titan.feature.progression.stats.StatsTimeframe
  * What the user can do to the body screen.
  *
  * The first progression screen that **writes**. The other two are readouts, so their events
- * only change what is being read; three of the eight below change the history itself, which is
+ * only change what is being read; three of the nine below change the history itself, which is
  * why this one has a form behind it at all.
  */
 sealed interface BodyMeasurementsEvent {
@@ -58,4 +58,10 @@ sealed interface BodyMeasurementsEvent {
 
     /** The deletion's snackbar went away without its undo being pressed. */
     data object DeleteDismissed : BodyMeasurementsEvent
+
+    /**
+     * The screen came back to the foreground: ask again whether Health Connect is there, since
+     * it can be installed or removed while the user is away.
+     */
+    data object HealthConnectRechecked : BodyMeasurementsEvent
 }

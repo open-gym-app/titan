@@ -3,6 +3,7 @@ package com.titan.feature.settings.healthconnect
 import androidx.compose.runtime.Immutable
 import com.titan.core.domain.healthconnect.HealthConnectAccess
 import com.titan.core.domain.healthconnect.HealthConnectAvailability
+import com.titan.core.domain.healthconnect.HealthConnectBodyMetric
 
 /**
  * Everything the Health Connect screen draws, as one value.
@@ -25,8 +26,10 @@ import com.titan.core.domain.healthconnect.HealthConnectAvailability
  * @param canDisconnect whether "Disconnect" can take the grant back itself. False from Android
  *   14, where it opens Health Connect's permission page instead — see
  *   [com.titan.core.domain.healthconnect.HealthConnect.canRevokeAccess].
- * @param isImporting an import is running; the row is inert until it ends.
- * @param message a sentence to show once, cleared by [HealthConnectEvent.MessageShown].
+ * @param isImporting the workout import is running; its row is inert until it ends.
+ * @param isImportingBody the body import is running; its row is inert until it ends.
+ * @param message a sentence to show once. [HealthConnectEvent.MessageShown] replaces it with the
+ *   next one waiting, or clears it.
  */
 @Immutable
 data class HealthConnectUiState(
@@ -38,22 +41,33 @@ data class HealthConnectUiState(
     val refused: Boolean = false,
     val canDisconnect: Boolean = true,
     val isImporting: Boolean = false,
+    val isImportingBody: Boolean = false,
     val message: HealthConnectMessage? = null,
 ) {
 
     /** Whether the user has allowed anything at all — the line between the two layouts. */
     val isConnected: Boolean get() = !granted.isNullOrEmpty()
 
-    val canWrite: Boolean get() = granted.orEmpty().contains(HealthConnectAccess.WRITE)
+    val canWriteExercise: Boolean get() = granted.orEmpty().contains(HealthConnectAccess.WRITE_EXERCISE)
 
-    val canRead: Boolean get() = granted.orEmpty().contains(HealthConnectAccess.READ)
+    val canReadExercise: Boolean get() = granted.orEmpty().contains(HealthConnectAccess.READ_EXERCISE)
+
+    /** The body figures whose write is granted: weight, body fat, both or neither. */
+    val writableBody: Set<HealthConnectBodyMetric>
+        get() = HealthConnectBodyMetric.entries.filterTo(mutableSetOf()) { it.writeAccess in granted.orEmpty() }
+
+    /** Whether either body figure can be read — the import brings in whichever is allowed. */
+    val canReadBody: Boolean get() = HealthConnectBodyMetric.entries.any { it.readAccess in granted.orEmpty() }
 }
 
 /** The outcomes worth a snackbar. */
 sealed interface HealthConnectMessage {
 
-    /** An import finished; [count] sessions were new. Zero is said too, as "nothing new". */
+    /** A workout import finished; [count] sessions were new. Zero is said too, as "nothing new". */
     data class Imported(val count: Int) : HealthConnectMessage
+
+    /** A body import finished; [count] entries were new. Zero is said too. */
+    data class ImportedMeasurements(val count: Int) : HealthConnectMessage
 
     data object ImportFailed : HealthConnectMessage
 

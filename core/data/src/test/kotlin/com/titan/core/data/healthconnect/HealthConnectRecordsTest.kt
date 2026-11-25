@@ -1,7 +1,13 @@
 package com.titan.core.data.healthconnect
 
+import androidx.health.connect.client.records.BodyFatRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.metadata.Metadata
+import androidx.health.connect.client.units.Mass
+import androidx.health.connect.client.units.Percentage
+import com.titan.core.domain.healthconnect.HealthConnectBodyMetric
+import com.titan.core.domain.healthconnect.HealthConnectBodyReading
 import com.titan.core.domain.healthconnect.HealthConnectSession
 import com.titan.core.domain.model.WorkoutActivity
 import org.junit.Assert.assertEquals
@@ -110,5 +116,66 @@ class HealthConnectRecordsTest {
 
         assertTrue(record.toDomain(ownPackage = origin).writtenByThisApp)
         assertFalse(record.toDomain(ownPackage = "$origin.other").writtenByThisApp)
+    }
+
+    @Test
+    fun `a weight is written in milligrams, in its zone, as a manual entry keyed by id and date`() {
+        val reading = HealthConnectBodyReading(HealthConnectBodyMetric.WEIGHT, measuredAt = start, value = 80_512_345L)
+
+        val record = reading.toWeightRecord(measurementId = 3L, version = 9L, zone = paris)
+
+        assertEquals(Instant.ofEpochMilli(start), record.time)
+        assertEquals(ZoneOffset.ofHours(2), record.zoneOffset)
+        assertEquals(80_512_345.0, record.weight.inMilligrams, 0.5)
+        assertEquals(Metadata.RECORDING_METHOD_MANUAL_ENTRY, record.metadata.recordingMethod)
+        assertEquals("titan-weight-3-$start", record.metadata.clientRecordId)
+        assertEquals(9L, record.metadata.clientRecordVersion)
+    }
+
+    @Test
+    fun `a body fat is written in percent`() {
+        val reading = HealthConnectBodyReading(HealthConnectBodyMetric.BODY_FAT, measuredAt = start, value = 155L)
+
+        val record = reading.toBodyFatRecord(measurementId = 3L, version = 9L, zone = paris)
+
+        assertEquals(15.5, record.percentage.value, 1e-9)
+        assertEquals("titan-body-fat-3-$start", record.metadata.clientRecordId)
+    }
+
+    @Test
+    fun `the two figures of one entry, and two entries under one id, have different keys`() {
+        val weight = bodyClientRecordIdFor(HealthConnectBodyMetric.WEIGHT, 3L, start)
+
+        assertNotEquals(weight, bodyClientRecordIdFor(HealthConnectBodyMetric.BODY_FAT, 3L, start))
+        assertNotEquals(weight, bodyClientRecordIdFor(HealthConnectBodyMetric.WEIGHT, 3L, start + 1))
+    }
+
+    @Test
+    fun `another app's weight is read back rounded to the milligram`() {
+        val record = WeightRecord(
+            time = Instant.ofEpochMilli(start),
+            zoneOffset = ZoneOffset.UTC,
+            weight = Mass.kilograms(80.123_456_7),
+            metadata = Metadata.manualEntry(),
+        )
+
+        val read = record.toDomain(ownPackage = "com.titan")
+
+        assertEquals(HealthConnectBodyMetric.WEIGHT, read.reading.metric)
+        assertEquals(start, read.reading.measuredAt)
+        assertEquals(80_123_457L, read.reading.value)
+        assertFalse(read.writtenByThisApp)
+    }
+
+    @Test
+    fun `another app's body fat is read back rounded to the tenth of a percent`() {
+        val record = BodyFatRecord(
+            time = Instant.ofEpochMilli(start),
+            zoneOffset = ZoneOffset.UTC,
+            percentage = Percentage(18.26),
+            metadata = Metadata.manualEntry(),
+        )
+
+        assertEquals(183L, record.toDomain(ownPackage = "com.titan").reading.value)
     }
 }

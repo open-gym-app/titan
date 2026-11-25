@@ -50,4 +50,7 @@ data class BodyMeasurementEntity(
     val createdAt: Long,
     @ColumnInfo(name = "updated_at")
     val updatedAt: Long,
+    /** See [com.titan.core.domain.model.BodyMeasurement.fromHealthConnect]. */
+    @ColumnInfo(name = "from_health_connect")
+    val fromHealthConnect: Boolean = false,
 )

@@ -42,11 +42,10 @@ import com.titan.core.ui.theme.TitanTheme
  * ### Why it is here rather than in `:feature:settings`, where it was written
  *
  * Because it is not only a settings row. #M5-15's body screen carries the Health Connect row,
- * disabled while body measurements do not sync (#350), and its acceptance criterion is that it *matches the settings
- * screen's pattern* — which a feature module cannot do by importing another feature module
- * (`checkArchitecture` fails the build) and should not do by copying, because two copies of
- * "present, in its final position, and visibly unavailable" is two chances to disagree about
- * what unavailable looks like.
+ * and its acceptance criterion is that it *matches the settings screen's pattern* — which a
+ * feature module cannot do by importing another feature module (`checkArchitecture` fails the
+ * build) and should not do by copying, because two copies of one row are two chances to disagree
+ * about what it looks like, enabled or unavailable.
  *
  * So the row moved to the design system on its second caller, which is the rule #86 states for
  * everything else in this package: reach for a component before a style, and a screen that
@@ -100,6 +99,8 @@ fun PreferenceGroup(
  *   the label dims to the variant role as [PreferenceSoonRow]'s does, the chevron goes, and
  *   `clickable(enabled = false)` is what puts "disabled" in the semantics tree for TalkBack.
  *   Not for a feature that has not shipped, which is [PreferenceSoonRow]'s job.
+ * @param leading an optional mark before the label, in the neutral tile [PreferenceSoonRow]
+ *   draws its own in — so a row that ships in the place a "soon" row held keeps its mark.
  */
 @Composable
 fun PreferenceRow(
@@ -111,11 +112,13 @@ fun PreferenceRow(
     external: Boolean = false,
     destructive: Boolean = false,
     enabled: Boolean = true,
+    leading: ImageVector? = null,
 ) {
     PreferenceRowLayout(
         label = label,
         value = value,
         supporting = supporting,
+        leading = leading,
         labelColor = when {
             !enabled -> MaterialTheme.colorScheme.onSurfaceVariant
             destructive -> MaterialTheme.colorScheme.error

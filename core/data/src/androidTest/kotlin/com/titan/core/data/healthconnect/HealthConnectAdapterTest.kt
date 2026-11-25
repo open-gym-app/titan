@@ -3,7 +3,9 @@ package com.titan.core.data.healthconnect
 import android.content.Context
 import android.os.Build
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.records.BodyFatRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.test.core.app.ApplicationProvider
@@ -11,6 +13,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.titan.core.domain.healthconnect.HealthConnectAccess
 import com.titan.core.domain.healthconnect.HealthConnectAvailability
+import com.titan.core.domain.healthconnect.HealthConnectBodyMetric
+import com.titan.core.domain.healthconnect.HealthConnectBodyReading
 import com.titan.core.domain.healthconnect.HealthConnectSession
 import com.titan.core.domain.model.WorkoutActivity
 import kotlinx.coroutines.runBlocking
@@ -24,7 +28,8 @@ import org.junit.runner.RunWith
 import java.time.Instant
 
 /**
- * The write-then-read round trip against the real Health Connect provider (#54).
+ * The write-then-read round trip against the real Health Connect provider: sessions (#54), and
+ * weight and body fat (#350).
  *
  * The one test in `:core:data` that needs a device: the provider is a system service on Android 14
  * and an app below it, and neither can be driven from Robolectric. What the mapping decides is
@@ -71,11 +76,12 @@ class HealthConnectAdapterTest {
                 recordIdsList = emptyList(),
                 clientRecordIdsList = listOf(clientRecordIdFor(sessionId, start)),
             )
+            HealthConnectBodyMetric.entries.forEach { adapter.deleteBodyReading(sessionId, start, it) }
         }
     }
 
     @Test
-    fun the_grant_is_read_back_as_both_halves() =
+    fun the_grant_is_read_back_as_every_permission() =
         runBlocking {
             assertEquals(HealthConnectAccess.entries.toSet(), adapter.grantedAccess())
         }
@@ -122,6 +128,83 @@ class HealthConnectAdapterTest {
             val read = adapter.readSessions(start, start + 1).filter { it.writtenByThisApp }
 
             assertEquals(listOf("Newer"), read.map { it.session.title })
+        }
+
+    @Test
+    fun a_written_weight_and_body_fat_are_read_back_as_this_apps_own() =
+        runBlocking {
+            val weight = HealthConnectBodyReading(HealthConnectBodyMetric.WEIGHT, start, 80_512_000L)
+            val bodyFat = HealthConnectBodyReading(HealthConnectBodyMetric.BODY_FAT, start, 155L)
+
+            adapter.writeBodyReading(sessionId, version = 1L, reading = weight)
+            adapter.writeBodyReading(sessionId, version = 1L, reading = bodyFat)
+
+            val weights = adapter.readBodyReadings(
+                HealthConnectBodyMetric.WEIGHT,
+                start,
+                start + 1,
+            ).filter { it.writtenByThisApp }
+            val fats = adapter.readBodyReadings(
+                HealthConnectBodyMetric.BODY_FAT,
+                start,
+                start + 1,
+            ).filter { it.writtenByThisApp }
+            assertEquals(listOf(weight), weights.map { it.reading })
+            assertEquals(listOf(bodyFat), fats.map { it.reading })
+        }
+
+    @Test
+    fun a_rewrite_of_the_same_weight_replaces_the_record() =
+        runBlocking {
+            adapter.writeBodyReading(
+                sessionId,
+                1L,
+                HealthConnectBodyReading(HealthConnectBodyMetric.WEIGHT, start, 80_000_000L),
+            )
+            adapter.writeBodyReading(
+                sessionId,
+                2L,
+                HealthConnectBodyReading(HealthConnectBodyMetric.WEIGHT, start, 79_500_000L),
+            )
+
+            val records = ownWeights()
+
+            assertEquals(1, records.size)
+            assertEquals(79_500.0, records.single().weight.inGrams, 0.5)
+        }
+
+    @Test
+    fun a_deleted_weight_is_gone_and_a_body_fat_never_written_deletes_without_error() =
+        runBlocking {
+            adapter.writeBodyReading(
+                sessionId,
+                1L,
+                HealthConnectBodyReading(HealthConnectBodyMetric.WEIGHT, start, 80_000_000L),
+            )
+
+            adapter.deleteBodyReading(sessionId, start, HealthConnectBodyMetric.WEIGHT)
+            // The sync removes a figure an entry does not hold whether or not it was ever written.
+            adapter.deleteBodyReading(sessionId, start, HealthConnectBodyMetric.BODY_FAT)
+
+            assertTrue(ownWeights().isEmpty())
+            assertTrue(
+                HealthConnectClient.getOrCreate(context).readRecords(
+                    ReadRecordsRequest(
+                        BodyFatRecord::class,
+                        TimeRangeFilter.between(Instant.ofEpochMilli(start), Instant.ofEpochMilli(start + 1)),
+                    ),
+                ).records.none { it.metadata.dataOrigin.packageName == context.packageName },
+            )
+        }
+
+    private suspend fun ownWeights(): List<WeightRecord> =
+        HealthConnectClient.getOrCreate(context).readRecords(
+            ReadRecordsRequest(
+                recordType = WeightRecord::class,
+                timeRangeFilter = TimeRangeFilter.between(Instant.ofEpochMilli(start), Instant.ofEpochMilli(start + 1)),
+            ),
+        ).records.filter {
+            it.metadata.clientRecordId == bodyClientRecordIdFor(HealthConnectBodyMetric.WEIGHT, sessionId, start)
         }
 
     private fun session(title: String) =

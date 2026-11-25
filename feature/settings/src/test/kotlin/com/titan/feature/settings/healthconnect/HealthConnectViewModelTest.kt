@@ -3,18 +3,26 @@ package com.titan.feature.settings.healthconnect
 import androidx.lifecycle.SavedStateHandle
 import com.titan.core.domain.healthconnect.HealthConnectAccess
 import com.titan.core.domain.healthconnect.HealthConnectAvailability
+import com.titan.core.domain.healthconnect.HealthConnectBodyMetric
+import com.titan.core.domain.healthconnect.HealthConnectBodyReading
+import com.titan.core.domain.healthconnect.HealthConnectBodyRecord
 import com.titan.core.domain.healthconnect.HealthConnectRecord
 import com.titan.core.domain.healthconnect.HealthConnectSession
+import com.titan.core.domain.model.BodyMeasurement
 import com.titan.core.domain.model.WorkoutActivity
 import com.titan.core.domain.model.WorkoutSession
+import com.titan.core.domain.repository.BodyMeasurementRepository
 import com.titan.core.domain.repository.FinishedSessionActivity
 import com.titan.core.domain.repository.HealthConnectSessionRepository
+import com.titan.core.domain.usecase.ImportBodyFromHealthConnectUseCase
 import com.titan.core.domain.usecase.ImportFromHealthConnectUseCase
 import com.titan.feature.settings.FakeHealthConnect
 import com.titan.feature.settings.afterProcessDeath
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -28,7 +36,7 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * The Health Connect screen's ViewModel: the conversation that grants access, and the import.
+ * The Health Connect screen's ViewModel: the conversation that grants access, and the two imports.
  *
  * The claim asserted hardest is that **the system dialog never comes before the rationale**: no
  * event but the rationale's "Continue" may raise the one-shot that launches it.
@@ -38,6 +46,7 @@ class HealthConnectViewModelTest {
 
     private val healthConnect = FakeHealthConnect()
     private val sessions = RecordingSessions()
+    private val measurements = RecordingMeasurements()
     private val clock = 100L * 86_400_000L
 
     @Before
@@ -55,6 +64,7 @@ class HealthConnectViewModelTest {
             savedStateHandle = savedState,
             healthConnect = healthConnect,
             importFromHealthConnect = ImportFromHealthConnectUseCase(healthConnect, sessions) { clock },
+            importBodyFromHealthConnect = ImportBodyFromHealthConnectUseCase(healthConnect, measurements) { clock },
         ).also { it.onEvent(HealthConnectEvent.Resumed) }
 
     // --- what is granted ------------------------------------------------------
@@ -65,6 +75,7 @@ class HealthConnectViewModelTest {
             SavedStateHandle(),
             healthConnect,
             ImportFromHealthConnectUseCase(healthConnect, sessions) { clock },
+            ImportBodyFromHealthConnectUseCase(healthConnect, measurements) { clock },
         )
 
         assertNull(viewModel.uiState.value.granted)
@@ -83,11 +94,11 @@ class HealthConnectViewModelTest {
     fun `a grant made in Health Connect's settings shows on the way back`() {
         val viewModel = viewModel()
 
-        healthConnect.granted = setOf(HealthConnectAccess.WRITE)
+        healthConnect.granted = setOf(HealthConnectAccess.WRITE_EXERCISE)
         viewModel.onEvent(HealthConnectEvent.Resumed)
 
-        assertTrue(viewModel.uiState.value.canWrite)
-        assertFalse(viewModel.uiState.value.canRead)
+        assertTrue(viewModel.uiState.value.canWriteExercise)
+        assertFalse(viewModel.uiState.value.canReadExercise)
     }
 
     @Test
@@ -186,7 +197,7 @@ class HealthConnectViewModelTest {
         val viewModel = viewModel()
         viewModel.onEvent(HealthConnectEvent.PermissionResult(emptySet()))
 
-        healthConnect.granted = setOf(HealthConnectAccess.READ)
+        healthConnect.granted = setOf(HealthConnectAccess.READ_EXERCISE)
         viewModel.onEvent(HealthConnectEvent.Resumed)
 
         assertFalse(viewModel.uiState.value.refused)
@@ -207,12 +218,12 @@ class HealthConnectViewModelTest {
 
     @Test
     fun `an import reports how many workouts were new`() {
-        healthConnect.granted = setOf(HealthConnectAccess.READ)
+        healthConnect.granted = setOf(HealthConnectAccess.READ_EXERCISE)
         healthConnect.records += record("run-1")
         healthConnect.records += record("run-2", startedAt = clock - 7_200_000L)
         val viewModel = viewModel()
 
-        viewModel.onEvent(HealthConnectEvent.ImportRequested)
+        viewModel.onEvent(HealthConnectEvent.WorkoutsImportRequested)
 
         assertEquals(HealthConnectMessage.Imported(2), viewModel.uiState.value.message)
         assertFalse(viewModel.uiState.value.isImporting)
@@ -222,14 +233,14 @@ class HealthConnectViewModelTest {
     @Test
     fun `a second tap while an import runs starts no second import`() =
         runTest {
-            healthConnect.granted = setOf(HealthConnectAccess.READ)
+            healthConnect.granted = setOf(HealthConnectAccess.READ_EXERCISE)
             healthConnect.records += record("run-1")
             val viewModel = viewModel()
             sessions.gate = CompletableDeferred()
 
-            viewModel.onEvent(HealthConnectEvent.ImportRequested)
+            viewModel.onEvent(HealthConnectEvent.WorkoutsImportRequested)
             assertTrue(viewModel.uiState.value.isImporting)
-            viewModel.onEvent(HealthConnectEvent.ImportRequested)
+            viewModel.onEvent(HealthConnectEvent.WorkoutsImportRequested)
             sessions.gate!!.complete(Unit)
 
             assertEquals(1, sessions.batches)
@@ -238,10 +249,10 @@ class HealthConnectViewModelTest {
 
     @Test
     fun `an import without the read permission does nothing`() {
-        healthConnect.granted = setOf(HealthConnectAccess.WRITE)
+        healthConnect.granted = setOf(HealthConnectAccess.WRITE_EXERCISE)
         val viewModel = viewModel()
 
-        viewModel.onEvent(HealthConnectEvent.ImportRequested)
+        viewModel.onEvent(HealthConnectEvent.WorkoutsImportRequested)
 
         assertFalse(viewModel.uiState.value.isImporting)
         assertNull(viewModel.uiState.value.message)
@@ -249,11 +260,11 @@ class HealthConnectViewModelTest {
 
     @Test
     fun `an import that fails says so`() {
-        healthConnect.granted = setOf(HealthConnectAccess.READ)
+        healthConnect.granted = setOf(HealthConnectAccess.READ_EXERCISE)
         val viewModel = viewModel()
         healthConnect.failure = IllegalStateException("provider died")
 
-        viewModel.onEvent(HealthConnectEvent.ImportRequested)
+        viewModel.onEvent(HealthConnectEvent.WorkoutsImportRequested)
 
         assertEquals(HealthConnectMessage.ImportFailed, viewModel.uiState.value.message)
         assertFalse(viewModel.uiState.value.isImporting)
@@ -261,13 +272,100 @@ class HealthConnectViewModelTest {
 
     @Test
     fun `a message is shown once`() {
-        healthConnect.granted = setOf(HealthConnectAccess.READ)
+        healthConnect.granted = setOf(HealthConnectAccess.READ_EXERCISE)
         val viewModel = viewModel()
-        viewModel.onEvent(HealthConnectEvent.ImportRequested)
+        viewModel.onEvent(HealthConnectEvent.WorkoutsImportRequested)
 
         viewModel.onEvent(HealthConnectEvent.MessageShown)
 
         assertNull(viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `both imports finishing before either message is shown keeps both messages`() {
+        healthConnect.granted = setOf(HealthConnectAccess.READ_EXERCISE, HealthConnectAccess.READ_WEIGHT)
+        healthConnect.records += record("run-1")
+        val viewModel = viewModel()
+
+        viewModel.onEvent(HealthConnectEvent.WorkoutsImportRequested)
+        viewModel.onEvent(HealthConnectEvent.BodyImportRequested)
+
+        assertEquals(HealthConnectMessage.Imported(1), viewModel.uiState.value.message)
+        viewModel.onEvent(HealthConnectEvent.MessageShown)
+        assertEquals(HealthConnectMessage.ImportedMeasurements(0), viewModel.uiState.value.message)
+        viewModel.onEvent(HealthConnectEvent.MessageShown)
+        assertNull(viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `the same message waiting twice is shown once`() {
+        healthConnect.granted = setOf(HealthConnectAccess.READ_EXERCISE, HealthConnectAccess.READ_WEIGHT)
+        val viewModel = viewModel()
+        healthConnect.failure = IllegalStateException("provider died")
+
+        viewModel.onEvent(HealthConnectEvent.WorkoutsImportRequested)
+        viewModel.onEvent(HealthConnectEvent.BodyImportRequested)
+
+        assertEquals(HealthConnectMessage.ImportFailed, viewModel.uiState.value.message)
+        viewModel.onEvent(HealthConnectEvent.MessageShown)
+        assertNull(viewModel.uiState.value.message)
+    }
+
+    // --- the body import --------------------------------------------------------------
+
+    @Test
+    fun `a body import reports how many measurements were new`() {
+        healthConnect.granted = setOf(HealthConnectAccess.READ_WEIGHT, HealthConnectAccess.READ_BODY_FAT)
+        healthConnect.bodyRecords += bodyRecord("w-1", HealthConnectBodyMetric.WEIGHT, 80_000_000L)
+        healthConnect.bodyRecords += bodyRecord("f-1", HealthConnectBodyMetric.BODY_FAT, 180L)
+        healthConnect.bodyRecords += bodyRecord("w-2", HealthConnectBodyMetric.WEIGHT, 79_800_000L, clock - 86_400_000L)
+        val viewModel = viewModel()
+
+        viewModel.onEvent(HealthConnectEvent.BodyImportRequested)
+
+        // The weight and body fat taken together are one entry.
+        assertEquals(HealthConnectMessage.ImportedMeasurements(2), viewModel.uiState.value.message)
+        assertFalse(viewModel.uiState.value.isImportingBody)
+        assertEquals(2, measurements.inserted.size)
+    }
+
+    @Test
+    fun `a second tap while a body import runs starts no second import`() =
+        runTest {
+            healthConnect.granted = setOf(HealthConnectAccess.READ_WEIGHT)
+            healthConnect.bodyRecords += bodyRecord("w-1", HealthConnectBodyMetric.WEIGHT, 80_000_000L)
+            val viewModel = viewModel()
+            measurements.gate = CompletableDeferred()
+
+            viewModel.onEvent(HealthConnectEvent.BodyImportRequested)
+            assertTrue(viewModel.uiState.value.isImportingBody)
+            viewModel.onEvent(HealthConnectEvent.BodyImportRequested)
+            measurements.gate!!.complete(Unit)
+
+            assertEquals(1, measurements.batches)
+            assertEquals(HealthConnectMessage.ImportedMeasurements(1), viewModel.uiState.value.message)
+        }
+
+    @Test
+    fun `a body import without either read permission does nothing`() {
+        healthConnect.granted = setOf(HealthConnectAccess.READ_EXERCISE, HealthConnectAccess.WRITE_WEIGHT)
+        val viewModel = viewModel()
+
+        viewModel.onEvent(HealthConnectEvent.BodyImportRequested)
+
+        assertFalse(viewModel.uiState.value.isImportingBody)
+        assertNull(viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `the body figures are drawn by what each grant allows`() {
+        healthConnect.granted = setOf(HealthConnectAccess.WRITE_BODY_FAT, HealthConnectAccess.READ_WEIGHT)
+        val state = viewModel().uiState.value
+
+        assertEquals(setOf(HealthConnectBodyMetric.BODY_FAT), state.writableBody)
+        assertTrue(state.canReadBody)
+        assertFalse(state.canWriteExercise)
+        assertTrue(state.isConnected)
     }
 
     // --- disconnecting ---------------------------------------------------------------
@@ -329,6 +427,47 @@ class HealthConnectViewModelTest {
         ),
         writtenByThisApp = false,
     )
+
+    private fun bodyRecord(
+        id: String,
+        metric: HealthConnectBodyMetric,
+        value: Long,
+        measuredAt: Long = clock - 3_600_000L,
+    ) = HealthConnectBodyRecord(
+        id = id,
+        reading = HealthConnectBodyReading(metric = metric, measuredAt = measuredAt, value = value),
+        writtenByThisApp = false,
+    )
+
+    /** The body history, keeping what the import handed it; [gate] holds an insert open when set. */
+    private class RecordingMeasurements : BodyMeasurementRepository {
+        val inserted = mutableListOf<BodyMeasurement>()
+        var batches = 0
+        var gate: CompletableDeferred<Unit>? = null
+
+        override fun getAll(): Flow<List<BodyMeasurement>> = flowOf(inserted.toList())
+
+        override fun getLatest(): Flow<BodyMeasurement?> = flowOf(inserted.lastOrNull())
+
+        override suspend fun get(id: Long): BodyMeasurement? = null
+
+        override suspend fun getMeasuredBetween(
+            measuredFrom: Long,
+            measuredUntil: Long,
+        ): List<BodyMeasurement> = inserted.toList()
+
+        override suspend fun insert(measurement: BodyMeasurement): Long = error("the import inserts in one batch")
+
+        override suspend fun insertAll(measurements: List<BodyMeasurement>) {
+            batches++
+            gate?.await()
+            inserted += measurements
+        }
+
+        override suspend fun update(measurement: BodyMeasurement) = error("the import never edits")
+
+        override suspend fun delete(id: Long) = error("the import never deletes")
+    }
 
     /** The local side, keeping what it was handed; [gate] holds an insert open when set. */
     private class RecordingSessions : HealthConnectSessionRepository {
