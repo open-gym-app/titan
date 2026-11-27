@@ -8,7 +8,7 @@ agp = "9.5.1"
 kotlin = "2.4.21"
 ksp = "2.3.14"
 coreKtx = "1.19.1"
-lifecycle = "2.11.0"
+lifecycle = "2.11.1"
 # Compiled against the Android 37 APIs, as is lifecycle 2.11.0 above — both need
 # `AndroidSdk.COMPILE` (and `:app`'s `compileSdk`) at 37 to be consumable at all.
 androidxHilt = "1.4.0"
