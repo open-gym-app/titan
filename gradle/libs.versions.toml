@@ -4,7 +4,7 @@
 # `convention/build.gradle.kts`; CI installs the same JDK with `setup-java` (temurin, 17).
 jdk = "17"
 jdkVendor = "ADOPTIUM"
-agp = "9.5.1"
+agp = "9.5.2"
 kotlin = "2.4.21"
 ksp = "2.3.14"
 coreKtx = "1.19.1"
